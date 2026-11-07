@@ -602,3 +602,84 @@ test('X1 writer non-DELTA literal coordinate formatting unchanged',async()=>{
   const src=x1Honest().replace(' DELTA_X="100"',' DELTA_X=" 100 "');
   await succeed(src,x1Envelope(src));
 });
+
+
+// Step 1.2-R5 Z1/Z2: independent physical records, not S3-derived claims.
+// E1 20->25 deliberately lacks literal endpoints; S3's approximate sentinel
+// must never authorize an alias of 50 (or 30) to 26.
+const z1Graph=({alias=50,dx='-1.010100',dy='-1.010100',
+  dz='-1.010100',yEnd=0,zEnd=0}={})=>{
+  const middle=edge({from:'20',to:'25',fx:100,tx:100,fy:0,ty:yEnd,
+    fz:0,tz:zEnd})
+    .replace(/ DELTA_X="[^"]*"/,' DELTA_X="'+dx+'"')
+    .replace(/ DELTA_Y="[^"]*"/,' DELTA_Y="'+dy+'"')
+    .replace(/ DELTA_Z="[^"]*"/,' DELTA_Z="'+dz+'"')
+    .replace(/ (?:FROM|TO)_[XYZ]="[^"]*"/g,'');
+  return model([
+    edge({from:'10',to:'20',fx:0,tx:100}),
+    middle,
+    edge({from:'25',to:'26',fx:100,tx:100,fy:yEnd,ty:yEnd,
+      fz:zEnd,tz:zEnd}),
+    edge({from:String(alias),to:'60',fx:100,tx:200,fy:yEnd,ty:yEnd,
+      fz:zEnd,tz:zEnd}),
+  ]);
+};
+const z1Envelope=(s,alias=50)=>{
+  const digest=sha(s),action='SYNTH-'+alias+'-26';
+  const op={opId:'UXML-OP-'+action,kind:'ALIAS_COINCIDENT_NODE',
+    sourceActionId:action,fileSha256:digest,
+    targets:['E2:F25:T26','E3:F'+alias+':T60'],
+    params:[{operation:'ALIAS_NODE',sourceNode:alias,canonicalNode:26}]};
+  return {schema:'uxml-edit-ops/v1',sourceFormat:'INPUT_XML',
+    fileSha256:digest,policy:policy([op]),ops:[op]};
+};
+test('Z1 case C unanchored near-sentinel DELTA_X refuses full file',async()=>{
+  for(const dx of ['-1.010095','-1.0100951','-1.0101049']){
+    const src=z1Graph({dx});
+    await refuse(src,z1Envelope(src),R.DELTA_COORDINATE);
+  }
+});
+test('Z1 no-literal near-sentinel alias 30 to 26 refuses',async()=>{
+  const src=z1Graph({alias:30,dx:'-1.010095'});
+  await refuse(src,z1Envelope(src,30),R.DELTA_COORDINATE);
+});
+test('Z1 exact-sentinel unanchored graph still accepts both aliases',async()=>{
+  for(const alias of [50,30]){
+    const src=z1Graph({alias,dx:'-1.010100'});
+    const {updated}=await succeed(src,z1Envelope(src,alias));
+    assert.equal(refs(updated)[3].fromNode,'26');
+  }
+});
+test('Z2 no-literal near-sentinel DELTA_Y refuses named disagreement',async()=>{
+  const src=z1Graph({dy:'-1.010095'});
+  await refuse(src,z1Envelope(src),R.DELTA_COORDINATE);
+});
+test('Z2 no-literal near-sentinel DELTA_Z refuses named disagreement',async()=>{
+  const src=z1Graph({dz:'-1.010095'});
+  await refuse(src,z1Envelope(src),R.DELTA_COORDINATE);
+});
+test('Z2 honest nonzero Y and Z unanchored segment accepts',async()=>{
+  const src=z1Graph({dy:'7',dz:'3',yEnd:7,zEnd:3});
+  const {updated}=await succeed(src,z1Envelope(src));
+  assert.equal(refs(updated)[3].fromNode,'26');
+});
+test('Z2 DELTA_Y near-sentinel with literal zero refuses',async()=>{
+  const src=x1Zero().replace(' DELTA_Y="-1.010100"',
+    ' DELTA_Y="-1.010095"');
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('Z2 DELTA_Z near-sentinel with literal zero refuses',async()=>{
+  const src=x1Zero().replace(' DELTA_Z="-1.010100"',
+    ' DELTA_Z="-1.010095"');
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('Z2 lowercase-only delta_y refuses DELTA_MISSING',async()=>{
+  const src=x1Honest().replace(' DELTA_Y="-1.010100"',
+    ' delta_y="-1.010100"');
+  await refuse(src,x1Envelope(src),R.DELTA_MISSING);
+});
+test('Z2 lowercase-only delta_z refuses DELTA_MISSING',async()=>{
+  const src=x1Honest().replace(' DELTA_Z="-1.010100"',
+    ' delta_z="-1.010100"');
+  await refuse(src,x1Envelope(src),R.DELTA_MISSING);
+});

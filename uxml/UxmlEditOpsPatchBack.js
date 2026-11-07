@@ -136,6 +136,7 @@ function exactWriterDelta(attrs,axis,index){
   return value===caesarUnsetDelta?0:value;
 }
 function assertExactOriginalDeltaGeometry(rows){
+  const exactDeltas=[];
   for(const row of rows){
     const attrs=writerSourceAttributes(row.open);
     const delta={
@@ -143,6 +144,7 @@ function assertExactOriginalDeltaGeometry(rows){
       y:exactWriterDelta(attrs,'Y',row.index),
       z:exactWriterDelta(attrs,'Z',row.index),
     };
+    exactDeltas.push(delta);
     // Only literal endpoint coordinates can independently prove a DELTA.
     // This is supplementary to the existing strict S3, source identity,
     // anchored group-spread, and post-patch independent verification gates.
@@ -167,16 +169,38 @@ function assertExactOriginalDeltaGeometry(rows){
     need(errorMm<=INPUTXML_DELTA_TOLERANCE,R.DELTA_COORDINATE,
       {row:row.index,discrepancyMm:errorMm});
   }
+  return exactDeltas;
+}
+// S3 may silently zero a non-sentinel DELTA on a row without literals.
+// Independently compare every original row's exact DELTA with the actual
+// S3 solved FROM/TO displacement; one inconsistent row refuses the file.
+function assertExactSolvedRowDeltas(rows,exactDeltas,doc){
+  for(const [i,row] of rows.entries()){
+    const projection=doc.components[i]?.rawAttributes?.inputXml;
+    const s3From=projection?.from,s3To=projection?.to;
+    need(s3From&&s3To&&[s3From.x,s3From.y,s3From.z,
+      s3To.x,s3To.y,s3To.z].every(Number.isFinite),R.SOURCE,
+    {row:row.index});
+    const delta=exactDeltas[i];
+    const s3GapMm=Math.hypot(
+      s3To.x-s3From.x-delta.x,
+      s3To.y-s3From.y+delta.z, // source Z maps to negative hub Y
+      s3To.z-s3From.z-delta.y, // source Y maps to hub Z
+    );
+    need(s3GapMm<=INPUTXML_DELTA_TOLERANCE,R.DELTA_COORDINATE,
+      {row:row.index,discrepancyMm:s3GapMm});
+  }
 }
 
 function originalWitness(originalText,measured){
   const rows=scanOriginalInputXmlStructure(originalText);
   need(Boolean(rows),R.SOURCE);
-  assertExactOriginalDeltaGeometry(rows);
+  const exactDeltas=assertExactOriginalDeltaGeometry(rows);
   let doc;
   try{doc=mapCaesarInputXmlToUxmlStrict(originalText,{fileSha256:measured});}
   catch{throw new Refusal(R.SOURCE);}
   need(rows.length===doc.components.length,R.SOURCE);
+  assertExactSolvedRowDeltas(rows,exactDeltas,doc);
   const byKey=new Map();
   for(const [i,row]of rows.entries()){
     const ref=doc.components[i]?.sourceRefs?.[0];
