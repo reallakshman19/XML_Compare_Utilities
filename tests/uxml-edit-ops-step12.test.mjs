@@ -529,3 +529,66 @@ test('R3 C4 redundant namespaced-attribute gate removed but scanner still refuse
   assert.throws(()=>inventoryInputXml(source,{refs:refs(base())}),
     e=>[R.CARRIER,R.SOURCE].includes(e.code));
 });
+
+
+// 1.2-R4: original CAESAR DELTA is independently read, not inferred from
+// the case-folding / near-sentinel S3 graph. All probes call the real writer.
+const x1Honest=()=>model([
+  edge({from:'10',to:'20',fx:0,tx:100}),
+  edge({from:'30',to:'40',fx:100,tx:200}),
+]);
+const x1Zero=()=>model([
+  edge({from:'10',to:'20',fx:0,tx:100}),
+  edge({from:'30',to:'40',fx:100,tx:100}),
+]);
+const x1Envelope=s=>envelope(s,[[30,20]]);
+test('X1 writer honest anchored coincidence 30~20 accepts',async()=>{
+  const src=x1Honest();
+  const {updated}=await succeed(src,x1Envelope(src));
+  assert.equal(refs(updated)[1].fromNode,'20');
+});
+test('X1 writer exact DELTA_X 99 against literal 100 refuses named discrepancy',async()=>{
+  const src=x1Honest().replace(' DELTA_X="100"',' DELTA_X="99"');
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('X1 writer case-fold DELTA_X 99 duplicate delta_x 100 refuses carrier',async()=>{
+  const src=x1Honest().replace(' DELTA_X="100"',
+    ' delta_x="100" DELTA_X="99"');
+  await refuse(src,x1Envelope(src),R.CARRIER);
+});
+test('X1 writer near-sentinel -1.010095 with literal zero refuses',async()=>{
+  const src=x1Zero().replace(' DELTA_X="-1.010100"',
+    ' DELTA_X="-1.010095"');
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('X1 writer near-sentinel -1.0101001 is a real DELTA and refuses',async()=>{
+  const src=x1Zero().replace(' DELTA_X="-1.010100"',
+    ' DELTA_X="-1.0101001"');
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('X1 writer lowercase-only delta_x refuses DELTA_MISSING',async()=>{
+  const src=x1Honest().replace(' DELTA_X="100"',' delta_x="100"');
+  await refuse(src,x1Envelope(src),R.DELTA_MISSING);
+});
+test('X1 writer mixed-case-only DeLtA_X refuses DELTA_MISSING',async()=>{
+  const src=x1Honest().replace(' DELTA_X="100"',' DeLtA_X="100"');
+  await refuse(src,x1Envelope(src),R.DELTA_MISSING);
+});
+test('X1 writer NBSP before DELTA refuses DELTA_INVALID',async()=>{
+  const src=x1Honest().replace(' DELTA_X="100"',
+    ' DELTA_X="\u00A0100"');
+  await refuse(src,x1Envelope(src),R.DELTA_INVALID);
+});
+test('X1 writer exact numeric sentinel and XML-only padding stay accepted',async()=>{
+  for(const raw of ['-1.010100','-1.0101',' -1.010100 ',
+    '\t-1.010100\n','\r-1.010100\t']){
+    const src=x1Zero().replace(' DELTA_X="-1.010100"',
+      ' DELTA_X="'+raw+'"');
+    const {updated}=await succeed(src,x1Envelope(src));
+    assert.equal(refs(updated)[1].fromNode,'20');
+  }
+});
+test('X1 writer non-DELTA literal coordinate formatting unchanged',async()=>{
+  const src=x1Honest().replace(' DELTA_X="100"',' DELTA_X=" 100 "');
+  await succeed(src,x1Envelope(src));
+});

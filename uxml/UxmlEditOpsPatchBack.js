@@ -7,7 +7,7 @@ import {mapCaesarInputXmlToUxmlStrict} from './UxmlInputXmlSchemaMapper.js';
 import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructure.js';
 import {INPUTXML_DELTA_TOLERANCE,INPUTXML_HUB_FRAME} from './UxmlInputXmlDeltaGraph.js';
 import {inventoryInputXml} from './UxmlEditOpsTypedInventory.js';
-import {exactNodeId,xmlDecode,readInputXmlSourceField}
+import {exactNodeId,xmlDecode,readInputXmlSourceField,absoluteInputXmlSourceWitness}
   from './UxmlInputXmlSourceFields.js';
 import {assertOwnerGroupSpread,ownerGroups,assertNoNewSelfConnected}
   from './UxmlEditOpsInvariants.js';
@@ -47,6 +47,9 @@ export const UXML_EDIT_OPS_REFUSALS=Object.freeze({
   GROUP_SPREAD:'INPUT_XML_ALIAS_GROUP_SPREAD',
   CHAIN:'INPUT_XML_ALIAS_CHAIN_REFUSED',
   COORDINATE:'INPUT_XML_ALIAS_COORDINATE_UNPROVEN',
+  DELTA_MISSING:'INPUT_XML_ALIAS_DELTA_MISSING',
+  DELTA_INVALID:'INPUT_XML_ALIAS_DELTA_INVALID',
+  DELTA_COORDINATE:'UXML_ALIAS_DELTA_COORDINATE_DISAGREE',
   SELF:'INPUT_XML_ALIAS_SELF_CONNECTED',
   UNSUPPORTED:'INPUT_XML_UNSUPPORTED_NODE_CARRIER',
 });
@@ -101,12 +104,75 @@ function assertNoModelLexicalMarkup(source){
   need(!/<(?:!|\?)/.test(content),R.CARRIER,
     {kind:'markup-in-caesar-model'});
 }
+
+const exactDeltaNumeric=/^[ \t\r\n]*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?[ \t\r\n]*$/;
+const caesarUnsetDelta=-1.0101;
+// The shared S3 solver case-folds DELTA names and treats a 1e-5 vicinity
+// of the sentinel as zero. Neither behavior authorizes writer aliases.
+function writerSourceAttributes(open){
+  const start=/^<PIPINGELEMENT(?=[\s/>])/.exec(open);
+  need(Boolean(start),R.SOURCE);
+  let rest=open.slice(start[0].length).replace(/\/?\s*>$/,'');
+  const attrs={};
+  while(rest.trim()){
+    const match=/^\s+([A-Za-z_:][\w.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(rest);
+    need(Boolean(match)&&!Object.hasOwn(attrs,match[1]),R.SOURCE);
+    attrs[match[1]]=match[2]??match[3];
+    rest=rest.slice(match[0].length);
+  }
+  return attrs;
+}
+function exactWriterDelta(attrs,axis,index){
+  const field='DELTA_'+axis;
+  const matched=Object.keys(attrs).filter(key=>key.toUpperCase()===field);
+  need(matched.length<=1,R.CARRIER,{row:index,field});
+  need(matched.length===1&&matched[0]===field,R.DELTA_MISSING,
+    {row:index,field});
+  const raw=matched.length===1?String(attrs[matched[0]]):'';
+  need(exactDeltaNumeric.test(raw),R.DELTA_INVALID,{row:index,field});
+  const value=Number(raw);
+  need(Number.isFinite(value),R.DELTA_INVALID,{row:index,field});
+  // Numeric-exact CAESAR unset value only; adjacent values are real lengths.
+  return value===caesarUnsetDelta?0:value;
+}
+function assertExactOriginalDeltaGeometry(rows){
+  for(const row of rows){
+    const attrs=writerSourceAttributes(row.open);
+    const delta={
+      x:exactWriterDelta(attrs,'X',row.index),
+      y:exactWriterDelta(attrs,'Y',row.index),
+      z:exactWriterDelta(attrs,'Z',row.index),
+    };
+    // Only literal endpoint coordinates can independently prove a DELTA.
+    // This is supplementary to the existing strict S3, source identity,
+    // anchored group-spread, and post-patch independent verification gates.
+    const paired=['FROM','TO'].every(end=>
+      ['X','Y','Z'].every(axis=>Object.keys(attrs).some(
+        name=>name.toUpperCase()===end+'_'+axis)));
+    if(!paired)continue;
+    let from,to;
+    try{
+      from=absoluteInputXmlSourceWitness(attrs,'FROM').point;
+      to=absoluteInputXmlSourceWitness(attrs,'TO').point;
+    }catch{throw new Refusal(R.COORDINATE,{row:row.index});}
+    const errorMm=Math.hypot(
+      to.x-from.x-delta.x,
+      to.y-from.y+delta.z, // hub Y is minus source Z
+      to.z-from.z-delta.y, // hub Z is source Y
+    );
+    need(errorMm<=INPUTXML_DELTA_TOLERANCE,R.DELTA_COORDINATE,
+      {row:row.index,discrepancyMm:errorMm});
+  }
+}
+
 function originalWitness(originalText,measured){
+  const rows=scanOriginalInputXmlStructure(originalText);
+  need(Boolean(rows),R.SOURCE);
+  assertExactOriginalDeltaGeometry(rows);
   let doc;
   try{doc=mapCaesarInputXmlToUxmlStrict(originalText,{fileSha256:measured});}
   catch{throw new Refusal(R.SOURCE);}
-  const rows=scanOriginalInputXmlStructure(originalText);
-  need(rows&&rows.length===doc.components.length,R.SOURCE);
+  need(rows.length===doc.components.length,R.SOURCE);
   const byKey=new Map();
   for(const [i,row]of rows.entries()){
     const ref=doc.components[i]?.sourceRefs?.[0];
