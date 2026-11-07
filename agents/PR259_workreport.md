@@ -1,0 +1,242 @@
+# PR259 work report — lane B B3 same-run proof (read-only)
+
+**Owner mission:** 7 Nov 2026 Q41, new draft PR from #258 exact head
+`c4e3e1efc09b129f13c03311b099c1b87ee88205`; no merge,
+no writer-policy change, no side coordinate authority. Native issue #239.
+**State:** DRAFT / review-only / `CONTINUE` scoped B3; existing writer
+and upstream TopoFix native transaction remain under RELEASE HOLD.
+**PR:** #259, stacked on #258 branch, not main. Owner-only merge.
+**Agent:** coder-b8. **Source:** Drive Handoffs/LANE-B-B3/STEP-B3-SAMERUN-B8.md,
+declared size 2693 B, declared SHA-256
+`a5cedef1d5e9648db03d68d98084d8d7fa5fad111501b836cd27ecbf410abcda`;
+Drive content inspected. Protected/private Owner geometry NOT_RUN.
+
+## Recovery-first source trace / Appendix A (evidence, not a scored approval)
+
+| Area | Actual code / observation | Gate |
+|---|---|---|
+| A1 production trace | `uxml/UxmlInputXmlSourceStructure.js` physical direct-child scan; `uxml/UxmlInputXmlSourceFields.js` numeric IDs; `uxml/UxmlInputXmlDeltaGraph.js` same-run solve and 0.001-mm closure | Read-only source chain grounded |
+| A2 failure isolation | PR #258's `UxmlEditOpsInvariants.js` requires literal FROM/TO XYZ; real GRE has none and correctly refuses DELTA-only alias | Writer untouched |
+| A3 authority / invariants | Q41 permits relative same-run proof; no cross-run join, side-file authority, source reconstruction, writer or tolerance change | B3 module returns evidence only |
+| A4 independent validation | Synthetic closed geometry positive, public GRE original 500→510 negative ~225 mm, forged side negative, cross-run refusal; four focused delete-one mutants GREEN→RED | Initial B3: 15/16 behavior + 4/4 mutants; single GRE residual test assertion fixed in follow-on |
+| A5 minimal patch | New read-only module, fixture/probe/behavior/mutation tests, B3 doc; existing step12 test registers new tests behind file-existence guard for isolated old clones | No workflow file touched |
+
+## File-level change ledger / selective undo
+
+| Module | Path | Preimage / intent | Undo |
+|---|---|---|---|
+| Read-only geometry | `uxml/UxmlInputXmlSameRunCoincidence.js` | NEW; input SHA, original scanner, DeltaGraph, conservative loop residual and endpoint source provenance | Delete only if unchanged |
+| B3 fixtures | `tests/uxml-edit-ops-b3-fixtures.mjs` | NEW; isolated synthetic original exports | Delete only if unchanged |
+| B3 behavior | `tests/uxml-edit-ops-b3-samerun.test.mjs` | NEW; GRE + synthetic + failure cases | Delete only if unchanged |
+| B3 mutant oracle | `tests/uxml-edit-ops-b3-probe.mjs` | NEW; independent focused expected status | Delete only if unchanged |
+| B3 mutations | `tests/uxml-edit-ops-b3-mutants.test.mjs` | NEW; clones remove exactly one guard; original GREEN/mutant RED | Delete only if unchanged |
+| CI registration | `tests/uxml-edit-ops-step12.test.mjs` | Original blob `a24df240ec7ffdf5a7fc60f7b555c192c2e38f12`; add `existsSync` and guarded B3 dynamic imports | Restore original import and remove B3 registration only |
+| Proof doc | `docs/uxml-edit-ops-stepB3.md` | NEW; same-run proof limitations and names | Delete only if unchanged |
+| Handover | `agents/PR259_workreport.md` | NEW; recovery and no-merge controls | Delete only if unchanged |
+
+No edits to `UxmlEditOpsPatchBack.js`, `UxmlEditOpsInvariants.js`,
+`UxmlEditOpsIndependentVerifier.js`, `UxmlInputXmlDeltaGraph.js`,
+tolerance, S3 reader, CLOS, policy or production workflows.
+No private data placed in PR. Separate local no-index patch ledger was
+NOT_AVAILABLE in the connector-only environment; source preimages and
+exact commit/PR diff are preserved by GitHub for selective rollback.
+
+## B3-R1 takeover / repair (Owner Q46, 7 Nov 2026)
+
+**Authorized handoff:** Drive
+`Handoffs/LANE-B-B3-R1/STEP-B3-R1-B8.md`, source metadata 3420 B,
+declared SHA256 `cec9ff30cfb7d865974c9be9ce47bb5c385112a2338a0ed34895942ba06cbda9`.
+Starting exact PR259 head `cf16ad600fd074a7f0e5c05864610ac525fb5719`;
+PR258 dependency remains draft. B3-R1 blocks unsafe read-only coincidence
+proof; no writer, shared DeltaGraph, tolerance or workflows changed.
+
+| Qualification | Source-grounded finding / fix |
+|---|---|
+| A1 / A2 | `UxmlInputXmlSameRunCoincidence.js` computed independent path residual and pair distance checks; `UxmlInputXmlDeltaGraph.js` case-folded DELTA and interpreted a 1e-5 sentinel window. Three crafted unsafe accepts reproduced by Owner/Oracle. |
+| A3 | Exact original row fields, same connected run, conservative all-simple-path distance bound and 0.001-mm tolerance; no source mutation or Apply |
+| A4 | New tests pin order permutations, case-fold duplicates/lowercase-only, near-sentinel, null inputs, exact 0.001 and bad node ids. Eleven guard deletion probes must each be GREEN→RED |
+| A5 | Change isolated proof module and its tests/docs only; no change to shared solver/writer |
+
+**Repair rationale:** Canonical-sort original row references for
+order-independent graph potentials while retaining original record ordinals.
+Preflight required case-sensitive node/DELTA keys; treat only
+`Number(raw) === -1.0101` as sentinel and refuse adjacent numeric values
+inside the shared solver's window. Let `R=sum_e ||(p_v-p_u)-d_e||`;
+prove only when `distance(p_absorbed,p_owner) + R <= 0.001 mm`.
+This bounds each simple-path deviation by the triangle inequality.
+Drop vacuous endpoint-pair guard: both endpoints derive from the *same*
+solved node map. Original endpoint refs remain available for audit.
+
+**Forward repair change ledger**, each original preimage available via
+GitHub immutable blob in starting head:
+
+| File | Starting blob / action | Selective undo |
+|---|---|---|
+| `uxml/UxmlInputXmlSameRunCoincidence.js` | `94dfd064ce6b9eb17e3689ea7dcde1924f6a9a4d` — preflight, canonical solve, combined bound, input guard, remove vacuous endpoint check | Restore only that blob if unchanged |
+| `tests/uxml-edit-ops-b3-samerun.test.mjs` | `9443a9d71b263741d2c7cfc00e5f8084aa936cd6` — 11 focused repair tests | Restore only that blob if unchanged |
+| `tests/uxml-edit-ops-b3-mutants.test.mjs` | `e38be5717f8551ca1b58e7532ac8fd2f9c944381` — 7 more single-guard deletions | Restore only that blob if unchanged |
+| `tests/uxml-edit-ops-b3-probe.mjs` | `208b08d25d2484ed2c6e5a83f89df7c0c106dc10` — independent focused expected results | Restore only that blob if unchanged |
+| `docs/uxml-edit-ops-stepB3.md` | `4b0c33c2006165215f0177d4934871204f1c5b6b` — precise proof chain/refusals | Restore only that blob if unchanged |
+| `agents/PR259_workreport.md` | `4821710c65855d8738efb9022af5ad704a1ca31c` — recovery report | Restore only that blob if unchanged |
+
+**Verified B3-R1 head `40197c6a94c40c7e11edb0f1edfbd826d9144ad4`:**
+Step12 130/130 GREEN (27 B3 behavioral + 11 isolated guard mutants);
+Owner/Oracle-runner CI **13/13 SUCCESS**, verified against this exact
+R1 head. These are R1-base observations, not an R3 CI claim.
+**Highest risk:** upstream legacy solver has its own case-fold and widened
+sentinel acceptance; B3 compensates **without** changing that shared
+implementation. PR258 original-literal geometry guard still blocks
+DELTA-only writer calls; broader upstream audit is outside scope.
+
+**R1 exact-head receipt:** issue #239, comment 6700734463.
+**EXACT_NEXT_ACTION:** Validate B3-R2 successor head, ensure the new
+XML-whitespace cases and mutants are GREEN, check inherited workflows,
+then record the R2 result on #239; STOP and leave draft.
+
+
+## CI and risk
+
+- First candidate `44643cb47973cc38d3b55b7150ab83a1d95aed91`:
+  edit-ops workflow `42322887282` **FAIL 111/112** on an overly exact GRE
+  test expectation (computed path residual 5.832e-9 mm instead of 0).
+  Behavior / mutant outcomes correct: all 4 guard mutants passed.
+- Follow-on repaired only that test assertion using a strict `<1e-6 mm`
+  numerical roundoff check; docs formatting was mechanical. Subsequent
+  R1 and R2 exact-head Owner/Oracle-runner CI each reached **13/13 SUCCESS**.
+- **Highest risk:** output is relative graph evidence, not engineering
+  authorisation; cumulative loop-residual bound is conservative and can
+  refuse safe inputs. Never weaken tolerance or silently join two runs.
+- **Collision verdict:** COORDINATION_REQUIRED (semantic stacking on active
+  #258), no exact writer-file edit and no independent writer authorisation.
+- **EXACT_NEXT_ACTION:** inspect new #259 head Actions for Step12/B3 and
+  inherited regressions; record exact green/red receipts on #239. STOP;
+  wait for Owner/Oracle review before any B3 writer integration.
+
+## B3-R2 whitespace repair and evidence hygiene (Owner Q48, 7 Nov 2026)
+
+**Card:** Drive `Handoffs/LANE-B-B3-R2/STEP-B3-R2-B8.md`, advertised 2909 B,
+SHA-256 `0787a30baecde86e3903feb7e85dac13c27d649e9ad5ea4311ab8a5818a16d50`.
+Grounded PR259 R1 parent `40197c6a94c40c7e11edb0f1edfbd826d9144ad4`.
+
+**W1 invariant:** B3 admits raw XML attribute padding only from XML 1.0
+`#x20,#x9,#xA,#xD`. The legacy `String.trim()` also removes Unicode
+NBSP/EM SPACE/BOM and must not be authoritative. Required DELTA source
+values are checked against the original XML-only numeric grammar;
+FROM_NODE/TO_NODE values are XML-entity-decoded then validated against
+the XML-only numeric node grammar before unchanged source-field/v1
+identity canonicalization. Illegal whitespace refuses `DELTA_INVALID`
+or `NODE_ID_INVALID`. ASCII/XML padding and legal numeric node entities
+stay supported. Two independent guard deletions must turn GREEN→RED.
+
+**W2 evidence:** Drop redundant `maxWitnessDistanceMm` (it equaled
+`distanceMm`), preserve actual `distanceMm` and `pathBoundMm`.
+Document that case-folded absolute anchors in the **unchanged** solver
+can only translate a consistent connected run, leaving relative node
+distance invariant; B3 assumes exactly -1.0101 as CAESAR sentinel and
+order-independent DELTA geometry. No new writer or Apply authority.
+
+| Module | R1 preimage blob | W1/W2 repair | Selective undo |
+|---|---|---|---|
+| `uxml/UxmlInputXmlSameRunCoincidence.js` | `7a28f9d475955ca65ba4f0d2f898cf44345b0d4b` | XML whitespace source admission, remove redundant output | Restore immutable preimage only if unchanged |
+| `tests/uxml-edit-ops-b3-samerun.test.mjs` | `3e44b53890457e877d14554db5e55f449dccd708` | Unicode regressions, XML padding positives, output shape | Restore preimage if unchanged |
+| `tests/uxml-edit-ops-b3-probe.mjs` | `8b6aa135611d2d052d8bf91dc04b32cf9435187c` | W1 delta and node independent probes | Restore preimage if unchanged |
+| `tests/uxml-edit-ops-b3-mutants.test.mjs` | `b9e376cdfe9a9388f7a1cca65fbc84970a157dd5` | Two more delete-one-guard mutants | Restore preimage if unchanged |
+| `docs/uxml-edit-ops-stepB3.md` | `a91436cb4cdbe29f174f58e87dc362f70546bbf9` | Sentinel/order/anchor qualification, output shape, whitespace | Restore preimage if unchanged |
+| `agents/PR259_workreport.md` | `1969c710d96e9e89be2eb80024eab76df5c02875` | Correct R1 CI, authority handoff, remove vacuous witness text | Restore preimage if unchanged |
+
+**Collision verdict:** COORDINATION_REQUIRED (stacked PR259 on draft
+PR258); exact shared solver/scanner, writer, tolerance and workflow
+mutations are expressly prohibited and remain unchanged.
+
+**Verified R2 exact head `0db8491c9ab8366ac0e79fe235db83f5d11ff94e`:**
+B3 behavior **36/36**; isolated guard mutants **13/13**; Step12 **141/141**;
+Owner/Oracle-runner CI **13/13 SUCCESS**. GitHub exact-head workflow
+results were verified separately; issue #239 R2 receipt 6702341116.
+**EXACT_NEXT_ACTION:** Validate R3 exact-head length-unit admission,
+record its 14 guard mutants / inherited CI on #239; STOP draft.
+
+## B3-R3 length unit repair (Owner Q49, 7 Nov 2026)
+
+**Card:** Drive `Handoffs/LANE-B-B3-R3/STEP-B3-R3-B8.md`, advertised 2775 B,
+SHA256 `f27942b03cd0e44d27ffcbb2e539df37440912d77be70ba9a6658fa784a3b89e`.
+Exact parent `0db8491c9ab8366ac0e79fe235db83f5d11ff94e` remains draft.
+
+**U1 source invariant:** The original model must contain exactly one
+`PIPINGMODEL/UNITS/LENGTH` with `LABEL="mm."` and numeric-exact
+`FACTOR=25.4`. Reject absent, duplicated, alternate length units,
+other factors, wrong nesting, and comment/CDATA lookalikes with named
+`INPUT_XML_ALIAS_LENGTH_UNIT_UNPROVEN` before solving. A complete
+millimetre declaration is required rather than assuming a default.
+No non-mm conversion, shared solver/scanner, writer, or tolerance edits.
+
+**U2 verified base evidence:** R1 head `40197c6a94c40c7e11edb0f1edfbd826d9144ad4`
+and R2 head `0db8491c9ab8366ac0e79fe235db83f5d11ff94e`
+each had Owner/Oracle-runner **13/13 CI SUCCESS**. R2 had **36**
+B3 behavioral and **13** mutation tests (Step12 **141/141**).
+Those results do not pre-authorize this R3 head; CI must run again.
+
+| R3 changed file | R2 preimage blob | Selective undo |
+|---|---|---|
+| `uxml/UxmlInputXmlSameRunCoincidence.js` | `83acd641ce649eb84084cbf30b68cfb9021dd109` | Restore just this blob if unchanged |
+| `tests/uxml-edit-ops-b3-fixtures.mjs` | `84820bebd44e99adf873f0d78212743d447b85ed` | Restore just this blob if unchanged |
+| `tests/uxml-edit-ops-b3-samerun.test.mjs` | `4ab894d5fa8697615f52720434091b760bfb1865` | Restore just this blob if unchanged |
+| `tests/uxml-edit-ops-b3-probe.mjs` | `c03184d5f4057642eb2ca7ea303147a7b0d3b718` | Restore just this blob if unchanged |
+| `tests/uxml-edit-ops-b3-mutants.test.mjs` | `e14b46fdb19b5e23560b4fa34e835d6acc9d7ced` | Restore just this blob if unchanged |
+| `docs/uxml-edit-ops-stepB3.md` | `323bb9cc3ddcdfa6889ce041a2f0423f3012152b` | Restore just this blob if unchanged |
+| `agents/PR259_workreport.md` | `c07653852e38e4e79efb34c6d25014dc09cc9dad` | Restore just this blob if unchanged |
+
+**Scope:** Seven permitted files, no production writer/guard,
+shared scanner, DeltaGraph, workflow or tolerance changes. Source bytes
+read-only and original SHA retained.
+
+**EXACT_NEXT_ACTION:** Verify exact R3 head Actions, 14/14 isolated
+GREEN->RED mutants, GRE ~225mm NOT_COINCIDENT, six new U1 behavioral
+tests and inherited regressions; post issue #239 receipt and STOP draft.
+
+## B3-R4 bend exclusion and U1 mutation gaps (Owner Q53, 7 Nov 2026)
+
+**Card:** Drive `Handoffs/LANE-B-B3-R4/STEP-B3-R4-B8.md` (advertised
+2924 bytes, SHA-256
+`59971be529ed6e14a9ed185384ab0ddd7ce6d5cbf3df73325be396bf0b28db0f`).
+Exact starting R3 head `6bb9c0015f32d940aad83f47d1d32e1716e75452`,
+PR259 still draft, Owner-only merge.
+
+**V1:** The DELTA of a bend ends at its tangent intersection (TIP),
+not at the far weld / element `TO_NODE`; bend `NODE1`, `NODE2`,
+`NODE3` are separate curvature positions. The proof now reads real
+original-source BEND child tags, excluding their parent TO and each
+non-sentinel curvature node ID across all runs with named
+`INPUT_XML_ALIAS_BEND_NODE_UNPROVEN`. Never infer bend geometry or
+promote the shared solver's TIP position to weld/curvature authority.
+Comments and CDATA containing text that resembles BEND are not
+admitted as bend tags. Unrelated straight-node pairs remain provable.
+
+**V2:** Add independent U1 tests and mutants for a sole mm UNITS
+declaration misnested inside a PIPINGELEMENT and for `LABEL="in."`,
+`FACTOR="25.400000"`. Both refuse with `LENGTH_UNIT_UNPROVEN`;
+deleting the corresponding placement/label checks must turn the
+same focused assertions RED.
+
+**R3 verified parent:** Owner/Oracle-runner CI 13/13 SUCCESS,
+B3 behavior 42/42, mutants 14/14, Step12 148/148.
+These figures are not an R4 approval; R4 exact-head CI to be
+recorded independently.
+
+| R4 file | R3 starting blob / intent | Undo |
+|---|---|---|
+| `uxml/UxmlInputXmlSameRunCoincidence.js` | `1ef599f270f32c0731b56fb51c0f6dd727a7da7c` — read-only BEND exclusion and named refusal | Restore immutable preimage only if unchanged |
+| `tests/uxml-edit-ops-b3-fixtures.mjs` | `ac0fa35c7f8ed9b631581c2e79a70d090bdacae8` — synthetic BEND child | Restore preimage if unchanged |
+| `tests/uxml-edit-ops-b3-samerun.test.mjs` | `b998a467ee71c80ba31878dde19b315d025a038b` — GRE/synthetic bend and V2 unit tests | Restore preimage if unchanged |
+| `tests/uxml-edit-ops-b3-probe.mjs` | `34769c61910e493b3e41baed6ea4768f7a982326` — V1/V2 focused probes | Restore preimage if unchanged |
+| `tests/uxml-edit-ops-b3-mutants.test.mjs` | `b905610c59ba263b179246e22e001e705d4e3c94` — three guard deletion mutants | Restore preimage if unchanged |
+| `docs/uxml-edit-ops-stepB3.md` | `7f185fe65c119d010ac6e52b65dc96d90a5dd3da` — geometry claim corrected | Restore preimage if unchanged |
+| `agents/PR259_workreport.md` | `23082fef3cc197213ed343f619c0a995bc74c5f4` — recovery ledger | Restore preimage if unchanged |
+
+**Collision / authority:** COORDINATION_REQUIRED (stacked on draft
+PR258). No modifications to writer or guards, scanner, DeltaGraph,
+shared 0.001mm tolerance, CI workflows, or policy. No private Owner
+geometry or native CAESAR import.
+
+**EXACT_NEXT_ACTION:** Run exact R4 B3-inclusive edit-ops CI; require
+49/49 B3 behavior and 17/17 single-guard mutations plus inherited
+regressions, record issue #239 receipt, STOP and leave draft.
