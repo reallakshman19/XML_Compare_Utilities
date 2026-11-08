@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {applyUxmlEditOps,UXML_EDIT_OPS_REFUSALS as R}
   from '../uxml/UxmlEditOpsPatchBack.js';
 import {mapCaesarInputXmlToUxmlStrict as readS3}
@@ -683,3 +683,11 @@ test('Z2 lowercase-only delta_z refuses DELTA_MISSING',async()=>{
     ' delta_z="-1.010100"');
   await refuse(src,x1Envelope(src),R.DELTA_MISSING);
 });
+
+// B3 read-only proof runs in the existing edit-ops CI without workflow edits.
+// Guarded only for isolated step-1.2 mutation clones, which copy this test
+// without the unrelated B3 files and must retain their existing scope.
+if (existsSync(new URL('./uxml-edit-ops-b3-samerun.test.mjs',import.meta.url))) {
+  await import('./uxml-edit-ops-b3-samerun.test.mjs');
+  await import('./uxml-edit-ops-b3-mutants.test.mjs');
+}
