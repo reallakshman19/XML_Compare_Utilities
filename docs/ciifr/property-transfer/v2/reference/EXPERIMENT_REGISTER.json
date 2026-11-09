@@ -1,0 +1,90 @@
+{
+  "schema": "CIIFR.ExperimentReuseRegister.v1",
+  "status": "PARKED_REFERENCE_NOT_ADOPTED",
+  "archive": "PARKED_EXPERIMENTS_20261101.zip",
+  "archiveBytes": 25694,
+  "archiveSha256": "d6c696d8db81ff47b205ca09045cd73b4125f7eac2843e51dca543e117e43b04",
+  "archiveGitBlob": "6e6d05c6b451dc03f11e495d090899674184236c",
+  "base": "3051ea171f966ac611f232982e0b1cc0774ba368",
+  "ownerDesignPause": "2026-11-01",
+  "members": [
+    {
+      "path": "README.md",
+      "bytes": 1413,
+      "sha256": "2d52f0a1ee422a8356da03440d7ed182921323b4a36c67032cade306c2b71d24"
+    },
+    {
+      "path": "candidate/docs/ciifr/property-transfer/evidence/GEOMETRY_AFTER_20261101.tap",
+      "bytes": 1950,
+      "sha256": "c5d60ab682d7a00459b71388aa462288bdbd0694da066db1d437003b14bbc5d0"
+    },
+    {
+      "path": "candidate/docs/ciifr/property-transfer/evidence/INTAKE_BEFORE_20261101.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "candidate/docs/ciifr/property-transfer/evidence/NATIVE_COMMANDS_20261101.json",
+      "bytes": 1755,
+      "sha256": "4250af8a6e12402fb872fe5b5efc7b2f3b5d120e363a2ae8a40fb5135f7be293"
+    },
+    {
+      "path": "candidate/docs/ciifr/property-transfer/evidence/VNEXT_AFTER_20261101.tap",
+      "bytes": 28020,
+      "sha256": "fd889b2aa0a26ddf319f4157699c0323445cb0032230a848b4d7913bd4b16d00"
+    },
+    {
+      "path": "candidate/docs/ciifr/property-transfer/evidence/XML_REUSE_CHECK_20261101.json",
+      "bytes": 557,
+      "sha256": "92a3133b834ed584db7b0686a4b2129dd4cd896106c346a44f19365504c5d08a"
+    },
+    {
+      "path": "candidate/docs/ciifr/property-transfer/evidence/XML_REUSE_GUARDS_20261101.json",
+      "bytes": 270,
+      "sha256": "81704188d473459c0f8a3204f0f0eed7a043a3b3f3df11e53fcd68d92ec756f6"
+    },
+    {
+      "path": "candidate/docs/tabs/cii-workspace/cii-fnr-vnext/ui/property-transfer/evidence.js",
+      "bytes": 1719,
+      "sha256": "c65212f6033b6df8d12612d1cba3d76a0bded7c5c4be593cf9034526c5f7c56b"
+    },
+    {
+      "path": "candidate/docs/tabs/cii-workspace/cii-fnr-vnext/ui/property-transfer/intake.js",
+      "bytes": 1756,
+      "sha256": "25adfd582842d35432a7bfd049056c4c893c921f8c404868fc770d0e8e4338a0"
+    },
+    {
+      "path": "candidate/docs/tabs/cii-workspace/cii-fnr-vnext/ui/property-transfer/panel.js",
+      "bytes": 7399,
+      "sha256": "c3659999f230d00d6785615aff5b7d4bd0312dc9b0ebb623480a37601b3ae037"
+    },
+    {
+      "path": "candidate/tabs/cii-workspace/cii-fnr-vnext/ui/property-transfer/evidence.js",
+      "bytes": 1719,
+      "sha256": "c65212f6033b6df8d12612d1cba3d76a0bded7c5c4be593cf9034526c5f7c56b"
+    },
+    {
+      "path": "candidate/tabs/cii-workspace/cii-fnr-vnext/ui/property-transfer/intake.js",
+      "bytes": 1756,
+      "sha256": "25adfd582842d35432a7bfd049056c4c893c921f8c404868fc770d0e8e4338a0"
+    },
+    {
+      "path": "candidate/tabs/cii-workspace/cii-fnr-vnext/ui/property-transfer/panel.js",
+      "bytes": 7399,
+      "sha256": "c3659999f230d00d6785615aff5b7d4bd0312dc9b0ebb623480a37601b3ae037"
+    },
+    {
+      "path": "candidate/tests/cii-fnr-vnext-property-intake.test.mjs",
+      "bytes": 5111,
+      "sha256": "68c0c998b4474d908bca0b8922cf8e89090ddf15bc5fc668ad0247a5f0f4f6ee"
+    },
+    {
+      "path": "candidate/tools/ciifr-node/xml_reuse_probe.py",
+      "bytes": 5719,
+      "sha256": "e8060d67fa36697f5701b226f4bc15b12dfb7c926de31aaba94e7fe15cf27931"
+    }
+  ],
+  "containedManifestSha256": "969e289cf686c1e04d89feb38ad6cfa6460f2b62739c75a16d2dc4a8937018ed",
+  "runtimePathsChangedByDesignPackage": 0,
+  "currentEngineeringAcceptance": "NONE"
+}
