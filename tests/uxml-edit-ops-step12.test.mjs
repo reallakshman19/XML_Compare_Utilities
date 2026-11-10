@@ -757,10 +757,44 @@ test('B4 F4 explicit millimetres preserves honest original bytes',async()=>{
 });
 test('B4 F4 declared inches convert native discrepancy into mm',async()=>{
   const honest=b4WithUnit(x1Honest());
-  await succeed(honest,x1Envelope(honest));
+  await refuse(honest,x1Envelope(honest),R.LENGTH_UNIT);
+  // A 0.0001-inch discrepancy is 0.00254 mm, so DELTA refuses before
+  // the additional non-mm alias gate without changing the conversion.
   const src=b4WithUnit(x1Zero().replace(' TO_X="100"',' TO_X="100.0001"'));
   await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
 });
+
+// B4-R1 U1: distinct source positions and cardinality of LENGTH declarations.
+test('B4-R1 U1 duplicate UNITS first mm then inch refuses',async()=>{
+  const src=x1Honest().replace(b4MmUnits,b4MmUnits+
+    '<UNITS><LENGTH LABEL="in." FACTOR="1.000000"/></UNITS>');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R1 U1 duplicate LENGTH in sole UNITS refuses',async()=>{
+  const src=x1Honest().replace('</UNITS>',
+    '<LENGTH LABEL="in." FACTOR="1.000000"/></UNITS>');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R1 U1 only UNITS outside PIPINGMODEL refuses',async()=>{
+  const src=x1Honest().replace(b4MmUnits,'')
+    .replace('</PIPINGMODEL></CAESARII>',
+      '</PIPINGMODEL>'+b4MmUnits+'</CAESARII>');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R1 U1 only UNITS nested in PIPINGELEMENT refuses',async()=>{
+  const src=x1Honest().replace(b4MmUnits,'')
+    .replace('</PIPINGELEMENT>',b4MmUnits+'</PIPINGELEMENT>');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R1 U1 LABEL MM. is case-sensitive and refuses',async()=>{
+  const src=b4WithUnit(x1Honest(),'MM.','25.400000');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R1 U2 honest inch alias refuses with no bytes or ledger',async()=>{
+  const src=b4WithUnit(x1Honest());
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+
 test('B4 F4 missing LENGTH unit refuses a named code',async()=>{
   const src=x1Honest().replace(b4MmUnits,'');
   await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
