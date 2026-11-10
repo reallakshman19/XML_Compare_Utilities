@@ -298,14 +298,14 @@ const specs=[
   },
   {
     id:'B4_F4_MM_CONVERSION',file:WRITE,
-    old:'return 25.4/factor;',
-    new:'return 1;',
+    old:'return {mmPerNative:25.4/factor,label};',
+    new:'return {mmPerNative:1,label};',
     name:'B4 F4 declared inches convert native discrepancy into mm',
   },
   {
     id:'B4_F4_MISSING_DECLARATION',file:WRITE,
     old:'need(matches.length===1,R.LENGTH_UNIT);',
-    new:'if(matches.length===0)return 1;need(matches.length===1,R.LENGTH_UNIT);',
+    new:"if(matches.length===0)return {mmPerNative:1,label:'mm.'};need(matches.length===1,R.LENGTH_UNIT);",
     name:'B4 F4 missing LENGTH unit refuses a named code',
   },
   {
@@ -320,6 +320,42 @@ const specs=[
     new:'  assertExactSolvedRowDeltas(rows,exactDeltas,doc,mmPerNative);\n  const byKey=new Map();',
     seed:'B4_REF',
     name:'B4 F6 misaligned S3 source reference precedes DELTA refusal',
+  },
+  {
+    id:'B4_R1_U1_DUPLICATE_UNITS',file:WRITE,
+    old:'need(matches.length===1,R.LENGTH_UNIT);',
+    new:'need(matches.length>=1,R.LENGTH_UNIT);',
+    name:'B4-R1 U1 duplicate UNITS first mm then inch refuses',
+  },
+  {
+    id:'B4_R1_U1_DUPLICATE_LENGTH',file:WRITE,
+    old:'need(lengths.length===1,R.LENGTH_UNIT);',
+    new:'need(lengths.length>=1,R.LENGTH_UNIT);',
+    name:'B4-R1 U1 duplicate LENGTH in sole UNITS refuses',
+  },
+  {
+    id:'B4_R1_U1_MODEL_BOUNDARY',file:WRITE,
+    old:'m.index>=start&&m.index+m[0].length<=closing&&',
+    new:'true&&',
+    name:'B4-R1 U1 only UNITS outside PIPINGMODEL refuses',
+  },
+  {
+    id:'B4_R1_U1_NO_IN_ROW_UNITS',file:WRITE,
+    old:'!rows.some(row=>m.index>=row.start&&m.index<row.start+row.raw.length)',
+    new:'true',
+    name:'B4-R1 U1 only UNITS nested in PIPINGELEMENT refuses',
+  },
+  {
+    id:'B4_R1_U1_LABEL_CASE',file:WRITE,
+    old:"const label=xmlDecode(attrs.LABEL??''),raw=attrs.FACTOR??'';",
+    new:"const label=xmlDecode(attrs.LABEL??'').toLowerCase(),raw=attrs.FACTOR??'';",
+    name:'B4-R1 U1 LABEL MM. is case-sensitive and refuses',
+  },
+  {
+    id:'B4_R1_U2_NON_MM_BLOCK',file:WRITE,
+    old:"  need(label==='mm.',R.LENGTH_UNIT);",
+    new:'  need(true,R.LENGTH_UNIT);',
+    name:'B4-R1 U2 honest inch alias refuses with no bytes or ledger',
   },
 ];
 const run=(dir,args)=>spawnSync(process.execPath,args,{cwd:dir,encoding:'utf8',

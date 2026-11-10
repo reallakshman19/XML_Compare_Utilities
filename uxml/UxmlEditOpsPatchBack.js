@@ -162,10 +162,12 @@ function declaredLengthMmPerSource(source,rows){
   const factor=Number(raw),expected=lengthUnitFactor[label];
   need(Number.isFinite(factor)&&factor>0&&
     Math.abs(factor-expected)<=Math.max(1e-7,expected*1e-6),R.LENGTH_UNIT);
-  return 25.4/factor;
+  return {mmPerNative:25.4/factor,label};
 }
 // A single frame mapping and <= comparison is shared by both the literal
 // original evidence and the S3 solved-displacement guard.
+// The 0.001 mm bound is inclusive only up to binary floating-point rounding:
+// e.g. 100.001-100 can exceed 0.001 by ~1e-14 mm and refuse by design.
 function exactDeltaAgreement(from,to,delta,mmPerNative){
   const gapMm=Math.hypot(
     (to.x-from.x-delta.x)*mmPerNative,
@@ -237,7 +239,7 @@ function assertExactSolvedRowDeltas(rows,exactDeltas,doc,mmPerNative){
 function originalWitness(originalText,measured){
   const rows=scanOriginalInputXmlStructure(originalText);
   need(Boolean(rows),R.SOURCE);
-  const mmPerNative=declaredLengthMmPerSource(originalText,rows);
+  const {mmPerNative,label}=declaredLengthMmPerSource(originalText,rows);
   const exactDeltas=assertExactOriginalDeltaGeometry(rows,mmPerNative);
   let doc;
   try{doc=mapCaesarInputXmlToUxmlStrict(originalText,{fileSha256:measured});}
@@ -263,6 +265,10 @@ function originalWitness(originalText,measured){
       {recordKey:r.recordKey,field:c.field});
   }
   assertExactSolvedRowDeltas(rows,exactDeltas,doc,mmPerNative);
+  // The DELTA checks above are unit-scaled; alias coincidence, all-pairs
+  // group-spread and samePoint remain native-unit. Until those are unit-safe,
+  // an otherwise honest non-mm alias must not reach patch planning.
+  need(label==='mm.',R.LENGTH_UNIT);
   return {doc,rows,byKey,inventory,endpoints};
 }
 function originalWitnessPoints(doc,id){
