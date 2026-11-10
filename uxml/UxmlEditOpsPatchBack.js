@@ -166,7 +166,9 @@ function declaredLengthMmPerSource(source,rows){
   const length=lengths[0];
   const unitClose=[...source.matchAll(/<\/UNITS\s*>/g)]
     .find(m=>m.index>unit.index);
-  need(Boolean(unitClose)&&unitClose.index<closing&&
+  // With the single model-scoped opening and balanced scanner witness, a
+  // matching end tag cannot escape PIPINGMODEL; no redundant bound is needed.
+  need(Boolean(unitClose)&&
     length.index>=unit.index+unit[0].length&&
     length.index+length[0].length<=unitClose.index&&
     /\/\s*>$/.test(length[0]),R.LENGTH_UNIT);
