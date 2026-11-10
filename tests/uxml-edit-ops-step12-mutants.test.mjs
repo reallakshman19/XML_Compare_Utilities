@@ -150,7 +150,7 @@ const specs=[
     id:'I2_SHARED_S3_READ',file:S3,
     old:'return sourceFieldValue(attrs,...names);',
     new:"return '';",
-    name:'I-2 LT-2 case-hidden original absolute witness FROM_x',
+    name:'I-2 S3 read-only case-hidden physical coordinate continues mapping',
   },
   {
     id:'I3_NEW_SELF_CONNECTION',file:INV,

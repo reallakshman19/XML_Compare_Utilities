@@ -113,7 +113,7 @@ for(const pairs of [
 }
 test('I-1 delta-only/missing original positions refuse COORDINATE_UNPROVEN',async()=>{
   const s=readFileSync(new URL('./fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml',
-    import.meta.url),'utf8');
+    import.meta.url),'utf8').replace('</PIPINGMODEL>',b4MmUnits+'</PIPINGMODEL>');
   await refuse(s,envelope(s,[[10,100]]),R.COORDINATE);
   const missing=base().replace(' FROM_X="100" FROM_Y="0" FROM_Z="0"','');
   await refuse(missing,envelope(missing),R.COORDINATE);
@@ -125,12 +125,16 @@ const variants=[
  ['to_y','TO_Y'],['tO_z','TO_Z'],
 ];
 for(const [caseName,normal] of variants){
-  test('I-2 LT-2 case-hidden original absolute witness '+caseName,async()=>{
+  test('I-2 LT-2 case-hidden original absolute witness refuses '+caseName,async()=>{
     const src=base().replaceAll(normal+'=',caseName+'=');
-    const {updated}=await succeed(src);
-    assert.equal(refs(updated)[1].fromNode,'020.00');
+    await refuse(src,envelope(src),R.COORDINATE);
   });
 }
+test('I-2 S3 read-only case-hidden physical coordinate continues mapping',()=>{
+  const src=base().replace('FROM_X="100"','FROM_x="100"');
+  const doc=readS3(src,{fileSha256:sha(src)});
+  assert.equal(doc.components[1].rawAttributes.inputXml.from.x,100);
+});
 test('I-2 source-field/v1 keeps raw/decoded/numeric/byteRange distinct',()=>{
   const attrs=[{name:'FrOm_NoDe',field:'FrOm_NoDe',raw:'&#52;0',
     quote:"'",byteRange:{start:14,end:20}}];
