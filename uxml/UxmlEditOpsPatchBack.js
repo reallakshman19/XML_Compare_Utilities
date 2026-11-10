@@ -50,6 +50,7 @@ export const UXML_EDIT_OPS_REFUSALS=Object.freeze({
   DELTA_MISSING:'INPUT_XML_ALIAS_DELTA_MISSING',
   DELTA_INVALID:'INPUT_XML_ALIAS_DELTA_INVALID',
   DELTA_COORDINATE:'UXML_ALIAS_DELTA_COORDINATE_DISAGREE',
+  LENGTH_UNIT:'INPUT_XML_LENGTH_UNIT_UNSUPPORTED',
   SELF:'INPUT_XML_ALIAS_SELF_CONNECTED',
   UNSUPPORTED:'INPUT_XML_UNSUPPORTED_NODE_CARRIER',
 });
@@ -109,8 +110,8 @@ const exactDeltaNumeric=/^[ \t\r\n]*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)
 const caesarUnsetDelta=-1.0101;
 // The shared S3 solver case-folds DELTA names and treats a 1e-5 vicinity
 // of the sentinel as zero. Neither behavior authorizes writer aliases.
-function writerSourceAttributes(open){
-  const start=/^<PIPINGELEMENT(?=[\s/>])/.exec(open);
+function writerSourceAttributes(open,tag='PIPINGELEMENT'){
+  const start=new RegExp('^<'+tag+'(?=[\\s/>])').exec(open);
   need(Boolean(start),R.SOURCE);
   let rest=open.slice(start[0].length).replace(/\/?\s*>$/,'');
   const attrs={};
@@ -135,7 +136,48 @@ function exactWriterDelta(attrs,axis,index){
   // Numeric-exact CAESAR unset value only; adjacent values are real lengths.
   return value===caesarUnsetDelta?0:value;
 }
-function assertExactOriginalDeltaGeometry(rows){
+
+const lengthUnitFactor=Object.freeze({
+  'mm.':25.4,'in.':1,'cm.':2.54,'m.':0.0254,
+});
+// CAESAR LENGTH FACTOR is the number of source units per inch. The public
+// GRE and PLB314 exports both declare mm. / 25.400000. S3 does NOT convert;
+// compare source-native displacements in mm here, without touching its model.
+function declaredLengthMmPerSource(source,rows){
+  const model=/<PIPINGMODEL(?=[\s>])[^>]*>/.exec(source);
+  const closing=model?source.indexOf('</PIPINGMODEL>',model.index+model[0].length):-1;
+  need(Boolean(model)&&closing>=0,R.LENGTH_UNIT);
+  const start=model.index+model[0].length;
+  const matches=[...source.matchAll(/<UNITS(?=[\s>])[^>]*>[\s\S]*?<\/UNITS\s*>/g)]
+    .filter(m=>m.index>=start&&m.index+m[0].length<=closing&&
+      !rows.some(row=>m.index>=row.start&&m.index<row.start+row.raw.length));
+  need(matches.length===1,R.LENGTH_UNIT);
+  const inner=matches[0][0];
+  const lengths=[...inner.matchAll(/<LENGTH(?=[\s/>])[^>]*\/>/g)];
+  need(lengths.length===1,R.LENGTH_UNIT);
+  const attrs=writerSourceAttributes(lengths[0][0],'LENGTH');
+  const label=xmlDecode(attrs.LABEL??''),raw=attrs.FACTOR??'';
+  need(Object.hasOwn(lengthUnitFactor,label)&&exactDeltaNumeric.test(raw),
+    R.LENGTH_UNIT);
+  const factor=Number(raw),expected=lengthUnitFactor[label];
+  need(Number.isFinite(factor)&&factor>0&&
+    Math.abs(factor-expected)<=Math.max(1e-7,expected*1e-6),R.LENGTH_UNIT);
+  return 25.4/factor;
+}
+// A single frame mapping and <= comparison is shared by both the literal
+// original evidence and the S3 solved-displacement guard.
+function exactDeltaAgreement(from,to,delta,mmPerNative){
+  const gapMm=Math.hypot(
+    (to.x-from.x-delta.x)*mmPerNative,
+    (to.y-from.y+delta.z)*mmPerNative,
+    (to.z-from.z-delta.y)*mmPerNative,
+  );
+  return {gapMm,ok:gapMm<=INPUTXML_DELTA_TOLERANCE};
+}
+const exactDeltaWithinMmTolerance=(from,to,delta,scale)=>
+  exactDeltaAgreement(from,to,delta,scale).ok;
+
+function assertExactOriginalDeltaGeometry(rows,mmPerNative){
   const exactDeltas=[];
   for(const row of rows){
     const attrs=writerSourceAttributes(row.open);
@@ -148,9 +190,17 @@ function assertExactOriginalDeltaGeometry(rows){
     // Only literal endpoint coordinates can independently prove a DELTA.
     // This is supplementary to the existing strict S3, source identity,
     // anchored group-spread, and post-patch independent verification gates.
+    // Attribute names are case-sensitive in CAESAR. A case-hidden literal
+    // must not become a writer proof merely because S3 accepts its spelling.
+    for(const end of ['FROM','TO'])for(const axis of ['X','Y','Z']){
+      const field=end+'_'+axis;
+      const matched=Object.keys(attrs).filter(name=>name.toUpperCase()===field);
+      need(matched.length<=1,R.CARRIER,{row:row.index,field});
+      need(matched.every(name=>name===field),R.COORDINATE,
+        {row:row.index,field});
+    }
     const paired=['FROM','TO'].every(end=>
-      ['X','Y','Z'].every(axis=>Object.keys(attrs).some(
-        name=>name.toUpperCase()===end+'_'+axis)));
+      ['X','Y','Z'].every(axis=>Object.hasOwn(attrs,end+'_'+axis)));
     if(!paired)continue;
     let from,to;
     try{
@@ -161,20 +211,16 @@ function assertExactOriginalDeltaGeometry(rows){
         throw new Refusal(R.CARRIER,{row:row.index});
       throw new Refusal(R.COORDINATE,{row:row.index});
     }
-    const errorMm=Math.hypot(
-      to.x-from.x-delta.x,
-      to.y-from.y+delta.z, // hub Y is minus source Z
-      to.z-from.z-delta.y, // hub Z is source Y
-    );
-    need(errorMm<=INPUTXML_DELTA_TOLERANCE,R.DELTA_COORDINATE,
-      {row:row.index,discrepancyMm:errorMm});
+    const literalAgreement=exactDeltaAgreement(from,to,delta,mmPerNative);
+    need(literalAgreement.ok,R.DELTA_COORDINATE,
+      {row:row.index,discrepancyMm:literalAgreement.gapMm});
   }
   return exactDeltas;
 }
-// S3 may silently zero a non-sentinel DELTA on a row without literals.
-// Independently compare every original row's exact DELTA with the actual
-// S3 solved FROM/TO displacement; one inconsistent row refuses the file.
-function assertExactSolvedRowDeltas(rows,exactDeltas,doc){
+// Independently check every row's S3 solved displacement, even without
+// original literals: S3 can treat near-sentinel values as zero. One mismatch
+// refuses the whole source without overriding verified original REF identity.
+function assertExactSolvedRowDeltas(rows,exactDeltas,doc,mmPerNative){
   for(const [i,row] of rows.entries()){
     const projection=doc.components[i]?.rawAttributes?.inputXml;
     const s3From=projection?.from,s3To=projection?.to;
@@ -182,25 +228,21 @@ function assertExactSolvedRowDeltas(rows,exactDeltas,doc){
       s3To.x,s3To.y,s3To.z].every(Number.isFinite),R.SOURCE,
     {row:row.index});
     const delta=exactDeltas[i];
-    const s3GapMm=Math.hypot(
-      s3To.x-s3From.x-delta.x,
-      s3To.y-s3From.y+delta.z, // source Z maps to negative hub Y
-      s3To.z-s3From.z-delta.y, // source Y maps to hub Z
-    );
-    need(s3GapMm<=INPUTXML_DELTA_TOLERANCE,R.DELTA_COORDINATE,
-      {row:row.index,discrepancyMm:s3GapMm});
+    const solvedAgreement=exactDeltaAgreement(s3From,s3To,delta,mmPerNative);
+    need(solvedAgreement.ok,R.DELTA_COORDINATE,
+      {row:row.index,discrepancyMm:solvedAgreement.gapMm});
   }
 }
 
 function originalWitness(originalText,measured){
   const rows=scanOriginalInputXmlStructure(originalText);
   need(Boolean(rows),R.SOURCE);
-  const exactDeltas=assertExactOriginalDeltaGeometry(rows);
+  const mmPerNative=declaredLengthMmPerSource(originalText,rows);
+  const exactDeltas=assertExactOriginalDeltaGeometry(rows,mmPerNative);
   let doc;
   try{doc=mapCaesarInputXmlToUxmlStrict(originalText,{fileSha256:measured});}
   catch{throw new Refusal(R.SOURCE);}
   need(rows.length===doc.components.length,R.SOURCE);
-  assertExactSolvedRowDeltas(rows,exactDeltas,doc);
   const byKey=new Map();
   for(const [i,row]of rows.entries()){
     const ref=doc.components[i]?.sourceRefs?.[0];
@@ -220,6 +262,7 @@ function originalWitness(originalText,measured){
     need((c.field==='FROM_NODE'?r.fromNode:r.toNode)===c.raw.trim(),R.REF,
       {recordKey:r.recordKey,field:c.field});
   }
+  assertExactSolvedRowDeltas(rows,exactDeltas,doc,mmPerNative);
   return {doc,rows,byKey,inventory,endpoints};
 }
 function originalWitnessPoints(doc,id){
@@ -476,6 +519,7 @@ function verifyCandidate(originalText,oldBytes,candidateBytes,ledger,mapping,ori
 }
 // Isolated invariant fault witnesses have no writer access or new authority.
 export const __editOpsInvariants=Object.freeze({
+  exactDeltaWithinMmTolerance,
   reserveField,assertUnchainedIds,assertDisjointPatches,assertByteParity,
   verifyCoincidence,fullNumericOracle,verifyS3Candidate,spliceOriginal,
 });

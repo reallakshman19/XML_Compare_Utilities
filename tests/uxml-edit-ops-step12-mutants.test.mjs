@@ -232,7 +232,7 @@ const specs=[
   },
   {
     id:'X1_COORDINATE_DISAGREEMENT',file:WRITE,
-    old:'need(errorMm<=INPUTXML_DELTA_TOLERANCE,R.DELTA_COORDINATE,',
+    old:'need(literalAgreement.ok,R.DELTA_COORDINATE,',
     new:'need(true,R.DELTA_COORDINATE,',
     name:'X1 writer exact DELTA_X 99 against literal 100 refuses named discrepancy',
   },
@@ -244,20 +244,20 @@ const specs=[
   },
   {
     id:'Z2_DROP_Y_TERM',file:WRITE,
-    old:'s3To.z-s3From.z-delta.y, // source Y maps to hub Z',
-    new:'0, // source Y maps to hub Z',
+    old:'(to.z-from.z-delta.y)*mmPerNative,',
+    new:'0,',
     name:'Z2 no-literal near-sentinel DELTA_Y refuses named disagreement',
   },
   {
     id:'Z2_DROP_Z_TERM',file:WRITE,
-    old:'s3To.y-s3From.y+delta.z, // source Z maps to negative hub Y',
-    new:'0, // source Z maps to negative hub Y',
+    old:'(to.y-from.y+delta.z)*mmPerNative,',
+    new:'0,',
     name:'Z2 no-literal near-sentinel DELTA_Z refuses named disagreement',
   },
   {
     id:'Z2_SWAP_YZ',file:WRITE,
-    old:'s3To.z-s3From.z-delta.y, // source Y maps to hub Z',
-    new:'s3To.z-s3From.z-delta.z, // source Y maps to hub Z',
+    old:'(to.z-from.z-delta.y)*mmPerNative,',
+    new:'(to.z-from.z-delta.z)*mmPerNative,',
     name:'Z2 honest nonzero Y and Z unanchored segment accepts',
   },
   {
@@ -271,6 +271,55 @@ const specs=[
     old:"z:exactWriterDelta(attrs,'Z',row.index),",
     new:'z:0,',
     name:'Z2 no-literal near-sentinel DELTA_Z refuses named disagreement',
+  },
+  {
+    id:'B4_F1_LE_BOUNDARY',file:WRITE,
+    old:'gapMm<=INPUTXML_DELTA_TOLERANCE',
+    new:'gapMm<INPUTXML_DELTA_TOLERANCE',
+    name:'B4 F1 shared frame-mapped hypot enforces both exact boundaries',
+  },
+  {
+    id:'B4_F2_FIRST_LITERAL',file:WRITE,
+    old:'    if(!paired)continue;',
+    new:'    if(!paired||row.index===0)continue;',
+    name:'B4 F2 first physical row literal discrepancy has named refusal',
+  },
+  {
+    id:'B4_F2_FIRST_SOLVED',file:WRITE,
+    old:'  for(const [i,row] of rows.entries()){',
+    new:'  for(const [i,row] of rows.entries()){if(i===0)continue;',
+    name:'B4 F2 first physical row unanchored near-sentinel cannot be skipped',
+  },
+  {
+    id:'B4_F3_CASE_HIDDEN',file:WRITE,
+    old:'need(matched.every(name=>name===field),R.COORDINATE,',
+    new:'need(true,R.COORDINATE,',
+    name:'B4 F3 lowercase FROM_X is not a CAESAR literal witness',
+  },
+  {
+    id:'B4_F4_MM_CONVERSION',file:WRITE,
+    old:'return 25.4/factor;',
+    new:'return 1;',
+    name:'B4 F4 declared inches convert native discrepancy into mm',
+  },
+  {
+    id:'B4_F4_MISSING_DECLARATION',file:WRITE,
+    old:'need(matches.length===1,R.LENGTH_UNIT);',
+    new:'if(matches.length===0)return 1;need(matches.length===1,R.LENGTH_UNIT);',
+    name:'B4 F4 missing LENGTH unit refuses a named code',
+  },
+  {
+    id:'B4_F5_SHARED_FRAME_HYPOT',file:WRITE,
+    old:'(to.z-from.z-delta.y)*mmPerNative,',
+    new:'0,',
+    name:'B4 F1 shared frame-mapped hypot enforces both exact boundaries',
+  },
+  {
+    id:'B4_F6_REF_BEFORE_SOLVED_DELTA',file:WRITE,
+    old:'  const byKey=new Map();',
+    new:'  assertExactSolvedRowDeltas(rows,exactDeltas,doc,mmPerNative);\n  const byKey=new Map();',
+    seed:'B4_REF',
+    name:'B4 F6 misaligned S3 source reference precedes DELTA refusal',
   },
 ];
 const run=(dir,args)=>spawnSync(process.execPath,args,{cwd:dir,encoding:'utf8',
@@ -290,6 +339,26 @@ for(const spec of specs){
       cpSync(join(root,'tests/fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml'),
         join(dir,'tests/fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml'));
       writeFileSync(join(dir,'package.json'),'{"type":"module"}\n');
+      if(spec.seed==='B4_REF'){
+        // Adversarial S3 witness: valid source bytes, deliberately spoofed
+        // component recordKey and solved displacement, without production edits.
+        const writerPath=join(dir,WRITE),code=readFileSync(writerPath,'utf8');
+        const oldImport="from './UxmlInputXmlSchemaMapper.js';";
+        assert.equal(code.split(oldImport).length-1,1,'B4 seed S3 import seam');
+        writeFileSync(writerPath,code.replace(oldImport,
+          "from './__B4RefSeed.js';"));
+        writeFileSync(join(dir,'uxml/__B4RefSeed.js'),
+          "import {mapCaesarInputXmlToUxmlStrict as baseS3} from './UxmlInputXmlSchemaMapper.js';\n"+
+          "export function mapCaesarInputXmlToUxmlStrict(text,opts){\n"+
+          "  const doc=baseS3(text,opts);\n"+
+          "  doc.components[0].sourceRefs[0].recordKey='MISALIGNED';\n"+
+          "  doc.components[0].rawAttributes.inputXml.to.x+=0.1;\n"+
+          "  return doc;\n}\n");
+        writeFileSync(join(dir,TEST),readFileSync(join(dir,TEST),'utf8')+
+          "\ntest('B4 F6 misaligned S3 source reference precedes DELTA refusal',"+
+          "async()=>{const src=x1Honest();"+
+          "await refuse(src,x1Envelope(src),R.REF);});\n");
+      }
       if(spec.seed==='OWNER'){
         // In this disposable clone only, bypass redundant planner B-spelling
         // gates. The real independently imported verifier MUST be the only
