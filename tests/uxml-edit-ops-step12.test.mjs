@@ -795,6 +795,50 @@ test('B4-R1 U2 honest inch alias refuses with no bytes or ledger',async()=>{
   await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
 });
 
+
+// B4-R2 V1: enumerate every model unit/length opening, not just self-closing
+// LENGTH tags or the first lazily paired UNITS block.
+test('B4-R2 V1 paired second LENGTH in sole UNITS refuses',async()=>{
+  const src=x1Honest().replace('</UNITS>',
+    '<LENGTH LABEL="in." FACTOR="1"></LENGTH></UNITS>');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R2 V1 nested UNITS and second LENGTH refuses',async()=>{
+  const src=x1Honest().replace(b4MmUnits,
+    '<UNITS>'+b4MmUnits+'<LENGTH LABEL="in." FACTOR="1"/></UNITS>');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R2 V1 extra self-closing UNITS refuses',async()=>{
+  const src=x1Honest().replace(b4MmUnits,b4MmUnits+'<UNITS/>');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R2 V1 extra model-level LENGTH outside UNITS refuses',async()=>{
+  const src=x1Honest().replace(b4MmUnits,b4MmUnits+
+    '<LENGTH LABEL="in." FACTOR="1"/>');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R2 V2 mm label with FACTOR 1.000000 refuses',async()=>{
+  const src=b4WithUnit(x1Honest(),'mm.','1.000000');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R2 V2 mm label with FACTOR 25.41 refuses',async()=>{
+  const src=b4WithUnit(x1Honest(),'mm.','25.41');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R2 V3 honest cm alias refuses',async()=>{
+  const src=b4WithUnit(x1Honest(),'cm.','2.54');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R2 V3 honest m alias refuses',async()=>{
+  const src=b4WithUnit(x1Honest(),'m.','0.0254');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4-R2 V3 lowercase label attribute refuses',async()=>{
+  const src=x1Honest().replace('LENGTH LABEL="mm."',
+    'LENGTH label="mm."');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+
 test('B4 F4 missing LENGTH unit refuses a named code',async()=>{
   const src=x1Honest().replace(b4MmUnits,'');
   await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
