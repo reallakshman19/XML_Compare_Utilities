@@ -148,14 +148,29 @@ function declaredLengthMmPerSource(source,rows){
   const closing=model?source.indexOf('</PIPINGMODEL>',model.index+model[0].length):-1;
   need(Boolean(model)&&closing>=0,R.LENGTH_UNIT);
   const start=model.index+model[0].length;
-  const matches=[...source.matchAll(/<UNITS(?=[\s>])[^>]*>[\s\S]*?<\/UNITS\s*>/g)]
-    .filter(m=>m.index>=start&&m.index+m[0].length<=closing&&
-      !rows.some(row=>m.index>=row.start&&m.index<row.start+row.raw.length));
+  // Count lexical OPENING tags, not a lazily paired UNITS region or only
+  // self-closing LENGTH tags. Structural scanner already rejects malformed XML
+  // and model-level comments / declarations before this independent unit gate.
+  const modelOpenings=[...source.matchAll(
+    /<(UNITS|LENGTH)(?=[\s/>])(?:[^<>"']|"[^"]*"|'[^']*')*>/g)]
+    .filter(m=>m.index>=start&&m.index+m[0].length<=closing);
+  const matches=modelOpenings.filter(m=>m[1]==='UNITS');
   need(matches.length===1,R.LENGTH_UNIT);
-  const inner=matches[0][0];
-  const lengths=[...inner.matchAll(/<LENGTH(?=[\s/>])[^>]*\/>/g)];
+  const unit=matches[0];
+  // A declaration inside a physical row cannot authorize model-wide units.
+  need(!rows.some(row=>unit.index>=row.start&&
+    unit.index<row.start+row.raw.length),R.LENGTH_UNIT);
+  need(!/\/\s*>$/.test(unit[0]),R.LENGTH_UNIT);
+  const lengths=modelOpenings.filter(m=>m[1]==='LENGTH');
   need(lengths.length===1,R.LENGTH_UNIT);
-  const attrs=writerSourceAttributes(lengths[0][0],'LENGTH');
+  const length=lengths[0];
+  const unitClose=[...source.matchAll(/<\/UNITS\s*>/g)]
+    .find(m=>m.index>unit.index);
+  need(Boolean(unitClose)&&unitClose.index<closing&&
+    length.index>=unit.index+unit[0].length&&
+    length.index+length[0].length<=unitClose.index&&
+    /\/\s*>$/.test(length[0]),R.LENGTH_UNIT);
+  const attrs=writerSourceAttributes(length[0],'LENGTH');
   const label=xmlDecode(attrs.LABEL??''),raw=attrs.FACTOR??'';
   need(Object.hasOwn(lengthUnitFactor,label)&&exactDeltaNumeric.test(raw),
     R.LENGTH_UNIT);

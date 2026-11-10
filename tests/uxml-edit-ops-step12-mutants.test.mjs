@@ -325,7 +325,7 @@ const specs=[
     id:'B4_R1_U1_DUPLICATE_UNITS',file:WRITE,
     old:'need(matches.length===1,R.LENGTH_UNIT);',
     new:'need(matches.length>=1,R.LENGTH_UNIT);',
-    name:'B4-R1 U1 duplicate UNITS first mm then inch refuses',
+    name:'B4-R2 V1 extra self-closing UNITS refuses',
   },
   {
     id:'B4_R1_U1_DUPLICATE_LENGTH',file:WRITE,
@@ -335,14 +335,14 @@ const specs=[
   },
   {
     id:'B4_R1_U1_MODEL_BOUNDARY',file:WRITE,
-    old:'m.index>=start&&m.index+m[0].length<=closing&&',
-    new:'true&&',
+    old:'m.index>=start&&m.index+m[0].length<=closing',
+    new:'true',
     name:'B4-R1 U1 only UNITS outside PIPINGMODEL refuses',
   },
   {
     id:'B4_R1_U1_NO_IN_ROW_UNITS',file:WRITE,
-    old:'!rows.some(row=>m.index>=row.start&&m.index<row.start+row.raw.length)',
-    new:'true',
+    old:'need(!rows.some(row=>unit.index>=row.start&&\n    unit.index<row.start+row.raw.length),R.LENGTH_UNIT);',
+    new:'need(true,R.LENGTH_UNIT);',
     name:'B4-R1 U1 only UNITS nested in PIPINGELEMENT refuses',
   },
   {
@@ -356,6 +356,56 @@ const specs=[
     old:"  need(label==='mm.',R.LENGTH_UNIT);",
     new:'  need(true,R.LENGTH_UNIT);',
     name:'B4-R1 U2 honest inch alias refuses with no bytes or ledger',
+  },
+  {
+    id:'B4_R2_V1_PAIRED_LENGTH',file:WRITE,
+    old:"const lengths=modelOpenings.filter(m=>m[1]==='LENGTH');",
+    new:"const lengths=modelOpenings.filter(m=>m[1]==='LENGTH'&&/\\/\\s*>$/.test(m[0]));",
+    name:'B4-R2 V1 paired second LENGTH in sole UNITS refuses',
+  },
+  {
+    id:'B4_R2_V1_NESTED_LAZY',file:WRITE,
+    old:'    .filter(m=>m.index>=start&&m.index+m[0].length<=closing);',
+    new:"    .filter(m=>m.index>=start&&m.index+m[0].length<=closing)"+
+      ".filter(m=>m.index<=source.indexOf('</UNITS>')&&"+
+      "(m[1]!=='UNITS'||m.index===source.indexOf('<UNITS>')));",
+    name:'B4-R2 V1 nested UNITS and second LENGTH refuses',
+  },
+  {
+    id:'B4_R2_V1_SELF_CLOSING_UNITS',file:WRITE,
+    old:"const matches=modelOpenings.filter(m=>m[1]==='UNITS');",
+    new:"const matches=modelOpenings.filter(m=>m[1]==='UNITS'&&!/\\/\\s*>$/.test(m[0]));",
+    name:'B4-R2 V1 extra self-closing UNITS refuses',
+  },
+  {
+    id:'B4_R2_V1_ORPHAN_LENGTH',file:WRITE,
+    old:"const lengths=modelOpenings.filter(m=>m[1]==='LENGTH');",
+    new:"const lengths=modelOpenings.filter(m=>m[1]==='LENGTH'&&m.index<source.indexOf('</UNITS>'));",
+    name:'B4-R2 V1 extra model-level LENGTH outside UNITS refuses',
+  },
+  {
+    id:'B4_R2_V2_FACTOR_GUARD',file:WRITE,
+    old:'    Math.abs(factor-expected)<=Math.max(1e-7,expected*1e-6),R.LENGTH_UNIT);',
+    new:'    true,R.LENGTH_UNIT);',
+    name:'B4-R2 V2 mm label with FACTOR 1.000000 refuses',
+  },
+  {
+    id:'B4_R2_V2_FACTOR_TOLERANCE',file:WRITE,
+    old:'Math.max(1e-7,expected*1e-6)',
+    new:'0.1',
+    name:'B4-R2 V2 mm label with FACTOR 25.41 refuses',
+  },
+  {
+    id:'B4_R2_V3_ONLY_INCH',file:WRITE,
+    old:"  need(label==='mm.',R.LENGTH_UNIT);",
+    new:"  need(label!=='in.',R.LENGTH_UNIT);",
+    name:'B4-R2 V3 honest cm alias refuses',
+  },
+  {
+    id:'B4_R2_V3_CASEFOLD_ATTRIBUTE',file:WRITE,
+    old:"const label=xmlDecode(attrs.LABEL??''),raw=attrs.FACTOR??'';",
+    new:"const label=xmlDecode(attrs.LABEL??attrs.label??''),raw=attrs.FACTOR??'';",
+    name:'B4-R2 V3 lowercase label attribute refuses',
   },
 ];
 const run=(dir,args)=>spawnSync(process.execPath,args,{cwd:dir,encoding:'utf8',
