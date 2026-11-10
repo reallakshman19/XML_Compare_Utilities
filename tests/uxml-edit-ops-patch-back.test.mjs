@@ -22,7 +22,9 @@ const edge=({from,to,fx,tx,body='',extra='',fromY=0,toY=0,fromZ=0,toZ=0})=>{
 const model=(rows,{eol='\n',bom='',header=''}={})=>
   bom+'<CAESARII xmlns="COADE" XML_TYPE="Input">'+eol+
   '<PIPINGMODEL xmlns="" NUMELT="'+rows.length+'"'+header+'>'+eol+
-  rows.join(eol)+eol+'</PIPINGMODEL></CAESARII>';
+  rows.join(eol)+eol+
+  '<UNITS><LENGTH LABEL="mm." FACTOR="25.400000"/></UNITS>'+eol+
+  '</PIPINGMODEL></CAESARII>';
 const childTags=()=>[
   '<BEND NODE1="40" NODE2="40." NODE3="-1.010100" RADIUS="40"/>',
   '<SIF NODE="4.0E1" BRANCHNODE="040" TYPE="5"/>',

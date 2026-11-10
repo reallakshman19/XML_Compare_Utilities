@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync,existsSync} from 'node:fs';
-import {applyUxmlEditOps,UXML_EDIT_OPS_REFUSALS as R}
+import {applyUxmlEditOps,UXML_EDIT_OPS_REFUSALS as R,
+  __editOpsInvariants as b4Guards}
   from '../uxml/UxmlEditOpsPatchBack.js';
 import {mapCaesarInputXmlToUxmlStrict as readS3}
   from '../uxml/UxmlInputXmlSchemaMapper.js';
@@ -26,10 +27,11 @@ const edge=({from,to,fx,tx,fy=0,ty=0,fz=0,tz=0,body='',extra=''})=>{
     ' DIAMETER="40" WALL_THICK="6.02" REF_NO="40" NAME="SAFE-40"'+extra+'>'+
     body+'</PIPINGELEMENT>';
 };
-const model=(rows,{eol='\n',bom=''}={})=>bom+
+const b4MmUnits='<UNITS><LENGTH LABEL="mm." FACTOR="25.400000"/></UNITS>';
+const model=(rows,{eol='\n',bom='',units=b4MmUnits}={})=>bom+
   '<CAESARII xmlns="COADE" VERSION="14.00" XML_TYPE="Input">'+eol+
   '<PIPINGMODEL xmlns="" NUMELT="'+rows.length+'">'+eol+
-  rows.join(eol)+eol+'</PIPINGMODEL></CAESARII>';
+  rows.join(eol)+eol+units+eol+'</PIPINGMODEL></CAESARII>';
 const base=(opts={})=>model([
   edge({from:'10',to:opts.b||'020.00',fx:0,tx:100}),
   edge({from:opts.a||'40',to:'50',fx:100,tx:200,body:opts.body||''}),
@@ -598,7 +600,7 @@ test('X1 writer exact numeric sentinel and XML-only padding stay accepted',async
     assert.equal(refs(updated)[1].fromNode,'20');
   }
 });
-test('X1 writer non-DELTA literal coordinate formatting unchanged',async()=>{
+test('X1 writer DELTA_X XML whitespace padding stays accepted',async()=>{
   const src=x1Honest().replace(' DELTA_X="100"',' DELTA_X=" 100 "');
   await succeed(src,x1Envelope(src));
 });
@@ -682,6 +684,88 @@ test('Z2 lowercase-only delta_z refuses DELTA_MISSING',async()=>{
   const src=x1Honest().replace(' DELTA_Z="-1.010100"',
     ' delta_z="-1.010100"');
   await refuse(src,x1Envelope(src),R.DELTA_MISSING);
+});
+
+
+
+// B4: contract-level follow-ups; source-grounded target keys intentionally
+// bypass S3 prescanning for malformed/unanchored originals.
+const b4WithUnit=(source,label='in.',factor='1.000000')=>
+  source.replace(b4MmUnits,
+    '<UNITS><LENGTH LABEL="'+label+'" FACTOR="'+factor+'"/></UNITS>');
+test('B4 F1 literal DELTA discrepancy exactly 0.001 mm accepts',async()=>{
+  const src=model([
+    edge({from:'10',to:'20',fx:0,tx:0}).replace(' TO_X="0"',' TO_X="0.001"'),
+    edge({from:'30',to:'40',fx:0,tx:1}),
+  ]);
+  await succeed(src,x1Envelope(src));
+});
+test('B4 F1 literal DELTA discrepancy 0.0011 mm refuses',async()=>{
+  const src=model([
+    edge({from:'10',to:'20',fx:0,tx:0}).replace(' TO_X="0"',' TO_X="0.0011"'),
+    edge({from:'30',to:'40',fx:0,tx:1}),
+  ]);
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('B4 F1 shared frame-mapped hypot enforces both exact boundaries',()=>{
+  const a={x:0,y:0,z:0},d={x:0,y:0,z:0};
+  assert.equal(b4Guards.exactDeltaWithinMmTolerance(a,{x:0.001,y:0,z:0},d,1),true);
+  assert.equal(b4Guards.exactDeltaWithinMmTolerance(a,{x:0.0011,y:0,z:0},d,1),false);
+  assert.equal(b4Guards.exactDeltaWithinMmTolerance(a,{x:0,y:0.001,z:0},d,1),true);
+  assert.equal(b4Guards.exactDeltaWithinMmTolerance(a,{x:0,y:0,z:0.0011},d,1),false);
+});
+test('B4 F2 first physical row literal discrepancy has named refusal',async()=>{
+  const src=model([
+    edge({from:'10',to:'20',fx:0,tx:0}).replace(' TO_X="0"',' TO_X="0.0011"'),
+    edge({from:'30',to:'40',fx:0,tx:1}),
+  ]);
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('B4 F2 first physical row unanchored near-sentinel cannot be skipped',async()=>{
+  const noLiterals=edge({from:'10',to:'20',fx:0,tx:0})
+    .replace(/ (?:FROM|TO)_[XYZ]="[^"]*"/g,'')
+    .replace(' DELTA_X="-1.010100"',' DELTA_X="-1.010095"');
+  const src=model([
+    noLiterals,
+    edge({from:'20',to:'25',fx:0,tx:10}),
+    edge({from:'30',to:'40',fx:0,tx:100}),
+  ]);
+  const digest=sha(src),action='B4-30-20';
+  const op={opId:'UXML-OP-'+action,kind:'ALIAS_COINCIDENT_NODE',
+    sourceActionId:action,fileSha256:digest,targets:['E0:F10:T20','E1:F20:T25','E2:F30:T40'],
+    params:[{operation:'ALIAS_NODE',sourceNode:30,canonicalNode:20}]};
+  await refuse(src,{schema:'uxml-edit-ops/v1',sourceFormat:'INPUT_XML',
+    fileSha256:digest,policy:policy([op]),ops:[op]},R.DELTA_COORDINATE);
+});
+test('B4 F3 lowercase FROM_X is not a CAESAR literal witness',async()=>{
+  const src=x1Honest().replace(' FROM_X="100"',' from_x="100"');
+  await refuse(src,x1Envelope(src),R.COORDINATE);
+});
+test('B4 F3 mixed-case To_X is not a CAESAR literal witness',async()=>{
+  const src=x1Honest().replace(' TO_X="200"',' To_X="200"');
+  await refuse(src,x1Envelope(src),R.COORDINATE);
+});
+test('B4 F4 explicit millimetres preserves honest original bytes',async()=>{
+  const src=x1Honest();
+  const {r,updated}=await succeed(src,x1Envelope(src));
+  assert.equal(updated.includes(b4MmUnits),true);
+  assert.equal(Buffer.from(r.bytes).equals(Buffer.from(updated,'utf8')),true);
+});
+test('B4 F4 declared inches convert native discrepancy into mm',async()=>{
+  const honest=b4WithUnit(x1Honest());
+  await succeed(honest,x1Envelope(honest));
+  const src=b4WithUnit(x1Zero().replace(' TO_X="100"',' TO_X="100.0001"'));
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('B4 F4 missing LENGTH unit refuses a named code',async()=>{
+  const src=x1Honest().replace(b4MmUnits,'');
+  await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+});
+test('B4 F4 unknown and mismatched LENGTH units refuse',async()=>{
+  for(const src of [b4WithUnit(x1Honest(),'yard.','1.000000'),
+    b4WithUnit(x1Honest(),'in.','25.400000')]){
+    await refuse(src,x1Envelope(src),R.LENGTH_UNIT);
+  }
 });
 
 // B3 read-only proof runs in the existing edit-ops CI without workflow edits.
