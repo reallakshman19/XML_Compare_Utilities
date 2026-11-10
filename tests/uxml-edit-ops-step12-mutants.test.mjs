@@ -238,7 +238,7 @@ const specs=[
   },
   {
     id:'Z1_UNANCHORED_S3_DELTA',file:WRITE,
-    old:'assertExactSolvedRowDeltas(rows,exactDeltas,doc);',
+    old:'assertExactSolvedRowDeltas(rows,exactDeltas,doc,mmPerNative);',
     new:'void exactDeltas;',
     name:'Z1 case C unanchored near-sentinel DELTA_X refuses full file',
   },
