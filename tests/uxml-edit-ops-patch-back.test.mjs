@@ -237,7 +237,10 @@ for(const eol of ['\n','\r\n']){
       edge({from:'40',to:'50',fx:1000,tx:1100})],{eol});
     await denied(distant,payload(distant),R.GROUP_SPREAD);
     const deltaOnly=readFileSync(new URL('./fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml',
-      import.meta.url),'utf8').replace(/\r?\n/g,eol);
+      import.meta.url),'utf8').replace(/\r?\n/g,eol)
+      .replace('</PIPINGMODEL>',
+        '<UNITS><LENGTH LABEL="mm." FACTOR="25.400000"/></UNITS>'+eol+
+        '</PIPINGMODEL>');
     await denied(deltaOnly,payload(deltaOnly,[[10,100]]),R.COORDINATE);
   });
   test('BOM multibyte prefix, quote style and different replacement width '+label,async()=>{
