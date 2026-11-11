@@ -1,0 +1,293 @@
+name: CII ARCH01 F2 Joint Graph Core (Read-only)
+on:
+  push:
+    branches: [feat/cii-69-f2-joint-graph-core-20261015]
+  pull_request:
+    paths:
+      - scripts/cii-architecture-a2-*.mjs
+      - scripts/cii-a2-json-sha256.mjs
+      - tabs/cii-workspace/cii-workspace-f2-canonical-*.js
+      - tabs/cii-workspace/cii-workspace-f2-physical-gap-ledger.js
+      - tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+      - tests/cii-arch01-f2-isomorphic-sha.test.js
+      - tests/browser/cii-f2-canonical-worker.spec.mjs
+      - playwright.cii-f2-canonical-worker.config.mjs
+      - tabs/cii-workspace/architecture/**
+      - tests/cii-architecture-a*.test.js
+      - tests/cii-arch01-f2-authority-mode-original-census.test.js
+      - tests/cii-102-reconciled-authority-review.test.mjs
+      - tests/cii-102-independent-chain-holdout.test.mjs
+      - tabs/cii-workspace/cii-workspace-multisource-review-ui.js
+      - .github/workflows/cii-f2-joint-graph-core.yml
+
+permissions:
+  contents: read
+
+jobs:
+  original-and-falsifiers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Node source parse
+        run: |
+          node --check scripts/cii-architecture-a2-shadow-joint-evidence.mjs
+          node --check scripts/cii-architecture-a2-physical-path-constraints.mjs
+          node --check scripts/cii-architecture-a2-global-constraint-shadow.mjs
+          node --check scripts/cii-architecture-a2-frontier-recovery.mjs
+          node --check scripts/cii-architecture-a2-frontier-reconciliation.mjs
+          node --check scripts/cii-arch01-f2-joint-report.mjs
+          node --check tabs/cii-workspace/architecture/cii-transfer-capability-contracts.js
+      - name: Cross-runtime SHA-256 parity and no Node-only core imports
+        run: node tests/cii-arch01-f2-isomorphic-sha.test.js
+      - name: Transfer family read-only contracts
+        run: node tests/cii-architecture-a1-capability-contracts.test.js
+      - name: Original S1 S2 S3 AUTO vs manual claim reconciliation
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: Physical EDGE / 1-to-N PIPE / bounded path falsifiers and originals
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
+      - name: Global constrained solution, multiple-solution veto and custody original
+        run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: Recovered SOURCE frontiers and independent physical witness reconciliation
+        run: node tests/cii-architecture-a2-frontier-reconciliation.test.js
+      - name: Exact original factor endpoint RCA and adversarial proof controls
+        run: node tests/cii-f2-physical-gap-rca.test.js
+      - name: Original Owner AUTO vs MANUAL census and 11 Phase 1 rows (#96 retained)
+        run: node tests/cii-arch01-f2-authority-mode-original-census.test.js
+      - name: Existing Compare Review AUTO plus MANUAL original-source visibility, no Writer (#102)
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-multisource-review-ui.js
+          node --check tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          node tests/cii-102-reconciled-authority-review.test.mjs
+      - name: Independent original S2 and S3 full-path holdouts and revision ambiguity
+        run: node tests/cii-102-independent-chain-holdout.test.mjs
+      - name: Existing production correspondence is unaffected
+        run: |
+          node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+          node tests/cii-workspace-source-target-audit.test.js
+      - name: Install browser test dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Real original CII browser canonical A2 Worker and legacy Writer preservation
+        run: npx playwright test --config=playwright.cii-f2-canonical-worker.config.mjs
+      - name: Original 100mm main-gate shadow report
+        run: |
+          node scripts/cii-arch01-f2-joint-report.mjs \
+            --source S1:Benchmark/S1.CII --source S2:Benchmark/S2.CII \
+            --source S3:Benchmark/S3.CII --target Benchmark/T.CII \
+            --manual S2:420:415 --manual S3:1580:7880 \
+            --m1-tolerance 100 --out test-results/cii-arch01-f2-joint-100.json
+      - name: Real 200mm F2 physical report on integrated Method A policy
+        run: |
+          node scripts/cii-arch01-f2-joint-report.mjs \
+            --source S1:Benchmark/S1.CII --source S2:Benchmark/S2.CII \
+            --source S3:Benchmark/S3.CII --target Benchmark/T.CII \
+            --manual S2:420:415 --manual S3:1580:7880 \
+            --m1-tolerance 200 --out test-results/cii-arch01-f2-joint-200.json
+      - name: Original physical TARGET chain continuity adversarial controls (Issue 102)
+        run: node tests/cii102-f2-chain-continuity.test.mjs
+      - name: Test same original double-blank physical discriminator at actual Method A 100 and 200mm
+        run: |
+          for tol in 100 200; do
+            node scripts/cii-102-f2-double-blank-geometry-probe.mjs \
+              --report test-results/cii-arch01-f2-joint-${tol}.json \
+              --out test-results/cii102-f2-double-blank-${tol}.json
+          done
+          node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            import assert from "node:assert/strict";
+            const a=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-100.json"));
+            const b=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-200.json"));
+            assert.equal(a.originalDoubleBlankFactors,21);
+            for(const x of [a,b]){
+              assert.deepEqual(x.firstJunctionSensitivity.map(r=>r.lengthToleranceMm),
+                [25,100,200,500]);
+              assert.deepEqual(x.firstJunctionSensitivity.map(r=>r.joinedPhysicalRoutePairs),
+                [0,1,4,40]);
+              assert.equal(x.firstJunctionSensitivity[0].pipeRoutes,22);
+              assert.equal(x.firstJunctionSensitivity[0].bendRoutes,9);
+              const first=x.firstJunctionSensitivity[1].joinExamples[0];
+              assert.equal(first.targetSharedNode,"1075");
+              assert.deepEqual(first.pipeTargetElementIds,["E215:1070->1075"]);
+              assert.deepEqual(first.bendTargetElementIds,["E216:1075->1080"]);
+              assert.equal(first.pipeResidualMm,37);
+              assert.equal(first.bendResidualMm,0);
+              assert.equal(first.sourceTurnAngleDeg,0);
+              assert(Number.isFinite(first.targetTurnAngleDeg));
+              assert.equal(first.globalIdentityCertified,false);
+              assert.equal(first.registrationAttested,false);
+              assert.equal(first.writerReady,false);
+              assert.deepEqual(x.s1TailSensitivity.map(r=>r.lengthToleranceMm),[25,100,200]);
+              assert.equal(x.s1TailSensitivity[0].originalGeometryOnlyRoutes,190);
+              assert.equal(x.s1TailSensitivity[0].locallyArcConsistentRoutes,0);
+              assert.equal(x.s1TailSensitivity[0].zeroArcSupportedFactors,14);
+              assert.deepEqual(x.s1TailSensitivity[0].shortestIncompatibleSubchain.originalSourceElementKeys,
+                ["S1:E44:5000->5030","S1:E45:5030->5040"]);
+              assert.deepEqual(x.s1TailSensitivity[1].shortestIncompatibleSubchain.originalSourceElementKeys,
+                ["S1:E53:5190->5200","S1:E54:5200->5210"]);
+              assert(x.s1TailSensitivity[2].shortestIncompatibleSubchain.minimumOriginalSourceFactorCount>=3);
+              assert.equal(x.s1TailSensitivity[2].shortestIncompatibleSubchain.zeroPairBreaks.length,0);
+              assert(x.s1TailSensitivity.every(r=>r.shortestIncompatibleSubchain
+                &&r.shortestIncompatibleSubchain.writerReady===false));
+              assert(x.s1TailSensitivity.every(r=>r.complete
+                &&r.writerReady===false&&r.globalIdentityCertified===false));
+              assert(x.firstJunctionSensitivity.every(r=>r.thirdRouteSearchComplete
+                &&Number.isInteger(r.joinedTriplePhysicalRouteCount)
+                &&r.sourceNextTurnAngleDeg===90
+                &&r.tripleExamples.every(t=>!t.globalIdentityCertified&&!t.writerReady)));
+              assert(x.firstJunctionSensitivity.every(r=>r.enumerationComplete
+                &&r.globalIdentityCertified===false&&r.writerReady===false));
+            }
+            assert.equal(a.allDoubleBlankFactorCases.length,21);
+            assert.equal(b.allDoubleBlankFactorCases.length,21);
+            assert.equal(new Set(a.allDoubleBlankFactorCases.map(r=>r.sourceElementKey)).size,21);
+            assert(a.allDoubleBlankFactorCases.every(r=>r.currentTargets.every(t=>t.length===0)
+              &&r.independentIdentityCertificate===null&&r.writerReady===false));
+            assert.equal(Object.values(a.populationSummary).reduce((n,x)=>n+x.factors,0),21);
+            for(const x of [a,b]){
+              assert.equal(Object.values(x.continuitySummary).reduce((n,c)=>n+c.clusters,0),5);
+              assert.deepEqual(Object.fromEntries(Object.entries(x.continuitySummary).map(
+                ([m,c])=>[m,[c.originalGeometryOnlyRoutes,c.arcConsistentPhysicalRoutes,
+                  c.zeroArcSupportedFactors]])),
+                {S1:[196,6,14],S2:[49,3,0],S3:[46,18,0]});
+              const tail=x.continuityByMember.S1.find(c=>c.sourceFactorCount===14);
+              assert(tail&&tail.originalGeometryOnlyRoutes===190
+                &&tail.locallyArcConsistentRoutes===0);
+              assert.deepEqual(tail.pairwiseChecks.filter(p=>p.compatible===0)
+                .map(p=>[p.a,p.b]),[
+                ["S1:E44:5000->5030","S1:E45:5030->5040"],
+                ["S1:E50:5140->5150","S1:E51:5150->5160"],
+                ["S1:E51:5150->5160","S1:E52:5160->5190"],
+                ["S1:E53:5190->5200","S1:E54:5200->5210"],
+                ["S1:E54:5200->5210","S1:E55:5210->5220"]]);
+              assert(Object.values(x.continuityByMember).flat().every(c=>
+                c.writerReady===false&&c.certifiedNodeCount===0
+                &&c.hypothesesNotGlobalCertificates));
+            }
+            assert.deepEqual(a.doubleBlankByMember,{S1:15,S2:3,S3:3});
+            assert.deepEqual(Object.fromEntries(Object.entries(a.doubleBlankClusters)
+              .map(([m,g])=>[m,g.map(x=>x.physicalFactorCount)])),
+              {S1:[14,1],S2:[3],S3:[2,1]});
+            assert.equal(a.originalPhysicalSourceNodes,150);
+            assert.equal(a.originalPhysicalSourceElements,147);
+            assert.deepEqual(a.selectedSourceFactors.map(r=>r.sourceElementKey),[
+              "S1:E9:4050->4060","S2:E44:630->640","S3:E1:1350->1360"
+            ]);
+            for(const x of [a,b]){
+              assert.equal(x.physicalCertifications,0);
+              assert.equal(x.writerReady,false);
+              assert.equal(x.transferPlan,null);
+              assert.equal(x.writeScope,null);
+              assert.deepEqual(x.selectedSourceFactors.map(r=>r.adjacentSeedBoundaryAnalysis.reduce(
+                (n,e)=>n+e.originalTargetSeedIds.length,0)),[1,0,0]);
+              assert.deepEqual(x.selectedSourceFactors.map(r=>r.adjacentSeedBoundaryAnalysis.reduce(
+                (n,e)=>n+e.newlyRecoveredUnverifiedTargetSeedIds.length,0)),[2,1,0]);
+              assert.deepEqual(x.selectedSourceFactors.map(r=>r.boundaryDiagnosis),[
+                "ONLY_UNVERIFIED_RECOVERED_SEEDS_HAVE_ROOTED_PATHS",
+                "CURRENT_SEEDS_WITH_NO_BOUNDED_ROOTED_PHYSICAL_PATH",
+                "NO_IMMEDIATE_TARGET_SEED_REQUIRES_INDEPENDENT_COMPONENT_BASIS"
+              ]);
+              const alternatives=x.selectedSourceFactors[0].adjacentSeedBoundaryAnalysis
+                .flatMap(z=>z.continuations).flatMap(z=>z.proposedTargetNodeCustody);
+              for(const [target,owner] of [["875","S1:3910"],["890","S1:3970"]]){
+                assert(alternatives.some(z=>z.targetNodeId===target
+                  &&z.claimedByOtherSourceNodes.includes(owner)));
+              }
+              assert(alternatives.some(z=>z.targetNodeId==="900"
+                &&z.claimedByOtherSourceNodes.length===0
+                &&z.unclaimedTargetDoesNotProveOriginalIdentity));
+            }
+            assert.equal(a.originalTargetSha256,b.originalTargetSha256);
+            assert.deepEqual(a.originalSourceShaById,b.originalSourceShaById);
+            // Geometry is independently enumerated from original files, not
+            // from M1 score weights; two applied policies must not fabricate
+            // different physical target routes for identical original edges.
+            assert.deepEqual(a.selectedSourceFactors,b.selectedSourceFactors);
+            assert.deepEqual(a.allDoubleBlankFactorCases,b.allDoubleBlankFactorCases);
+            assert.deepEqual(a.continuityByMember,b.continuityByMember);
+            assert.deepEqual(a.firstJunctionSensitivity,b.firstJunctionSensitivity);
+            assert.deepEqual(a.s1TailSensitivity,b.s1TailSensitivity);
+            assert.deepEqual(a.continuitySummary,b.continuitySummary);
+            assert.deepEqual(a.populationSummary,b.populationSummary);
+            console.log("CII102_BOTH_ENDPOINTS_BOUNDARY_COMPARE_100_200_PASS",
+              JSON.stringify(a.selectedSourceFactors.map(r=>({
+                factor:r.sourceElementKey,boundaryDiagnosis:r.boundaryDiagnosis,
+                unanchoredPhysicalRoutes:r.targetRoutesWithGeometryOnly
+              }))));
+          '
+      - name: Compare actual 100mm and 200mm applied policy, physical census and no Writer
+        run: |
+          node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            import assert from "node:assert/strict";
+            const a=JSON.parse(readFileSync("test-results/cii-arch01-f2-joint-100.json"));
+            const b=JSON.parse(readFileSync("test-results/cii-arch01-f2-joint-200.json"));
+            assert.equal(a.policy.spatialToleranceMm,100);
+            assert.equal(a.policy.appliedSpatialToleranceMm,100);
+            assert.equal(a.policy.requestedSpatialToleranceCapability,"RUNTIME_CONFIGURED");
+            assert.equal(b.policy.spatialToleranceMm,200);
+            assert.equal(b.policy.appliedSpatialToleranceMm,200);
+            assert.equal(b.policy.requestedSpatialToleranceCapability,"RUNTIME_CONFIGURED");
+            assert.deepEqual(a.custody,b.custody);
+            assert.deepEqual(a.originalPhysicalSourceNodeCount,b.originalPhysicalSourceNodeCount);
+            assert.deepEqual(a.originalPhysicalSourceElementCount,b.originalPhysicalSourceElementCount);
+            assert.equal(b.writerReady,false);
+            assert.deepEqual(b.identityCertificates,[]);
+            assert.equal(b.physicalGapLedger.writerReady,false);
+            assert.equal(a.policy.qualifiedMethodAScoreLinkPresent,"REQUIRE_SEPARATE_PR98_PROOF");
+            assert.equal(a.originalPhysicalSourceNodeCount,150);
+            assert.equal(a.originalPhysicalSourceElementCount,147);
+            assert.equal(a.physicalGapLedger.schema,"CiiF2PhysicalFactorGapLedger.v1");
+            assert.equal(a.physicalGapLedger.totalPhysicalSourceElements,147);
+            assert.equal(a.physicalGapLedger.originalEndpointMissingFactors,49);
+            assert.equal(a.physicalGapLedger.currentEndpointMissingFactors,33);
+            const gap=a.physicalGapLedger;
+            assert.equal(Object.values(gap.originalRootCauseCounts).reduce((x,y)=>x+y,0),49);
+            assert.equal(Object.values(gap.currentMissingEndpointDirectionCounts).reduce((x,y)=>x+y,0),33);
+            assert.equal(Object.values(gap.byMember).reduce((x,y)=>x+y.physicalElementCount,0),147);
+            assert(gap.rows.every(x=>x.endpointDiagnosis?.length===2));
+            assert(gap.rows.every(x=>x.nextInvestigation&&!x.physicalIdentityCertified&&!x.writerReady));
+            assert(gap.rows.filter(x=>x.recheckedStatus==="ENDPOINT_CANDIDATE_MISSING")
+              .every(x=>x.endpointDiagnosis.some(y=>y.missingAfter)));
+            for(const suffix of ["100","200"]){
+              const csv=readFileSync("test-results/cii-arch01-f2-joint-"+suffix+".physical-gap-rca.csv","utf8");
+              assert.equal(csv.trimEnd().split("\n").length,148);
+              assert(csv.includes("sourceElementKey")&&csv.includes("nextInvestigation"));
+            }
+            console.log("F2_INTEGRATED_FACTOR_RCA",JSON.stringify({
+              originalRootCauses:gap.originalRootCauseCounts,
+              remainingMissingDirections:gap.currentMissingEndpointDirectionCounts,
+              byMember:gap.byMember,nextActions:gap.nextInvestigationCounts
+            }));
+            assert.equal(new Set(a.physicalGapLedger.rows.map(x=>x.sourceElementKey)).size,147);
+            assert.equal(a.physicalGapLedger.writerReady,false);
+            assert.equal(a.physicalGapLedger.writeScope,null);
+            assert.equal(a.writerReady,false);
+            assert.deepEqual(a.identityCertificates,[]);
+            assert.equal(a.frontierRecovery.recoveredHypotheses,22);
+            assert.equal(a.frontierReconciliation.uniqueNewlyCoveredNodes,16);
+            assert.deepEqual(a.globalConstraints.states,{INCOMPLETE_PHYSICAL_EVIDENCE:3});
+            console.log("F2_INTEGRATED_100_200_POLICY",JSON.stringify({
+              sourceNodeCount:a.originalPhysicalSourceNodeCount,
+              sourceElementFactors:a.originalPhysicalSourceElementCount,
+              modeCensus:a.modeCensus.map(x=>({mode:x.mode,BOUND:x.BOUND,UNEMITTED:x.UNEMITTED})),
+              recoveredHypotheses:a.frontierRecovery.recoveredHypotheses,
+              certifiedNodeCount:a.certifiedNodeCount,writerReady:a.writerReady
+            }));
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cii-arch01-f2-100-200-joint-shadow
+          path: |
+            test-results/cii-arch01-f2-joint-*.json
+            test-results/cii102-f2-double-blank-*.json
+            test-results/cii-arch01-f2-joint-*.physical-gap-rca.csv
+          if-no-files-found: warn
+          retention-days: 14
