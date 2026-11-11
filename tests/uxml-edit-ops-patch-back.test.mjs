@@ -22,7 +22,9 @@ const edge=({from,to,fx,tx,body='',extra='',fromY=0,toY=0,fromZ=0,toZ=0})=>{
 const model=(rows,{eol='\n',bom='',header=''}={})=>
   bom+'<CAESARII xmlns="COADE" XML_TYPE="Input">'+eol+
   '<PIPINGMODEL xmlns="" NUMELT="'+rows.length+'"'+header+'>'+eol+
-  rows.join(eol)+eol+'</PIPINGMODEL></CAESARII>';
+  rows.join(eol)+eol+
+  '<UNITS><LENGTH LABEL="mm." FACTOR="25.400000"/></UNITS>'+eol+
+  '</PIPINGMODEL></CAESARII>';
 const childTags=()=>[
   '<BEND NODE1="40" NODE2="40." NODE3="-1.010100" RADIUS="40"/>',
   '<SIF NODE="4.0E1" BRANCHNODE="040" TYPE="5"/>',
@@ -235,7 +237,10 @@ for(const eol of ['\n','\r\n']){
       edge({from:'40',to:'50',fx:1000,tx:1100})],{eol});
     await denied(distant,payload(distant),R.GROUP_SPREAD);
     const deltaOnly=readFileSync(new URL('./fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml',
-      import.meta.url),'utf8').replace(/\r?\n/g,eol);
+      import.meta.url),'utf8').replace(/\r?\n/g,eol)
+      .replace('</PIPINGMODEL>',
+        '<UNITS><LENGTH LABEL="mm." FACTOR="25.400000"/></UNITS>'+eol+
+        '</PIPINGMODEL>');
     await denied(deltaOnly,payload(deltaOnly,[[10,100]]),R.COORDINATE);
   });
   test('BOM multibyte prefix, quote style and different replacement width '+label,async()=>{

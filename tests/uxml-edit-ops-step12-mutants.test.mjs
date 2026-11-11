@@ -150,7 +150,7 @@ const specs=[
     id:'I2_SHARED_S3_READ',file:S3,
     old:'return sourceFieldValue(attrs,...names);',
     new:"return '';",
-    name:'I-2 LT-2 case-hidden original absolute witness FROM_x',
+    name:'I-2 S3 read-only case-hidden physical coordinate continues mapping',
   },
   {
     id:'I3_NEW_SELF_CONNECTION',file:INV,
@@ -232,32 +232,32 @@ const specs=[
   },
   {
     id:'X1_COORDINATE_DISAGREEMENT',file:WRITE,
-    old:'need(errorMm<=INPUTXML_DELTA_TOLERANCE,R.DELTA_COORDINATE,',
+    old:'need(literalAgreement.ok,R.DELTA_COORDINATE,',
     new:'need(true,R.DELTA_COORDINATE,',
     name:'X1 writer exact DELTA_X 99 against literal 100 refuses named discrepancy',
   },
   {
     id:'Z1_UNANCHORED_S3_DELTA',file:WRITE,
-    old:'assertExactSolvedRowDeltas(rows,exactDeltas,doc);',
+    old:'assertExactSolvedRowDeltas(rows,exactDeltas,doc,mmPerNative);',
     new:'void exactDeltas;',
     name:'Z1 case C unanchored near-sentinel DELTA_X refuses full file',
   },
   {
     id:'Z2_DROP_Y_TERM',file:WRITE,
-    old:'s3To.z-s3From.z-delta.y, // source Y maps to hub Z',
-    new:'0, // source Y maps to hub Z',
+    old:'(to.z-from.z-delta.y)*mmPerNative,',
+    new:'0,',
     name:'Z2 no-literal near-sentinel DELTA_Y refuses named disagreement',
   },
   {
     id:'Z2_DROP_Z_TERM',file:WRITE,
-    old:'s3To.y-s3From.y+delta.z, // source Z maps to negative hub Y',
-    new:'0, // source Z maps to negative hub Y',
+    old:'(to.y-from.y+delta.z)*mmPerNative,',
+    new:'0,',
     name:'Z2 no-literal near-sentinel DELTA_Z refuses named disagreement',
   },
   {
     id:'Z2_SWAP_YZ',file:WRITE,
-    old:'s3To.z-s3From.z-delta.y, // source Y maps to hub Z',
-    new:'s3To.z-s3From.z-delta.z, // source Y maps to hub Z',
+    old:'(to.z-from.z-delta.y)*mmPerNative,',
+    new:'(to.z-from.z-delta.z)*mmPerNative,',
     name:'Z2 honest nonzero Y and Z unanchored segment accepts',
   },
   {
@@ -271,6 +271,141 @@ const specs=[
     old:"z:exactWriterDelta(attrs,'Z',row.index),",
     new:'z:0,',
     name:'Z2 no-literal near-sentinel DELTA_Z refuses named disagreement',
+  },
+  {
+    id:'B4_F1_LE_BOUNDARY',file:WRITE,
+    old:'gapMm<=INPUTXML_DELTA_TOLERANCE',
+    new:'gapMm<INPUTXML_DELTA_TOLERANCE',
+    name:'B4 F1 shared frame-mapped hypot enforces both exact boundaries',
+  },
+  {
+    id:'B4_F2_FIRST_LITERAL',file:WRITE,
+    old:'    if(!paired)continue;',
+    new:'    if(!paired||row.index===0)continue;',
+    name:'B4 F2 first physical row literal discrepancy has named refusal',
+  },
+  {
+    id:'B4_F2_FIRST_SOLVED',file:WRITE,
+    old:'  for(const [i,row] of rows.entries()){',
+    new:'  for(const [i,row] of rows.entries()){if(i===0)continue;',
+    name:'B4 F2 first physical row unanchored near-sentinel cannot be skipped',
+  },
+  {
+    id:'B4_F3_CASE_HIDDEN',file:WRITE,
+    old:'need(matched.every(name=>name===field),R.COORDINATE,',
+    new:'need(true,R.COORDINATE,',
+    name:'B4 F3 lowercase FROM_X is not a CAESAR literal witness',
+  },
+  {
+    id:'B4_F4_MM_CONVERSION',file:WRITE,
+    old:'return {mmPerNative:25.4/factor,label};',
+    new:'return {mmPerNative:1,label};',
+    name:'B4 F4 declared inches convert native discrepancy into mm',
+  },
+  {
+    id:'B4_F4_MISSING_DECLARATION',file:WRITE,
+    old:'need(matches.length===1,R.LENGTH_UNIT);',
+    new:"if(matches.length===0)return {mmPerNative:1,label:'mm.'};need(matches.length===1,R.LENGTH_UNIT);",
+    name:'B4 F4 missing LENGTH unit refuses a named code',
+  },
+  {
+    id:'B4_F5_SHARED_FRAME_HYPOT',file:WRITE,
+    old:'(to.z-from.z-delta.y)*mmPerNative,',
+    new:'0,',
+    name:'B4 F1 shared frame-mapped hypot enforces both exact boundaries',
+  },
+  {
+    id:'B4_F6_REF_BEFORE_SOLVED_DELTA',file:WRITE,
+    old:'  const byKey=new Map();',
+    new:'  assertExactSolvedRowDeltas(rows,exactDeltas,doc,mmPerNative);\n  const byKey=new Map();',
+    seed:'B4_REF',
+    name:'B4 F6 misaligned S3 source reference precedes DELTA refusal',
+  },
+  {
+    id:'B4_R1_U1_DUPLICATE_UNITS',file:WRITE,
+    old:'need(matches.length===1,R.LENGTH_UNIT);',
+    new:'need(matches.length>=1,R.LENGTH_UNIT);',
+    name:'B4-R2 V1 extra self-closing UNITS refuses',
+  },
+  {
+    id:'B4_R1_U1_DUPLICATE_LENGTH',file:WRITE,
+    old:'need(lengths.length===1,R.LENGTH_UNIT);',
+    new:'need(lengths.length>=1,R.LENGTH_UNIT);',
+    name:'B4-R1 U1 duplicate LENGTH in sole UNITS refuses',
+  },
+  {
+    id:'B4_R1_U1_MODEL_BOUNDARY',file:WRITE,
+    old:'m.index>=start&&m.index+m[0].length<=closing',
+    new:'true',
+    name:'B4-R1 U1 only UNITS outside PIPINGMODEL refuses',
+  },
+  {
+    id:'B4_R1_U1_NO_IN_ROW_UNITS',file:WRITE,
+    old:'need(!rows.some(row=>unit.index>=row.start&&\n    unit.index<row.start+row.raw.length),R.LENGTH_UNIT);',
+    new:'need(true,R.LENGTH_UNIT);',
+    name:'B4-R1 U1 only UNITS nested in PIPINGELEMENT refuses',
+  },
+  {
+    id:'B4_R1_U1_LABEL_CASE',file:WRITE,
+    old:"const label=xmlDecode(attrs.LABEL??''),raw=attrs.FACTOR??'';",
+    new:"const label=xmlDecode(attrs.LABEL??'').toLowerCase(),raw=attrs.FACTOR??'';",
+    name:'B4-R1 U1 LABEL MM. is case-sensitive and refuses',
+  },
+  {
+    id:'B4_R1_U2_NON_MM_BLOCK',file:WRITE,
+    old:"  need(label==='mm.',R.LENGTH_UNIT);",
+    new:'  need(true,R.LENGTH_UNIT);',
+    name:'B4-R1 U2 honest inch alias refuses with no bytes or ledger',
+  },
+  {
+    id:'B4_R2_V1_PAIRED_LENGTH',file:WRITE,
+    old:"const lengths=modelOpenings.filter(m=>m[1]==='LENGTH');",
+    new:"const lengths=modelOpenings.filter(m=>m[1]==='LENGTH'&&/\\/\\s*>$/.test(m[0]));",
+    name:'B4-R2 V1 paired second LENGTH in sole UNITS refuses',
+  },
+  {
+    id:'B4_R2_V1_NESTED_LAZY',file:WRITE,
+    old:'    .filter(m=>m.index>=start&&m.index+m[0].length<=closing);',
+    new:"    .filter(m=>m.index>=start&&m.index+m[0].length<=closing)"+
+      ".filter(m=>m.index<=source.indexOf('</UNITS>')&&"+
+      "(m[1]!=='UNITS'||m.index===source.indexOf('<UNITS>')));",
+    name:'B4-R2 V1 nested UNITS and second LENGTH refuses',
+  },
+  {
+    id:'B4_R2_V1_SELF_CLOSING_UNITS',file:WRITE,
+    old:"const matches=modelOpenings.filter(m=>m[1]==='UNITS');",
+    new:"const matches=modelOpenings.filter(m=>m[1]==='UNITS'&&!/\\/\\s*>$/.test(m[0]));",
+    name:'B4-R2 V1 extra self-closing UNITS refuses',
+  },
+  {
+    id:'B4_R2_V1_ORPHAN_LENGTH',file:WRITE,
+    old:"const lengths=modelOpenings.filter(m=>m[1]==='LENGTH');",
+    new:"const lengths=modelOpenings.filter(m=>m[1]==='LENGTH'&&m.index<source.indexOf('</UNITS>'));",
+    name:'B4-R2 V1 extra model-level LENGTH outside UNITS refuses',
+  },
+  {
+    id:'B4_R2_V2_FACTOR_GUARD',file:WRITE,
+    old:'    Math.abs(factor-expected)<=Math.max(1e-7,expected*1e-6),R.LENGTH_UNIT);',
+    new:'    true,R.LENGTH_UNIT);',
+    name:'B4-R2 V2 mm label with FACTOR 1.000000 refuses',
+  },
+  {
+    id:'B4_R2_V2_FACTOR_TOLERANCE',file:WRITE,
+    old:'Math.max(1e-7,expected*1e-6)',
+    new:'0.1',
+    name:'B4-R2 V2 mm label with FACTOR 25.41 refuses',
+  },
+  {
+    id:'B4_R2_V3_ONLY_INCH',file:WRITE,
+    old:"  need(label==='mm.',R.LENGTH_UNIT);",
+    new:"  need(label!=='in.',R.LENGTH_UNIT);",
+    name:'B4-R2 V3 honest cm alias refuses',
+  },
+  {
+    id:'B4_R2_V3_CASEFOLD_ATTRIBUTE',file:WRITE,
+    old:"const label=xmlDecode(attrs.LABEL??''),raw=attrs.FACTOR??'';",
+    new:"const label=xmlDecode(attrs.LABEL??attrs.label??''),raw=attrs.FACTOR??'';",
+    name:'B4-R2 V3 lowercase label attribute refuses',
   },
 ];
 const run=(dir,args)=>spawnSync(process.execPath,args,{cwd:dir,encoding:'utf8',
@@ -290,6 +425,26 @@ for(const spec of specs){
       cpSync(join(root,'tests/fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml'),
         join(dir,'tests/fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml'));
       writeFileSync(join(dir,'package.json'),'{"type":"module"}\n');
+      if(spec.seed==='B4_REF'){
+        // Adversarial S3 witness: valid source bytes, deliberately spoofed
+        // component recordKey and solved displacement, without production edits.
+        const writerPath=join(dir,WRITE),code=readFileSync(writerPath,'utf8');
+        const oldImport="from './UxmlInputXmlSchemaMapper.js';";
+        assert.equal(code.split(oldImport).length-1,1,'B4 seed S3 import seam');
+        writeFileSync(writerPath,code.replace(oldImport,
+          "from './__B4RefSeed.js';"));
+        writeFileSync(join(dir,'uxml/__B4RefSeed.js'),
+          "import {mapCaesarInputXmlToUxmlStrict as baseS3} from './UxmlInputXmlSchemaMapper.js';\n"+
+          "export function mapCaesarInputXmlToUxmlStrict(text,opts){\n"+
+          "  const doc=baseS3(text,opts);\n"+
+          "  doc.components[0].sourceRefs[0].recordKey='MISALIGNED';\n"+
+          "  doc.components[0].rawAttributes.inputXml.to.x+=0.1;\n"+
+          "  return doc;\n}\n");
+        writeFileSync(join(dir,TEST),readFileSync(join(dir,TEST),'utf8')+
+          "\ntest('B4 F6 misaligned S3 source reference precedes DELTA refusal',"+
+          "async()=>{const src=x1Honest();"+
+          "await refuse(src,x1Envelope(src),R.REF);});\n");
+      }
       if(spec.seed==='OWNER'){
         // In this disposable clone only, bypass redundant planner B-spelling
         // gates. The real independently imported verifier MUST be the only
