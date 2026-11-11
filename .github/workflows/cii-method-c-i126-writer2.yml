@@ -1,0 +1,107 @@
+# I126 successor qualification; not PR118 WP7/WP9's immutable release gate.
+name: I126 Method C Writer2 A-only native qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/cii-method-c-i126-writer2.yml'
+      - 'tabs/cii-workspace/cii-workspace-tab.js'
+      - 'docs/tabs/cii-workspace/cii-workspace-tab.js'
+      - 'tabs/cii-workspace/cii-workspace-method-c-*.js'
+      - 'docs/tabs/cii-workspace/cii-workspace-method-c-*.js'
+      - 'tests/cii-workspace-method-c-*.test.mjs'
+      - 'tests/cii-workspace-writer2-method-c-*.test.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-and-scope:
+    name: I126 original S1/T and exact mount firebreak
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify source/deployed byte parity and exact original file SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          cmp tabs/cii-workspace/cii-workspace-tab.js docs/tabs/cii-workspace/cii-workspace-tab.js
+          for name in a-sidecar a-review-markup writer2-bridge writer2-native-shell; do
+            cmp "tabs/cii-workspace/cii-workspace-method-c-$name.js" "docs/tabs/cii-workspace/cii-workspace-method-c-$name.js"
+          done
+      - name: Run fail-closed original S1/T AUTO and custody tests
+        run: |
+          node --test --test-concurrency=2 \
+            tests/cii-workspace-method-c-i126-firebreak.test.mjs \
+            tests/cii-workspace-method-c-i126-original-auto.test.mjs \
+            tests/cii-workspace-method-c-a-sidecar.test.mjs \
+            tests/cii-workspace-method-c-a-review-markup.test.mjs \
+            tests/cii-workspace-method-c-native-custody.test.mjs \
+            tests/cii-workspace-method-c-native-lifecycle.test.mjs
+
+  native-writer2-browser:
+    name: I126 real original S1/S2/S3/T Writer2 Chromium A-only
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Run actual served docs/index.html native action test
+        run: node --test tests/cii-workspace-writer2-method-c-native-app-browser.test.mjs
+      - name: Run actual original S1/S2/S3/T one-intake journey and 4060 negative
+        run: node --test tests/cii-workspace-writer2-method-c-original-journey.test.mjs
+      - name: Retain native browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i126-native-${{ github.event.pull_request.head.sha || github.sha }}
+          path: test-results/i126-original-writer2/
+          if-no-files-found: warn
+          retention-days: 14
+
+  inherited-safety:
+    name: I126 protected A/B BM001 and Writer2 regression (current candidate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run unchanged protected regression suite, do not mask inherited failures
+        run: |
+          node --test --test-concurrency=2 \
+            tests/cii-workspace-geometry-authority.test.js \
+            tests/cii-workspace-method-a-confidence-config.test.js \
+            tests/cii-workspace-method-a-weight-policy.test.js \
+            tests/cii-workspace-method-a-anchor-provenance.test.js \
+            tests/cii-workspace-method-a-base-anchor-custody.test.js \
+            tests/cii-workspace-base-anchor-method-fusion.test.js \
+            tests/cii-workspace-multi-base-authority.test.js \
+            tests/cii-workspace-multi-base-correspondence.test.js \
+            tests/cii-workspace-topology-route-gates.test.js \
+            tests/cii-workspace-writer2-composite-scope-custody.test.js \
+            tests/cii-workspace-writer2-source-set-composite-custody.test.js \
+            tests/cii-workspace-writer2-absent-family-readiness.test.js \
+            tests/cii-workspace-writer2-product-routing.test.js \
+            tests/cii-workspace-writer2-benchmark-identity-control.test.js

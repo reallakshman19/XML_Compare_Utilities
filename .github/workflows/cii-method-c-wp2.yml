@@ -29,6 +29,7 @@ concurrency:
 
 jobs:
   physical-geometry:
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 118 && github.event.pull_request.head.ref == 'methodc/108-geometry-20261016') || (github.event_name == 'push' && github.ref == 'refs/heads/methodc/108-geometry-20261016') }}
     name: Original bytes + red controls (Node 22)
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -82,6 +83,7 @@ jobs:
 
 
   interactive-svg-chromium:
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 118 && github.event.pull_request.head.ref == 'methodc/108-geometry-20261016') || (github.event_name == 'push' && github.ref == 'refs/heads/methodc/108-geometry-20261016') }}
     name: Served Method C module Chromium interactions (not native WP6)
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -116,6 +118,7 @@ jobs:
 
 
   protected-mainline-methodab-writer2:
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 118 && github.event.pull_request.head.ref == 'methodc/108-geometry-20261016') || (github.event_name == 'push' && github.ref == 'refs/heads/methodc/108-geometry-20261016') }}
     name: Existing Method A/B and Writer2 unchanged safety at candidate SHA
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -165,6 +168,7 @@ jobs:
             tests/cii-workspace-writer2-benchmark-identity-control.test.js
 
   protected-pr107-reference-policy:
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 118 && github.event.pull_request.head.ref == 'methodc/108-geometry-20261016') || (github.event_name == 'push' && github.ref == 'refs/heads/methodc/108-geometry-20261016') }}
     name: Pinned PR107 100-mm path & Method A/B reference (unmerged separate SHA)
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -197,6 +201,7 @@ jobs:
             tests/cii-workspace-writer2-composite-scope-custody.test.js
 
   approved-main-inherited-failure-control:
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 118 && github.event.pull_request.head.ref == 'methodc/108-geometry-20261016') || (github.event_name == 'push' && github.ref == 'refs/heads/methodc/108-geometry-20261016') }}
     name: Inherited baseline red control at approved main SHA (not Method C)
     runs-on: ubuntu-latest
     timeout-minutes: 12
@@ -239,6 +244,7 @@ jobs:
           retention-days: 14
 
   independent-original-wp8-benchmark:
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 118 && github.event.pull_request.head.ref == 'methodc/108-geometry-20261016') || (github.event_name == 'push' && github.ref == 'refs/heads/methodc/108-geometry-20261016') }}
     name: WP8 independent raw benchmark, frozen 428, separate midcycle
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -318,6 +324,7 @@ jobs:
           retention-days: 14
 
   wp9-exact-sha-g2-review-preflight:
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 118 && github.event.pull_request.head.ref == 'methodc/108-geometry-20261016') || (github.event_name == 'push' && github.ref == 'refs/heads/methodc/108-geometry-20261016') }}
     name: WP9 candidate SHA review packet and protected-file evidence (not G2 signoff)
     runs-on: ubuntu-latest
     timeout-minutes: 12
@@ -346,6 +353,7 @@ jobs:
           node --test tests/cii-workspace-method-c-review-preflight.test.js
 
   wp6-real-native-docs-application-chromium:
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 118 && github.event.pull_request.head.ref == 'methodc/108-geometry-20261016') || (github.event_name == 'push' && github.ref == 'refs/heads/methodc/108-geometry-20261016') }}
     name: WP6 ACTUAL served docs/index.html native CII Workspace Chromium
     runs-on: ubuntu-latest
     timeout-minutes: 45
