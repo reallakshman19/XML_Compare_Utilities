@@ -66,7 +66,9 @@ try {
     confidencePolicy: policy, reviewDecisions: { 'corr-1': 'ACCEPT' },
   });
   assert.deepEqual(snapshot.confidencePolicy.weights, changed);
+  assert.equal(snapshot.confidencePolicy.spatialToleranceMm,100);
   assert.equal(ciiWriter2SessionPolicyMatches(snapshot, policy), true);
+  assert.equal(ciiWriter2SessionPolicyMatches(snapshot,{...policy,spatialToleranceMm:200}),false);
   assert.equal(ciiWriter2SessionPolicyMatches(snapshot, { ...policy, methodAConfidenceWeights: defaults }), false,
     'changed weights must invalidate restored decisions even if HIGH/MEDIUM thresholds did not change');
   assert.equal(ciiWriter2SessionPolicyMatches({ ...snapshot,
