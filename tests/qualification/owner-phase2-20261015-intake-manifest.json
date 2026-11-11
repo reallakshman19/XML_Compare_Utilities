@@ -1,0 +1,18 @@
+{
+  "schema": "CiiOwnerPhase2VerbatimIntake.v1",
+  "state": "OWNER_SUPPLIED_TEXT_RECORDED_NOT_PHYSICAL_MATCH_AUTHORITY",
+  "sourceProvenance": "https://github.com/reallakshman19/XML_Compare_Utilities/issues/102#issuecomment-6199950882",
+  "originalFilename": "Pasted text(20261015-185545).txt",
+  "rawRelativePath": "tests/qualification/owner-phase2-20261015-original-verbatim.txt",
+  "rawUtf8ByteCount": 15633,
+  "rawUtf8Sha256": "2f69af17ee306b0222f8ef9c205aafa1f3ddba1b6b1026d23b87140b7be918d4",
+  "rawLineCount": 436,
+  "declaredLiteralRelationRows": 428,
+  "ownerHeading": "PHASE2: Intended Correspondence → Source vs Target; not all HIGH",
+  "sourceLabelsNotMemberQualified": true,
+  "completeSourceMemberAttribution": false,
+  "physicalCertificateCount": 0,
+  "allowProductionCandidateGeneration": false,
+  "ownerRecallAccepted": false,
+  "independentReviewPending": true
+}
