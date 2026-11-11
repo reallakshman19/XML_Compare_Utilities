@@ -1,3 +1,4 @@
+import { buildCiiSourceTargetAudit as buildCiiSourceTargetAuditForReview } from './cii-workspace-source-target-audit.js';
 import { ciiEvidenceBandStyle, ciiNodeNameBandStyle } from './cii-workspace-evidence-band-style.js';
 import { ciiMultiSourceSourceTargetAuditMarkup } from './cii-workspace-source-target-audit-ui.js';
 import { ciiMultiSourceReviewStateControlHostMarkup } from './cii-workspace-multisource-review-state-controls.js';
@@ -249,6 +250,275 @@ export function ciiMultiSourceReviewSummaryMarkup(preview, decisions = new Map()
     ? `<p class="ciiw-family-summary" data-ciiw-ms-review-state="PENDING"><b>${h(state.changedDecisionCount)} unapplied decision change${state.changedDecisionCount === 1 ? '' : 's'}.</b> Pending delta: Accept ${h(state.changed.ACCEPT)} · Lock ${h(state.changed.LOCK)} · Reject ${h(state.changed.REJECT)}. Apply approvals to Transfer Preview before binding Writer2 scope.</p>`
     : '<p class="ciiw-family-summary" data-ciiw-ms-review-state="SYNCHRONIZED"><b>Review decisions synchronized with the current Transfer Preview.</b></p>';
   return `<div class="ciiw-kpis" data-ciiw-ms-review-summary="1"><div><b>${h(state.rowCount)}</b><span>Rows</span></div><div><b>${h(state.confidence.HIGH || 0)}</b><span>HIGH</span></div><div><b>${h(state.eligible.HIGH)}</b><span>HIGH eligible</span></div><div><b>${h(state.confidence.MEDIUM || 0)}</b><span>MEDIUM</span></div><div><b>${h(state.eligible.MEDIUM)}</b><span>MEDIUM eligible</span></div><div><b>${h(state.confidence.REVIEW || 0)}</b><span>REVIEW</span></div><div><b>${h(state.locked)}</b><span>Locked</span></div><div><b>${h(state.current.ACCEPT)}</b><span>Accepted</span></div><div><b>${h(state.current.REJECT)}</b><span>Rejected</span></div><div><b>${h(state.current.PENDING)}</b><span>Undecided</span></div><div><b>${h(state.changedDecisionCount)}</b><span>Unapplied</span></div></div>${pending}${ciiMultiSourceReviewStateControlHostMarkup(state)}`;
+}
+
+/**
+ * #102 P1: read-only AUTO + MANUAL visibility in the EXISTING Compare Review.
+ * This does not modify active member previews, correspondence IDs, review
+ * decisions, Writer inputs, or a manually selected source's authority.
+ *
+ * Automatic BOUND here means "bound by the legacy AUTO replay", NOT
+ * independently certified original physical identity. No candidate is an
+ * option in the review-decision selector or transfer scope.
+ */
+export function buildCiiReconciledAuthorityReview(activePreview, automaticPreview, manualBySource = new Map()) {
+  // This local checker requires actual full
+  // original source/target custody and refuses partial/cross-session results.
+  const active = buildCiiSourceTargetAuditForReview(activePreview);
+  const automatic = buildCiiSourceTargetAuditForReview(automaticPreview);
+  if (!active.sourceSetSha256 || active.sourceSetSha256 !== automatic.sourceSetSha256
+    || !active.target.contentSha256 || active.target.contentSha256 !== automatic.target.contentSha256
+    || !activePreview?.targetAuthority?.originalSha256
+    || activePreview.targetAuthority.originalSha256 !== automaticPreview?.targetAuthority?.originalSha256)
+    throw Error('CII102_RECONCILED_REVIEW_ORIGINAL_CUSTODY_MISMATCH');
+  const sourceMap = new Map(active.rows.map(row => [row.rowKey,row]));
+  if (!sourceMap.size || sourceMap.size !== active.rows.length
+    || automatic.rows.length !== sourceMap.size
+    || new Set(automatic.rows.map(row=>row.rowKey)).size !== sourceMap.size
+    || automatic.rows.some(row=>!sourceMap.has(row.rowKey)))
+    throw Error('CII102_RECONCILED_REVIEW_SOURCE_NODE_CENSUS_MISMATCH');
+  const manual = manualBySource instanceof Map
+    ? manualBySource : new Map(Object.entries(manualBySource || {}));
+  const claims = new Map();
+  for (const [member,pairs] of manual) {
+    if (!Array.isArray(pairs)) throw Error('CII102_MANUAL_CLAIMS_INVALID');
+    for (const pair of pairs) {
+      const key = String(member)+':'+String(pair.sourceNodeId);
+      if (!sourceMap.has(key)) throw Error('CII102_MANUAL_SOURCE_NOT_IN_ORIGINAL_CENSUS');
+      if (!claims.has(key)) claims.set(key,new Set());
+      claims.get(key).add(String(pair.targetNodeId));
+    }
+  }
+  const occupants = new Map();
+  // Competing active identity claims across all three original SOURCE members.
+  for (const row of active.rows) for (const target of row.targetNodeIds || []) {
+    const id=String(target);
+    if (!occupants.has(id)) occupants.set(id,new Set());
+    occupants.get(id).add(row.rowKey);
+  }
+  for (const [source,targets] of claims) for (const target of targets) {
+    if (!occupants.has(target)) occupants.set(target,new Set());
+    occupants.get(target).add(source);
+  }
+  const rows = [];
+  for (const auto of automatic.rows) {
+    if (auto.state !== 'BOUND' || auto.targetNodeIds?.length !== 1) continue;
+    const activeRow = sourceMap.get(auto.rowKey);
+    const proposed = String(auto.targetNodeIds[0]);
+    const manuallyAsserted = [...(claims.get(auto.rowKey)||[])].sort();
+    const otherActiveClaims = [...(occupants.get(proposed)||[])]
+      .filter(key=>key!==auto.rowKey).sort();
+    const sameActive = activeRow.state==='BOUND' && activeRow.targetNodeId===proposed;
+    if (sameActive && manuallyAsserted.every(target=>target===proposed)) continue;
+    const manualDisagrees = manuallyAsserted.some(target=>target!==proposed);
+    const status = manualDisagrees?'MANUAL_AUTO_CONFLICT':
+      otherActiveClaims.length?'TARGET_CUSTODY_CONFLICT':
+      'AUTO_ALTERNATIVE_REVIEW_ONLY';
+    rows.push(Object.freeze({
+      rowKey:auto.rowKey,sourceId:auto.sourceId,sourceNodeId:auto.sourceNodeId,
+      activeState:activeRow.state,activeTargetNodeIds:[...activeRow.targetNodeIds],
+      automaticTargetNodeId:proposed,automaticConfidence:auto.confidence,
+      automaticEvidenceBases:[...auto.evidenceBases],
+      manuallyAssertedTargetNodeIds:manuallyAsserted,
+      competingActiveSourceNodes:otherActiveClaims,status,
+      sourceOriginalNodeName:auto.sourceNodeName,
+      targetOriginalNodeName:auto.targetNodeName,
+      physicallyCertified:false,writerEligible:false,canAccept:false,
+    }));
+  }
+  rows.sort((a,b)=>a.sourceId.localeCompare(b.sourceId)
+    || Number(a.sourceNodeId)-Number(b.sourceNodeId)
+    || a.sourceNodeId.localeCompare(b.sourceNodeId));
+  const bySource = Object.freeze(active.summary.bySource.map(member=>{
+    const auto = automatic.summary.bySource.find(x=>x.sourceId===member.sourceId);
+    if (!auto || auto.enumeratedNodeCount!==member.enumeratedNodeCount)
+      throw Error('CII102_MEMBER_PHYSICAL_POPULATION_DRIFT:'+member.sourceId);
+    const own = rows.filter(x=>x.sourceId===member.sourceId);
+    return Object.freeze({
+      sourceId:member.sourceId,physicalNodes:member.enumeratedNodeCount,
+      activeBound:member.BOUND,autoBound:auto.BOUND,
+      activeUnemitted:member.UNEMITTED,autoUnemitted:auto.UNEMITTED,
+      newlyVisibleAutoAlternatives:own.length,
+      manualConflicts:own.filter(x=>x.status==='MANUAL_AUTO_CONFLICT').length,
+      targetCustodyConflicts:own.filter(x=>x.status==='TARGET_CUSTODY_CONFLICT').length,
+    });
+  }));
+  return Object.freeze({
+    schema:'CiiReconciledAuthorityReview.v1',
+    sourceSetSha256:active.sourceSetSha256,
+    targetOriginalSha256:activePreview.targetAuthority.originalSha256,
+    originalPhysicalSourceNodes:active.rows.length,
+    activeBound:active.summary.BOUND,autoBound:automatic.summary.BOUND,
+    activeUnemitted:active.summary.UNEMITTED,autoUnemitted:automatic.summary.UNEMITTED,
+    bySource,rows:Object.freeze(rows),
+    reviewOnlyAlternativeCount:rows.length,
+    conflictCount:rows.filter(x=>x.status!=='AUTO_ALTERNATIVE_REVIEW_ONLY').length,
+    newIndependentPhysicalCertificates:0,
+    newTransferOperations:0,writerReady:false,writerDispatchInstalled:false,
+  });
+}
+/**
+ * #102 P2: project the EXISTING F2 ORIGINAL physical edge witnesses onto the
+ * review-only alternatives. A witness is a locally bounded graph path between
+ * ORIGINAL candidate endpoint claims; it is not an independent global
+ * SOURCE/TARGET identity, manual approval, Writer admission, or proof that the
+ * target options are complete.
+ */
+export function qualifyCiiReconciledAuthorityPhysicalEvidence(review, f2Report) {
+  if (review?.schema!=='CiiReconciledAuthorityReview.v1'
+    || f2Report?.schema!=='CiiF2CanonicalBrowserShadow.v1'
+    || f2Report.status!=='SHADOW_ONLY_NOT_PHYSICALLY_CERTIFIED'
+    || f2Report.writerReady!==false||f2Report.physicalIdentityCertified!==false
+    || f2Report.certifiedNodeCount!==0||f2Report.transferPlan!==null
+    || f2Report.writeScope!==null||f2Report.correspondenceCertificates?.length
+    || f2Report.provenance?.sourceSetSha256!==review.sourceSetSha256
+    || f2Report.provenance?.originalTargetSha256!==review.targetOriginalSha256)
+    throw Error('CII102_P2_F2_ORIGINAL_CUSTODY_OR_NONWRITING_INVALID');
+  const ledger=f2Report.physicalGapLedger;
+  if (ledger?.schema!=='CiiF2PhysicalFactorGapLedger.v1'
+    || ledger.originalSourceSetSha256!==review.sourceSetSha256
+    || ledger.originalTargetSha256!==review.targetOriginalSha256
+    || ledger.totalPhysicalSourceElements!==ledger.rows?.length
+    || !ledger.rows.length||ledger.writerReady!==false
+    || ledger.certifiedNodeCount!==0||ledger.transferPlan!==null
+    || ledger.writeScope!==null
+    || f2Report.summary?.originalPhysicalSourceNodes!==review.originalPhysicalSourceNodes)
+    throw Error('CII102_P2_GAP_LEDGER_ORIGINAL_POPULATION_INVALID');
+  const originalClaimers=new Map();
+  if (f2Report.rows?.length!==review.originalPhysicalSourceNodes
+    || new Set(f2Report.rows.map(r=>r.sourceNodeKey)).size!==review.originalPhysicalSourceNodes)
+    throw Error('CII102_P2_ALL_ORIGINAL_NODE_CLAIMS_REQUIRED');
+  for (const node of f2Report.rows) for (const target of node.targetAlternatives||[]) {
+    const id=String(target);
+    if(!originalClaimers.has(id))originalClaimers.set(id,new Set());
+    originalClaimers.get(id).add(node.sourceNodeKey);
+  }
+  const incident=new Map();
+  for (const element of ledger.rows) {
+    if (!Array.isArray(element.endpointDiagnosis)||element.endpointDiagnosis.length!==2
+      || element.endpointDiagnosis.some((e,i)=>e.sourceNodeKey!==
+        element.sourceMember+':'+element.sourceEndpoints[i])
+      || element.physicalIdentityCertified!==false
+      || element.writerReady!==false)
+      throw Error('CII102_P2_INVALID_ORIGINAL_PHYSICAL_FACTOR');
+    for (let side=0;side<2;side++) {
+      const sourceKey=element.endpointDiagnosis[side].sourceNodeKey;
+      if (!incident.has(sourceKey)) incident.set(sourceKey,[]);
+      incident.get(sourceKey).push({element,side});
+    }
+  }
+  const rows=review.rows.map(row=>{
+    const original=(incident.get(row.rowKey)||[]);
+    const witnessed=[];
+    const incomplete=[];
+    const speculative=[];
+    const alternatives=new Set();
+    for (const {element,side} of original) {
+      const endpoint=element.endpointDiagnosis[side];
+      const target=String(row.automaticTargetNodeId);
+      if (!endpoint.originalTargets.includes(target)) {
+        if (endpoint.recheckedTargets.includes(target))
+          speculative.push(element.sourceElementKey);
+        continue;
+      }
+      if (element.boundedSearchIncomplete) incomplete.push(element.sourceElementKey);
+      for (const route of element.targetPhysicalPathAlternatives||[]) {
+        const path=(route.targetNodePath||[]).map(String);
+        if (path[side===0?0:path.length-1]!==target) continue;
+        if (!route.targetElementIds?.length || path.length!==route.targetElementIds.length+1)
+          throw Error('CII102_P2_ORIGINAL_WITNESS_PATH_INVALID');
+        // A2-05's recomputed ledger carries extra frontier-generated
+        // hypotheses. A path is ORIGINAL evidence only when BOTH endpoints
+        // were already present in the pre-recovery NODE domains and the
+        // ORIGINAL physical audit admitted at least one path witness.
+        const opposite=element.endpointDiagnosis[1-side];
+        const oppositeTarget=path[side===0?path.length-1:0];
+        if (!element.originalPathWitnesses
+          || !opposite.originalTargets.includes(oppositeTarget)) {
+          speculative.push(element.sourceElementKey);
+          continue;
+        }
+        witnessed.push({sourceElementKey:element.sourceElementKey,
+          targetElementIds:[...route.targetElementIds],
+          targetNodePath:path,
+          componentStatus:element.recheckedStatus,
+          searchIncomplete:element.boundedSearchIncomplete});
+      }
+      // Another original-domain TARGET hypothesis on the same SOURCE node
+      // makes a local winner nonunique, independently of the manual claim.
+      for(const v of endpoint.originalTargets) if(v!==target)alternatives.add(v);
+    }
+    const supportingFactors=[...new Set(witnessed.map(w=>w.sourceElementKey))].sort();
+    const uncertainty=incomplete.length>0 || original.some(({element})=>
+      element.boundedSearchIncomplete);
+    const hasOtherOriginalHypotheses=alternatives.size>0;
+    const competingOriginalClaims=[...(originalClaimers.get(String(row.automaticTargetNodeId))||[])]
+      .filter(k=>k!==row.rowKey).sort();
+    const proofStatus=row.status==='MANUAL_AUTO_CONFLICT'
+      ?'MANUAL_CONFLICT_REQUIRES_REVIEW'
+      :row.status==='TARGET_CUSTODY_CONFLICT'||competingOriginalClaims.length
+        ?'TARGET_CUSTODY_CONFLICT_REQUIRES_REVIEW'
+        :uncertainty?'BOUNDED_PHYSICAL_SEARCH_INCOMPLETE'
+          :supportingFactors.length>=2 && !hasOtherOriginalHypotheses
+            ?'MULTI_EDGE_LOCAL_PHYSICAL_CORROBORATION_ONLY'
+            :supportingFactors.length>0?'PARTIAL_OR_AMBIGUOUS_LOCAL_PHYSICAL_EVIDENCE'
+              :'NO_ORIGINAL_LOCAL_PHYSICAL_WITNESS';
+    return Object.freeze({...row,
+      localPhysicalEvidence:Object.freeze({
+        proofStatus,
+        sourceIncidentPhysicalFactors:original.length,
+        witnessCount:witnessed.length,
+        supportingPhysicalFactors:supportingFactors,
+        localOriginalOtherTargets:[...alternatives].sort(),
+        boundedSearchIncomplete:uncertainty,
+        recoveredUnverifiedFactors:[...new Set(speculative)].sort(),
+        competingOriginalClaims,
+        witnesses:witnessed,
+        identityIndependentlyCertified:false,
+        reviewedCorrespondence:false,
+        writerEligible:false,
+      }),
+    });
+  });
+  const statusCounts=Object.freeze(Object.fromEntries([
+    'MULTI_EDGE_LOCAL_PHYSICAL_CORROBORATION_ONLY',
+    'PARTIAL_OR_AMBIGUOUS_LOCAL_PHYSICAL_EVIDENCE',
+    'NO_ORIGINAL_LOCAL_PHYSICAL_WITNESS',
+    'BOUNDED_PHYSICAL_SEARCH_INCOMPLETE',
+    'MANUAL_CONFLICT_REQUIRES_REVIEW',
+    'TARGET_CUSTODY_CONFLICT_REQUIRES_REVIEW',
+  ].map(status=>[status,rows.filter(x=>x.localPhysicalEvidence.proofStatus===status).length])));
+  return Object.freeze({...review,rows:Object.freeze(rows),
+    originalPhysicalFactorCount:ledger.totalPhysicalSourceElements,
+    physicalEvidenceAuthority:'SHA_BOUND_F2_LOCAL_WITNESSES_NOT_CORRESPONDENCE',
+    physicalStatusCounts:statusCounts,
+    newIndependentPhysicalCertificates:0,newTransferOperations:0,
+    writerReady:false,writerDispatchInstalled:false});
+}
+
+export function ciiReconciledAuthorityReviewMarkup(report) {
+  if (!report) return '';
+  if (report.schema!=='CiiReconciledAuthorityReview.v1' || report.writerReady!==false
+    || report.newIndependentPhysicalCertificates!==0 || report.newTransferOperations!==0)
+    throw Error('CII102_RECONCILED_REVIEW_NOT_NONWRITING');
+  const lines=report.rows.map(r=>{
+    const p=r.localPhysicalEvidence;
+    const sample=p?.witnesses?.slice(0,8)||[];
+    const pathDetail=sample.length
+      ? `<details><summary>View ${h(p.witnessCount)} local physical path witnesses</summary>${sample.map(w=>
+        `<small>${h(w.sourceElementKey)} → TARGET ${h(w.targetNodePath.join('→'))} [${h(w.targetElementIds.join(', '))}] · ${h(w.componentStatus)}${w.searchIncomplete?' · BOUNDED SEARCH INCOMPLETE':''}</small>`
+       ).join('')}${p.witnessCount>sample.length?'<small>Additional original local witnesses omitted from this view; not a completeness proof.</small>':''}</details>`
+      : '';
+    const witnessText=p
+      ? `<b>${h(p.proofStatus)}</b><small>${h(p.supportingPhysicalFactors.length)} original SOURCE factors with bounded TARGET path · ${h(p.witnessCount)} original local paths${p.localOriginalOtherTargets.length?' · competing original TARGETs: '+h(p.localOriginalOtherTargets.join(', ')):''}${p.competingOriginalClaims.length?' · shared TARGET claim: '+h(p.competingOriginalClaims.join(', ')):''}</small>${pathDetail}`
+      : 'Original physical graph review pending';
+    return `<tr><td><b>${h(r.sourceId)}</b> ${h(r.sourceNodeId)}</td><td>${h(r.activeState)}: ${h(r.activeTargetNodeIds.join(', ')||'—')}</td><td>${h(r.automaticTargetNodeId)} <small>${h(r.automaticConfidence)}</small></td><td>${h(r.manuallyAssertedTargetNodeIds.join(', ')||'—')}</td><td><b>${h(r.status)}</b>${r.competingActiveSourceNodes.length?`<small>Occupied by ${h(r.competingActiveSourceNodes.join(', '))}</small>`:''}</td><td>${witnessText}</td></tr>`;
+  }).join('');
+  const per=report.bySource.map(x=>`${h(x.sourceId)}: ${h(x.activeBound)}→${h(x.autoBound)} legacy BOUND; ${h(x.newlyVisibleAutoAlternatives)} review alternatives; ${h(x.manualConflicts)} contested manual`).join(' · ');
+  const physical=report.physicalStatusCounts
+    ? `<p data-ciiw-ms-reconciled-physical="1"><b>Original F2 local witness audit:</b> ${h(report.physicalStatusCounts.MULTI_EDGE_LOCAL_PHYSICAL_CORROBORATION_ONLY||0)} multi-edge local alternatives; ${h(report.physicalStatusCounts.PARTIAL_OR_AMBIGUOUS_LOCAL_PHYSICAL_EVIDENCE||0)} partial/ambiguous; ${h(report.physicalStatusCounts.NO_ORIGINAL_LOCAL_PHYSICAL_WITNESS||0)} without original witness; ${h(report.physicalStatusCounts.MANUAL_CONFLICT_REQUIRES_REVIEW||0)} manual conflicts. <b>No candidate is globally certified or Writer eligible.</b></p>`
+    : '<p>Independent original physical witness audit pending. AUTO BOUND is not a physical certificate.</p>';
+  return `<section class="ciiw-method-evidence" data-ciiw-ms-reconciled-review="1"><h3>Reconciled AUTO + MANUAL evidence — review only</h3><p><b>${h(report.reviewOnlyAlternativeCount)} previously hidden / different automatic proposals</b>; ${h(report.conflictCount)} currently contested/occupied. <b>0 independently certified and 0 Writer/Transfer operations added.</b> The existing MANUAL-active Compare and Writer inputs remain unchanged. Automatic BOUND means the legacy automatic run, not independently proven physical identity.</p><p>${per}</p>${physical}<details><summary>Inspect SOURCE NODE alternatives and custody conflicts (${h(report.rows.length)})</summary><table class="ciiw-grid" data-ciiw-ms-reconciled-table="1"><thead><tr><th>SOURCE</th><th>Current active</th><th>Retained AUTO candidate</th><th>Manual claim</th><th>Review classification</th><th>Original physical provenance</th></tr></thead><tbody>${lines}</tbody></table></details></section>`;
 }
 
 export const _test = Object.freeze({ decisionFromRow, effectiveDecision, filterRow, memberReviewLedgers, lockedRow, bulkEligible });

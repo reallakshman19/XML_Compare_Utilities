@@ -170,11 +170,47 @@ function selectHypothesis(admissible) {
     || a.rmsNormalizedResidual - b.rmsNormalizedResidual
     || b.minimumAnchorSinAngle - a.minimumAnchorSinAngle || compareIndexes(a.anchorIndexes, b.anchorIndexes))[0];
 }
+/**
+ * F2 governed scoring link: the user-adjustable M1 spatial tolerance also
+ * contributes to the *quality* of an already OD-admitted Method A basis.
+ *
+ * OD-based residual tests, multi-basis disagreement, and one-to-one evidence
+ * still decide whether a 3-D basis is physically admissible. This normalized
+ * policy is not a replacement for any of those gates.
+ *
+ * At the original 100 mm setting the result is bit-for-bit equivalent to the
+ * legacy SOURCE-OD-normalized confidence calculation. Increasing to 200 mm
+ * reduces only the residual-QUALITY penalty on admissible bases. An
+ * inadmissible/ambiguous base never reaches this function.
+ */
+export function ciiMethodAResidualScorePolicy(selected, options = {}) {
+  const applied = options.spatialToleranceMm ?? 100;
+  const spatialToleranceMm = Number(applied);
+  if (!Number.isFinite(spatialToleranceMm) || spatialToleranceMm < 1 || spatialToleranceMm > 200) {
+    throw new RangeError('METHOD_A_M1_SPATIAL_TOLERANCE_INVALID: 1..200 mm required');
+  }
+  const admissionNormalizedResidual = Number(selected?.maxNormalizedResidual);
+  if (!Number.isFinite(admissionNormalizedResidual) || admissionNormalizedResidual < 0) {
+    throw new RangeError('METHOD_A_ADMITTED_RESIDUAL_REQUIRED');
+  }
+  const normalizedResidualForScore = admissionNormalizedResidual * (100 / spatialToleranceMm);
+  return Object.freeze({
+    schema: 'CiiMethodAResidualScorePolicy.v1',
+    spatialToleranceMm,
+    referenceToleranceMm: 100,
+    admissionPolicy: 'SOURCE_OD_SCALED_UNCHANGED',
+    admissionNormalizedResidual,
+    normalizedResidualForScore,
+    scoringOnly: true,
+    doesNotAuthorizeIdentityOrWriter: true,
+  });
+}
 function methodAWeight(selected, pairs, policy, options = {}) {
-  // Score weights can be tuned only after a rigid 3D transform is qualified.
-  // Preserve geometric admission, multi-basis veto, and original default score.
+  // Called ONLY after the original OD-based rigid admission and multi-basis
+  // conflict gates have passed. A 200mm score cannot rescue invalid geometry.
   const weights = resolveCiiMethodAConfidenceWeights(options);
-  const residualQuality = weights.residualQuality * (1 - clamp(selected.maxNormalizedResidual));
+  const residualScorePolicy = ciiMethodAResidualScorePolicy(selected, options);
+  const residualQuality = weights.residualQuality * (1 - clamp(residualScorePolicy.normalizedResidualForScore));
   const conditioning = weights.conditioning * clamp(selected.minimumAnchorSinAngle);
   const spanMm = sourceSpan(pairs); const spanRatioOd = spanMm / Math.max(policy.odReferenceMm, 1e-9);
   const spatialExtent = weights.spatialExtent * clamp(spanRatioOd / 10);
@@ -187,6 +223,7 @@ function methodAWeight(selected, pairs, policy, options = {}) {
     residualQuality: Number(residualQuality.toFixed(3)), conditioning: Number(conditioning.toFixed(3)),
     spatialExtent: Number(spatialExtent.toFixed(3)), redundancy: Number(redundancy.toFixed(3)), basisConsensus,
     total: Number(total.toFixed(3)), confidence, confidenceThresholds: thresholds, confidenceWeights: weights,
+    residualScorePolicy,
     spanMm: Number(spanMm.toFixed(6)), spanRatioOd: Number(spanRatioOd.toFixed(6)),
   });
 }
