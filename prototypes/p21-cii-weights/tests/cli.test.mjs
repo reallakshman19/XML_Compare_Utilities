@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,readFileSync,writeFileSync,existsSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {readBenchmark,CARD_DIR} from '../kit/node.mjs';
+import {rigidInventory} from '../engine/inventory.mjs';
+const call=(...a)=>spawnSync(process.execPath,[join(CARD_DIR,'cli.mjs'),...a],{encoding:'utf8'});
+const failure=(r,code)=>{assert.equal(r.status,1,r.stderr);assert.ok(JSON.parse(r.stdout).refusals.some(x=>x.code===code),r.stdout);};
+test('CLI end-to-end, output is new only; refusals never write output',async()=>{const dir=mkdtempSync(join(tmpdir(),'p21-'));try{const {bytes,path:base}=await readBenchmark('X-S1'),r=rigidInventory(bytes)[0];const csv=join(dir,'weights.csv'),cs=join(dir,'proposed.json'),approved=join(dir,'approved.json'),out=join(dir,'out.cii');writeFileSync(csv,`fromNode,toNode,newWeight\n${r.fromNode},${r.toNode},2000\n`);assert.equal(call('inventory',base).status,0);assert.equal(call('propose',base,csv,cs).status,0);assert.equal(call('approve',cs,approved,'--limit','20','--by','test').status,0);assert.equal(call('apply',base,approved,out).status,0);assert.equal(rigidInventory(new Uint8Array(readFileSync(out)))[0].weight,2000);failure(call('apply',base,approved,out),'WEIGHTS_OUTPUT_FAILED');failure(call('apply',base,approved,base),'WEIGHTS_OUTPUT_IS_INPUT');assert.deepEqual(new Uint8Array(readFileSync(base)),bytes);const bad=join(dir,'bad.json'),none=join(dir,'none.cii');writeFileSync(bad,'{');failure(call('apply',base,bad,none),'WEIGHTS_JSON_INVALID');assert.ok(!existsSync(none));const stale=JSON.parse(readFileSync(approved));stale.base.sha256='0'.repeat(64);writeFileSync(bad,JSON.stringify(stale));failure(call('apply',base,bad,none),'KERNEL_BASE_SHA256_MISMATCH');assert.ok(!existsSync(none));failure(call('inventory',join(dir,'missing.cii')),'INPUT_NOT_FOUND');assert.equal(call('apply').status,2);}finally{rmSync(dir,{recursive:true,force:true});}});
