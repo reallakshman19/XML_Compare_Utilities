@@ -1,0 +1,26 @@
+import {readFileSync,writeFileSync,mkdtempSync,linkSync,rmSync} from 'node:fs';
+import {resolve,dirname,join} from 'node:path';
+import {finish,usage} from './kit/node.mjs';
+import {attempt,require} from './kit/core.mjs';
+import {planNames} from './engine/plan.mjs';
+import {approveAll} from './engine/approve.mjs';
+import {applyNames} from './engine/run.mjs';
+const [cmd,...args]=process.argv.slice(2);
+const help='node cli.mjs plan <source.cii> <target.cii> <map.json> <out.json> | approve <in.json> <out.json> --by <name> | apply <target.cii> <changeset.json> <out.cii>';
+if(!['plan','approve','apply'].includes(cmd)||args.length!==(cmd==='apply'?3:4))usage(help);
+if(cmd==='approve'&&(args[2]!=='--by'||!args[3].trim()))usage(help);
+const load=p=>{try{return new Uint8Array(readFileSync(p));}catch(e){require(false,'INPUT_NOT_FOUND',p,e.message);}};
+const json=p=>{const b=load(p);try{return JSON.parse(new TextDecoder().decode(b));}catch(e){require(false,'NAMES_JSON_INVALID',p,e.message);}};
+const output=(p,b,inputs)=>{require(!inputs.some(i=>resolve(i)===resolve(p)),'NAMES_OUTPUT_IS_INPUT',p,'Choose a different output path.');let tmp;try{tmp=mkdtempSync(join(dirname(resolve(p)),'.p23-'));const staged=join(tmp,'out');writeFileSync(staged,b,{flag:'wx'});linkSync(staged,p);}catch(e){require(false,'NAMES_OUTPUT_FAILED',p,e.message);}finally{if(tmp)rmSync(tmp,{recursive:true,force:true});}};
+const out=await attempt(async()=>{
+ const [a,b,c,d]=args;
+ let r;
+ if(cmd==='plan')r=await planNames(load(a),load(b),json(c));
+ else if(cmd==='approve')r=await approveAll(json(a),{by:d,at:new Date().toISOString()});
+ else r=await applyNames(load(a),json(b));
+ if(!r.ok)throw Object.assign(new Error('REFUSED'),{refusals:r.refusals});
+ if(cmd==='plan')output(d,JSON.stringify(r.changeset,null,2)+'\n',[a,b,c]);
+ else if(cmd==='approve')output(b,JSON.stringify(r.changeset,null,2)+'\n',[a]);
+ else output(c,r.bytes,[a,b]);
+ const {bytes,...report}=r;return report;
+});finish(out);

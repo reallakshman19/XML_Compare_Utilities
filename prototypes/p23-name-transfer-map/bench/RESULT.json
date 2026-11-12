@@ -1,0 +1,26 @@
+{
+ "card": "p23-name-transfer-map",
+ "at": "2026-11-12T20:11:52.990Z",
+ "node": "v22.16.0",
+ "rows": [
+  {
+   "bench": "B1",
+   "input": "X-TEXP -> X-T",
+   "sha256": "abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060",
+   "sourceSha256": "bb7c43ab883de3deeae6f73ec37538d977d395dacb9631e3501878d5459162c9",
+   "proposals": 35,
+   "noEntry": 1,
+   "selected": 12,
+   "readBackOk": 12,
+   "refusals": [],
+   "ms": 292.8,
+   "runs": [
+    264.8,
+    292.8,
+    334.8
+   ],
+   "limitMs": 2000,
+   "pass": true
+  }
+ ]
+}
