@@ -77,6 +77,32 @@ test('a zero reference weight is a review row, never a false R9 confirmation', a
   assert.equal(r.ok,true); assert.equal(r.changeset.changes.length,0); assert.equal(r.review.length,1);
   assert.match(r.review[0].reason,/R9/); assert.deepEqual(validate(r.changeset),[]);
 });
+test('blank target weight is reviewed, including when the reference weight is zero', async () => {
+  const blank = replaceSpan(s1,s.rigids[0].weight,' '.repeat(13));
+  assert.equal(readCii14(blank).rigids[0].weight.token,'');
+  assert.equal(readCii14(blank).rigids[0].weight.value,0);
+  const zero = replaceSpan(s1,s.rigids[0].weight,f13(0));
+  for (const reference of [s1m,zero]) {
+    const m = await makeMap(reference,blank);
+    const r = await proposeFromReference(reference,blank,m);
+    assert.equal(r.ok,true); assert.equal(r.changeset.changes.length,0); assert.equal(r.review.length,1);
+    assert.equal(r.review[0].reason,'TARGET_WEIGHT_BLANK'); assert.equal(r.review[0].pairId,m.pairs[i].pairId);
+    assert.equal(r.rows[0].status,'review'); assert.equal(r.rows[0].reason,'TARGET_WEIGHT_BLANK');
+    assert.equal(r.unchanged.length,0); assert.deepEqual(validate(r.changeset),[]);
+  }
+});
+test('negative reference weight is reviewed, including when the target weight is equal', async () => {
+  const negative = replaceSpan(s1,s.rigids[0].weight,f13(-1390));
+  assert.equal(readCii14(negative).rigids[0].weight.value,-1390);
+  for (const target of [s1,negative]) {
+    const m = await makeMap(negative,target);
+    const r = await proposeFromReference(negative,target,m);
+    assert.equal(r.ok,true); assert.equal(r.changeset.changes.length,0); assert.equal(r.review.length,1);
+    assert.equal(r.review[0].reason,'REFERENCE_WEIGHT_NEGATIVE'); assert.equal(r.review[0].pairId,m.pairs[i].pairId);
+    assert.equal(r.rows[0].status,'review'); assert.equal(r.rows[0].reason,'REFERENCE_WEIGHT_NEGATIVE');
+    assert.equal(r.unchanged.length,0); assert.deepEqual(validate(r.changeset),[]);
+  }
+});
 test('PROPOSE_REF_MISMATCH for structurally stale approved refs, even with matching hashes', async () => {
   const m = structuredClone(map); m.pairs[i].target.fromNode = '999999';
   assert.deepEqual(validate(m), []);

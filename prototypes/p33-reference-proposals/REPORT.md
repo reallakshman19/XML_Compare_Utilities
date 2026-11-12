@@ -1,14 +1,14 @@
 # P3.3 report
 
-Branch / implementation commit: `proto/p33-reference-proposals-20261112` / `ee9131f` (local synthetic checkout commit; supplied upstream ZIP base `8409590f36b641bfc755809e27f2e46d315300f2`). The ZIP has no Git metadata, so the local commits are not descendants of the upstream Git object. The final report-only commit is identified in the separate rule-8 report.
+Branch / reviewed implementation commit: `proto/p33-reference-proposals-20261112` / `f2cc1cb3a76bc4a22131a02fd421d853ab1da2e1` (upstream GitHub branch commit; base `8409590f36b641bfc755809e27f2e46d315300f2`). This report accompanies the review-fix commit directly on top of that implementation commit.
 
 ## Tests
 
 Node v22.16.0; tests run one file at a time and again with `node --test` inside the card folder. Final summary:
 
 ```text
-# tests 16
-# pass 16
+# tests 18
+# pass 18
 # fail 0
 ```
 
@@ -19,7 +19,7 @@ Node v22.16.0; tests run one file at a time and again with `node --test` inside 
 | T3 Map hash mismatch | PASS: both checksum locks independently exercised; no output |
 | T4 Candidate/rejected | PASS: neither generates a change; ambiguous candidate pairs remain review rows |
 | T5 X-T self | PASS: 0 proposals, 124 unchanged |
-| Other engine/CLI checks | PASS: 9 additional tests; one-sided rigid, zero R9 review, stale ref, wrong format/field, duplicate output, units, v11, vendor equality, JSON-only CLI |
+| Other engine/CLI checks | PASS: 11 additional tests; one-sided rigid, zero R9 review, blank target review, negative reference review, stale ref, wrong format/field, duplicate output, units, v11, vendor equality, JSON-only CLI |
 | Kit wiring | PASS: 2 tests |
 
 Baseline: unchanged upstream `_kit/tests/cii14.test.mjs` 16/16; shared validator `--selftest` OK. No failures in these baseline suites; full unrelated repository suite not run.
@@ -54,11 +54,12 @@ Machine-readable results: `bench/RESULT.json`.
 
 - Oracle lifted P1.3 gate. Hand-built maps use the shared validator; no P1.3 code imported/copied. The kit and validator are unchanged copies.
 - R9 prohibits even an unapproved zero `newValue` without human confirmation. A differing zero reference weight is a review row, not an exported change. No confirmation is fabricated.
+- Review fixes: blank target weight (`TARGET_WEIGHT_BLANK`) and negative reference weight (`REFERENCE_WEIGHT_NEGATIVE`) go to review, even for numerically equal weights. No change is exported.
 - Conservative unit gate: differing/missing UNITS sections are not comparable; no conversion is guessed. The entire section is compared (may defer otherwise comparable weights). This is an additional safety decision, not a requirement in the original card.
 - The optional map SHA-256 is omitted because the engine gets a parsed object, not the exact original Map JSON bytes. The Change set uses the map's creation timestamp for deterministic output; it does not claim to record a separate wall-clock creation time.
 - CLI requires a new `.json` path and publishes atomically using a same-directory hard link. A filesystem without hard-link support will refuse rather than write partial output.
 - Browser wrapper included; runtime browser checks explicitly waived. Uses the same engine and unchanged shared validator via a browser-only shim for its unused Node CLI imports. Serve via localhost; no build step.
-- No full-repository regression or owner CAESAR II demo run. No CII/XML edits, no push, no PR, no merge. Test-only fixture creation is separate from the application.
+- No full-repository regression or owner CAESAR II demo run. No CII/XML edits, no PR, no merge. Delivery is restricted to the P3.3 branch. Test-only fixture creation is separate from the application.
 
 ## Owner demo
 

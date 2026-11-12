@@ -62,6 +62,13 @@ export async function proposeFromReference(referenceBytes, targetBytes, mapFile,
         notComparable.push({ ...row, reason }); rows.push({ ...row, status: 'notComparable', reason });
         continue;
       }
+      // Blank target fields and negative reference weights need human review,
+      // even if the reader reports equal numeric values.
+      if (br.weight.token === '' || ar.weight.value < 0) {
+        const reason = br.weight.token === '' ? 'TARGET_WEIGHT_BLANK' : 'REFERENCE_WEIGHT_NEGATIVE';
+        review.push({ ...row, reason }); rows.push({ ...row, status: 'review', reason });
+        continue;
+      }
       // A raw numeric transfer is safe only with a common unit basis.
       if (!sameUnits) {
         const reason = 'Weight unit basis cannot be established as identical';
