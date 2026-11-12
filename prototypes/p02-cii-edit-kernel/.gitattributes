@@ -1,0 +1,2 @@
+# Keep fixture bytes exactly as committed (LF and CRLF copies are both tests).
+tests/fixtures/*.cii -text

@@ -1,0 +1,78 @@
+{
+ "format": "topofix.changeset",
+ "version": 1,
+ "createdAt": "2026-11-12T12:00:00Z",
+ "base": {
+  "kind": "cii",
+  "fileName": "T.CII",
+  "sha256": "abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060"
+ },
+ "changes": [
+  {
+   "changeId": "DEMO1",
+   "target": {
+    "kind": "cii",
+    "elementIndex": 0,
+    "fromNode": "10",
+    "toNode": "15"
+   },
+   "field": "RIGID/WEIGHT",
+   "unit": "kg",
+   "oldToken": "9.500000E+02",
+   "newValue": 1000,
+   "evidence": {
+    "source": "manual",
+    "detail": "Owner demo: example weight"
+   },
+   "approval": {
+    "approved": true,
+    "by": "demo.engineer",
+    "at": "2026-11-12T12:00:00Z"
+   }
+  },
+  {
+   "changeId": "DEMO2",
+   "target": {
+    "kind": "cii",
+    "elementIndex": 102,
+    "fromNode": "515",
+    "toNode": "520"
+   },
+   "field": "RIGID/WEIGHT",
+   "unit": "kg",
+   "oldToken": "9.500000E+02",
+   "newValue": 975.5,
+   "evidence": {
+    "source": "manual",
+    "detail": "Owner demo: example weight"
+   },
+   "approval": {
+    "approved": true,
+    "by": "demo.engineer",
+    "at": "2026-11-12T12:00:00Z"
+   }
+  },
+  {
+   "changeId": "DEMO3",
+   "target": {
+    "kind": "cii",
+    "elementIndex": 669,
+    "fromNode": "3320",
+    "toNode": "3325"
+   },
+   "field": "RIGID/WEIGHT",
+   "unit": "kg",
+   "oldToken": "3.978800E+02",
+   "newValue": 400,
+   "evidence": {
+    "source": "manual",
+    "detail": "Owner demo: example weight"
+   },
+   "approval": {
+    "approved": true,
+    "by": "demo.engineer",
+    "at": "2026-11-12T12:00:00Z"
+   }
+  }
+ ]
+}

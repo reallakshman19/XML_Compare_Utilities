@@ -1,0 +1,52 @@
+{
+ "card": "p02-cii-edit-kernel",
+ "at": "2026-11-12T11:35:53.450Z",
+ "node": "v22.23.2",
+ "rows": [
+  {
+   "bench": "B1",
+   "input": "X-T",
+   "sha256": "abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060",
+   "changes": 124,
+   "applied": 124,
+   "ok": true,
+   "ms": 282.9,
+   "runs": [
+    252,
+    282.9,
+    299
+   ],
+   "limitMs": 500,
+   "pass": true
+  },
+  {
+   "bench": "B2",
+   "input": "X-S2",
+   "sha256": "7ec48b76b65eedfd5ecc9c8e8feca1a45dd8c83721a68b53aa0db3363e6d27fd",
+   "changes": 1,
+   "applied": 1,
+   "ok": true,
+   "ms": 6.2,
+   "runs": [
+    5.9,
+    6.2,
+    7.3
+   ],
+   "pass": true
+  },
+  {
+   "bench": "B3",
+   "input": "X-TEXP",
+   "sha256": "bb7c43ab883de3deeae6f73ec37538d977d395dacb9631e3501878d5459162c9",
+   "numelt": 1614,
+   "ms": 96,
+   "runs": [
+    82.9,
+    96,
+    98.8
+   ],
+   "limitMs": 2000,
+   "pass": true
+  }
+ ]
+}

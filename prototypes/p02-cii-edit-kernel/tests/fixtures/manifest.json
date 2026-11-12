@@ -1,0 +1,27 @@
+{
+ "note": "One entry per file in this folder: invented data only, or cut from a PUBLIC benchmark (name it in 'from').",
+ "files": [
+  {
+   "file": "tiny-v14-lf.cii",
+   "sha256": "ee70f80ca6929304575f644f5cf687f1381f7263816501e15e20dfc1e7ef3cfc",
+   "bytes": 3667,
+   "madeBy": "tests/make-fixtures.mjs (invented: 3 elements 10-20-30-40, 2 rigids, 2 node-name records)",
+   "purpose": "small v14 CII with LF line endings for kernel refusal tests and T10"
+  },
+  {
+   "file": "tiny-v14-crlf.cii",
+   "sha256": "418b43769f7060a830ada71a1451840481d045567e4497dfdbce0b7d3f02947f",
+   "bytes": 3735,
+   "madeBy": "tests/make-fixtures.mjs (same content as tiny-v14-lf.cii with CRLF line endings)",
+   "purpose": "T10: CRLF copy of the same fixture"
+  },
+  {
+   "file": "demo-x-t-3-weights.json",
+   "sha256": "95948be9c13072ffefde71c941a25e3b600c0f3699d3a996062e2af1e4bae78c",
+   "bytes": 1533,
+   "from": "X-T (Benchmark/T.CII, sha256 abfa3ffc...c060): element refs and old tokens of rigids 1-3",
+   "madeBy": "one-off script in REPORT.md Owner demo; new weights 1000, 975.5, 400 are invented",
+   "purpose": "Owner demo: node cli.mjs apply on X-T with 3 weight changes"
+  }
+ ]
+}
