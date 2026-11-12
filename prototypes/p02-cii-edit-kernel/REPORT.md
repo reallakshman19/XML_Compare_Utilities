@@ -12,9 +12,9 @@ Bench (`node bench/run.mjs`, Node 22, median of 3, engine call only):
 
 | bench | input | what | result | ms | limit | pass |
 |---|---|---|---|---|---|---|
-| B1 | X-T | apply 124 weight changes (old x 1.1) | 124 applied | 282.9 | 500 | yes |
-| B2 | X-S2 | apply 1 weight change | 1 applied | 6.2 | report | yes |
-| B3 | X-TEXP | `readCii14` | numelt 1614 | 96 | 2000 | yes |
+| B1 | X-T | apply 124 weight changes (old x 1.1) | 124 applied | 272.8 | 500 | yes |
+| B2 | X-S2 | apply 1 weight change | 1 applied | 7 | report | yes |
+| B3 | X-TEXP | `readCii14` | numelt 1614 | 94.5 | 2000 | yes |
 
 card-check: `card-check: PASS (9 checks)` with `--final` (C1-C9).
 
