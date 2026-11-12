@@ -1,0 +1,29 @@
+{
+ "card": "p33-reference-proposals",
+ "at": "2026-11-12T19:53:20.911Z",
+ "node": "v22.16.0",
+ "rows": [
+  {
+   "bench": "B1",
+   "input": [
+    "X-T",
+    "X-TEXP"
+   ],
+   "sha256": [
+    "abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060",
+    "bb7c43ab883de3deeae6f73ec37538d977d395dacb9631e3501878d5459162c9"
+   ],
+   "pairs": 1614,
+   "proposals": 0,
+   "unchanged": 124,
+   "notComparable": 0,
+   "ms": 151.8,
+   "runs": [
+    146,
+    151.8,
+    185
+   ],
+   "pass": true
+  }
+ ]
+}

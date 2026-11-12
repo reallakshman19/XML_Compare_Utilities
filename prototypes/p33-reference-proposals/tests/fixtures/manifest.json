@@ -1,0 +1,33 @@
+{
+  "note": "No benchmark copies committed. X-S1M and all test maps are generated in memory; tests/demo.mjs can reproduce the fixture in a new directory.",
+  "files": [
+    {
+      "file": "demo-map.json",
+      "sha256": "f2246cc72d24feaf69476fa93635cd20c3d387e1f4e706b63a2de8197b3650d2",
+      "bytes": 922,
+      "madeBy": "tests/demo.mjs and cli.mjs",
+      "purpose": "One hand-approved rigid pair for X-S1M to X-S1"
+    },
+    {
+      "file": "demo-proposals.json",
+      "sha256": "feb2b2e64ba5c9b062f9f3e6b1a6561072c01bdd34eaac6dc5b2eb16a3f65b82",
+      "bytes": 740,
+      "madeBy": "tests/demo.mjs and cli.mjs",
+      "purpose": "CLI output for the demo map; one unapproved weight proposal"
+    }
+  ],
+  "generated": [
+    {
+      "file": "X-S1M.cii",
+      "sha256": "92b2269bb41573000582272c70704aa9af70b0853f515430f6a55fc9ac08cd8d",
+      "bytes": 108330,
+      "madeBy": "tests/fixture-tools.mjs makeS1M",
+      "purpose": "T1: rigid weight x 1.1, T1 at elements 3 and 7 +25, first FROM name changed",
+      "from": {
+        "id": "X-S1",
+        "path": "Benchmark/S1.CII",
+        "sha256": "9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b"
+      }
+    }
+  ]
+}

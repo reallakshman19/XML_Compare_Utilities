@@ -1,0 +1,40 @@
+{
+  "format": "topofix.map",
+  "version": 1,
+  "createdAt": "2026-11-12T19:00:00Z",
+  "source": {
+    "kind": "cii",
+    "fileName": "X-S1M.cii",
+    "sha256": "92b2269bb41573000582272c70704aa9af70b0853f515430f6a55fc9ac08cd8d"
+  },
+  "target": {
+    "kind": "cii",
+    "fileName": "S1.CII",
+    "sha256": "9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b"
+  },
+  "method": "manual",
+  "pairs": [
+    {
+      "pairId": "pair-0",
+      "source": {
+        "kind": "cii",
+        "elementIndex": 55,
+        "fromNode": "5220",
+        "toNode": "5229"
+      },
+      "target": {
+        "kind": "cii",
+        "elementIndex": 55,
+        "fromNode": "5220",
+        "toNode": "5229"
+      },
+      "status": "approved",
+      "evidence": {
+        "rule": "manual",
+        "detail": "Hand-built test pair"
+      },
+      "approvedBy": "test.engineer",
+      "approvedAt": "2026-11-12T19:00:00Z"
+    }
+  ]
+}

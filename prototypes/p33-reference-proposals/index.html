@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reference CII to proposals</title>
+<style>
+body{font:16px system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#18222c}h1{font-size:1.6rem}label{display:block;margin:.75rem 0}input{display:block;margin:.3rem 0}button{padding:.55rem 1rem;margin:.4rem .4rem .4rem 0}table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:.6rem;text-align:left;border-bottom:1px solid #d8e0e5}th{background:#f1f5f7}#table-wrap{overflow:auto}#summary{white-space:pre-wrap}#json{width:100%;min-height:12rem;box-sizing:border-box}small{color:#53616c}
+</style>
+<script type="importmap">{"imports":{"node:fs":"./browser-node-shim.mjs","node:url":"./browser-node-shim.mjs","node:path":"./browser-node-shim.mjs"}}</script>
+<script>globalThis.process ??= {argv: []};</script>
+</head>
+<body>
+<h1>Reference CII → weight proposals</h1>
+<p>Read-only. Load two version 14 CII files and their approved Map file. No CII or XML file is changed. Exported proposals are not approved.</p>
+<form id="form">
+<label>Reference CII <input id="reference" type="file" accept=".cii" required></label>
+<label>Target CII <input id="target" type="file" accept=".cii" required></label>
+<label>Map file <input id="map" type="file" accept=".json" required></label>
+<button id="run" type="submit">Review weights</button>
+<button id="export" type="button" disabled>Export proposals</button>
+</form>
+<p id="summary" role="status" aria-live="polite"></p>
+<div id="table-wrap"><table><thead><tr><th>Pair</th><th>FROM → TO</th><th>Target weight</th><th>Reference weight</th><th>Difference %</th><th>Reason</th></tr></thead><tbody id="rows"></tbody></table></div>
+<label>Proposal JSON <textarea id="json" readonly></textarea></label>
+<small>Difference % = (reference − target) / |target| × 100. A zero target has no percentage.</small>
+<script type="module" src="./page.mjs"></script>
+</body></html>
