@@ -42,7 +42,9 @@ Refusals from the kit reader (`CII_*`, for example `CII_VERSION_UNSUPPORTED` for
 | `KERNEL_NEGATIVE_WEIGHT` | A rigid weight below zero. |
 | `KERNEL_ZERO_NOT_CONFIRMED` | A rigid weight of zero without `approval.zeroConfirmed`. |
 | `KERNEL_TOKEN_FORM_UNKNOWN` | The old value is not in v14 number style (`1.390000E+03`), so the kernel cannot copy its form. |
+| `KERNEL_VALUE_PRECISION_LOST` | The field keeps 7 significant digits (v14 style) and the new value has more, or a non-zero value would be written as zero. Round it in the Change set. |
 | `KERNEL_VALUE_DOES_NOT_FIT` | The new value needs more room than the field has (3-digit exponent, name over 25 characters). |
+| `KERNEL_NAME_NOT_STRING` | A node name was given as a number instead of text. |
 | `KERNEL_NAME_INVALID` | A node name is empty, not plain printable text, or starts or ends with a space. |
 | `KERNEL_NAME_IN_USE` | The new name already names another node. |
 | `KERNEL_RECHECK_FAILED` | After the edit, the file does not read the same or something other than the planned fields changed. |

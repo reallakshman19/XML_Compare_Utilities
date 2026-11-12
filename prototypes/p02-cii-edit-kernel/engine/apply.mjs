@@ -18,12 +18,14 @@ function collect(list, fn) {
 }
 
 /**
- * applyChangeset(bytes, changeset) -> {ok, bytes?, sha256?, applied:[{changeId,start,end,oldToken,newToken}], refusals:[]}
+ * applyChangeset(bytes, changeset, options?) -> {ok, bytes?, sha256?, applied:[{changeId,start,end,oldToken,newToken}], refusals:[]}
  * Checks in order: Change set rules, base kind, checksum lock, approval, locate + old token, build, re-check.
+ * options.testFault (tests only): a function (plan) -> plan run just before the bytes are built, so a test can
+ * feed a deliberately bad span through the real path and prove the re-check refuses it.
  */
-export async function applyChangeset(bytes, changeset) {
+export async function applyChangeset(bytes, changeset, options = {}) {
   try {
-    const out = await applyOrThrow(bytes, changeset);
+    const out = await applyOrThrow(bytes, changeset, options);
     return { ok: true, ...out, refusals: [] };
   } catch (e) {
     if (e instanceof Refusal) return { ok: false, applied: [], refusals: [{ code: e.code, where: e.where, detail: e.detail }] };
@@ -32,7 +34,7 @@ export async function applyChangeset(bytes, changeset) {
   }
 }
 
-async function applyOrThrow(bytes, cs) {
+async function applyOrThrow(bytes, cs, options) {
   // 1. Change set rules (P0.1 validator, vendored).
   const rules = new RefusalList();
   for (const err of validate(cs)) rules.add('KERNEL_CHANGESET_INVALID', 'changeset', err.code + ' ' + err.msg);
@@ -57,8 +59,9 @@ async function applyOrThrow(bytes, cs) {
   checkNamesUnique(base, plan, list);
   list.throwIfAny();
   // 6. Build: replace only the spans, from the end of the file backwards.
-  const next = spliceSpans(bytes, plan);
-  // 7. Re-check.
+  const built = typeof options.testFault === 'function' ? options.testFault(plan) : plan;
+  const next = spliceSpans(bytes, built);
+  // 7. Re-check against the plan (never against the possibly faulted copy).
   recheck(base, next, plan);
   const applied = plan.flatMap(p => p.spans.map(s => ({ changeId: p.changeId, start: s.start, end: s.end, oldToken: s.token, newToken: p.newToken })))
     .sort((a, b) => a.start - b.start);
@@ -82,7 +85,8 @@ export function planChange(cii, c, where = c.changeId) {
     const v = weightValue(c.newValue, c.approval.zeroConfirmed, where);
     newRaws = loc.spans.map(s => formatCiiNumber(v, s.token, s.end - s.start, where));
   } else {
-    newRaws = loc.spans.map(s => formatCiiName(String(c.newValue), s.end - s.start, where));
+    require(typeof c.newValue === 'string', 'KERNEL_NAME_NOT_STRING', where, 'a node name must be given as text, got ' + typeof c.newValue);
+    newRaws = loc.spans.map(s => formatCiiName(c.newValue, s.end - s.start, where));
   }
   return { changeId: c.changeId, ref: c.target, field: c.field, newToken: newRaws[0].trim(),
     spans: loc.spans.map((s, i) => ({ start: s.start, end: s.end, token: s.token, newRaw: newRaws[i] })) };

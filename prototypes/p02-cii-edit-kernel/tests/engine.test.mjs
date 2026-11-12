@@ -201,7 +201,7 @@ test('format: 20 values written in the v14 style, matching tokens in X-S1, X-S3C
     [133.85, ' 1.338500E+02'], [737.77, ' 7.377700E+02'], [349.9827, ' 3.499827E+02'], [3200, ' 3.200000E+03'],
     [1659.918, ' 1.659918E+03'], [15500, ' 1.550000E+04'], [0, ' 0.000000E+00'], [-1500, '-1.500000E+03'],
     [2.1e-4, ' 2.100000E-04'], [6.7e-5, ' 6.700000E-05'], [25.4, ' 2.540000E+01'], [273, ' 2.730000E+02'],
-    [9999.99, ' 9.999990E+03'], [22035, ' 2.203500E+04'], [1529.0000004, ' 1.529000E+03'], [1.23456789, ' 1.234568E+00'],
+    [9999.99, ' 9.999990E+03'], [22035, ' 2.203500E+04'], [1825.91, ' 1.825910E+03'], [13104.08, ' 1.310408E+04'],
   ];
   for (const [v, want] of table) assert.equal(formatCiiNumber(v, '1.390000E+03'), want, String(v));
   // every number field token found in the files is written back byte-for-byte
@@ -309,6 +309,37 @@ test('refusal KERNEL_RECHECK_FAILED for a deliberately bad span (M3 guard)', asy
 
 test('refusal INPUT_SHA256_MISMATCH from the kit for a wrong benchmark file', async () => {
   expectRefusal(await attempt(() => requireSha256(LF(), '0'.repeat(64))), 'INPUT_SHA256_MISMATCH');
+});
+
+test('refusal KERNEL_VALUE_PRECISION_LOST when the field cannot hold the value as given', async () => {
+  const b = LF(); const cii = readCii14(b);
+  // 7 significant digits fit; 1529.12345 would silently become 1.529123E+03
+  expectRefusal(await applyChangeset(b, await changeset(b, [weightChange(cii, cii.elements[1], 1529.12345)])), 'KERNEL_VALUE_PRECISION_LOST');
+  expectRefusal(await attempt(() => formatCiiNumber(1.23456789, '1.390000E+03')), 'KERNEL_VALUE_PRECISION_LOST');
+  // a non-zero value that would be written as zero, even with zeroConfirmed
+  const zc = { approved: true, by: 'x', at: 'y', zeroConfirmed: true };
+  expectRefusal(await applyChangeset(b, await changeset(b, [weightChange(cii, cii.elements[1], '1e-400', { approval: zc })])), 'KERNEL_VALUE_PRECISION_LOST');
+  // exactly representable values still pass, including results of old x 1.1 rounded to 3 decimals
+  assert.equal(formatCiiNumber(Math.round(349.9827 * 1.1 * 1000) / 1000, '3.499827E+02'), ' 3.849810E+02');
+  assert.equal(formatCiiNumber('1.529123E+03', '1.390000E+03'), ' 1.529123E+03');
+});
+
+test('refusal KERNEL_NAME_NOT_STRING when a node name is given as a number', async () => {
+  const b = LF();
+  expectRefusal(await applyChangeset(b, await changeset(b, [change({ target: nodeRef(30), field: 'NODENAME/NAME', oldToken: 'V-30', newValue: 0.1 + 0.2 })])), 'KERNEL_NAME_NOT_STRING');
+});
+
+test('M3 the re-check inside applyChangeset refuses a deliberately bad span fed through the real path', async () => {
+  const b = LF(); const cii = readCii14(b);
+  const cs = await changeset(b, [weightChange(cii, cii.elements[1], 1300)]);
+  // fault: the bytes are built one field to the right (onto the rigid TYPE); the plan itself is unchanged
+  const shift = plan => plan.map(p => ({ ...p, spans: p.spans.map(s => ({ ...s, start: s.start + 13, end: s.end + 13 })) }));
+  expectRefusal(await applyChangeset(b, cs, { testFault: shift }), 'KERNEL_RECHECK_FAILED');
+  // fault: one byte outside the span is written as well
+  const extra = plan => plan.map(p => ({ ...p, spans: [...p.spans, { start: 5, end: 6, token: 'R', newRaw: 'X' }] }));
+  expectRefusal(await applyChangeset(b, cs, { testFault: extra }), 'KERNEL_RECHECK_FAILED');
+  // no fault: the same Change set applies
+  assert.equal((await applyChangeset(b, cs, { testFault: plan => plan })).ok, true);
 });
 
 // ---------------------------------------------------------------- T12 every README code is tested

@@ -3,8 +3,8 @@
 //   node cli.mjs apply <base.cii> <changeset.json> <out.cii>
 //   node cli.mjs diff <a.cii> <b.cii>
 //   node cli.mjs read <file.cii>
-import { writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { writeFileSync, realpathSync, existsSync } from 'node:fs';
+import { resolve, dirname, basename } from 'node:path';
 import { attempt, refuse } from './kit/core.mjs';
 import { parseArgs, readBytes, finish, usage } from './kit/node.mjs';
 import { readCii14, fieldDiff } from './kit/cii14.mjs';
@@ -13,6 +13,13 @@ import { applyChangeset } from './engine/apply.mjs';
 const USAGE = 'node cli.mjs apply <base.cii> <changeset.json> <out.cii> | diff <a.cii> <b.cii> | read <file.cii>';
 const args = parseArgs();
 const [command, a, b, c] = args._;
+
+/** True when two paths name the same file (symlinks resolved; case-insensitive on Windows). */
+function samePath(x, y) {
+  const real = p => { const r = resolve(p); return existsSync(r) ? realpathSync(r) : resolve(existsSync(dirname(r)) ? realpathSync(dirname(r)) : dirname(r), basename(r)); };
+  const norm = p => process.platform === 'win32' ? real(p).toLowerCase() : real(p);
+  return norm(x) === norm(y);
+}
 
 const counts = cii => ({ version: cii.version, eol: cii.eol, lines: cii.lines.length, sections: cii.sectionOrder.length,
   numelt: cii.counts.NUMELT, rigids: cii.rigids.length, nodeNames: cii.nodeNames.length });
@@ -26,7 +33,7 @@ if (command === 'read' && a) {
     return { count: diffs.length, diffs };
   }));
 } else if (command === 'apply' && a && b && c) {
-  if (resolve(a) === resolve(c)) usage(USAGE + '  (out.cii must not be the base file)');
+  if (samePath(a, c)) usage(USAGE + '  (out.cii must not be the base file)');
   const result = await attempt(async () => {
     const bytes = readBytes(a);
     let cs;

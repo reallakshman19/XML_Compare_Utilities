@@ -18,13 +18,19 @@ export function numberOf(newValue, where = '') {
   const ok = typeof newValue === 'number' || /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][+-]?\d+)?$/.test(text);
   const v = typeof newValue === 'number' ? newValue : ok ? Number(text.replace(/[Dd]/g, 'E')) : NaN;
   require(ok && Number.isFinite(v), 'KERNEL_VALUE_INVALID', where, 'new value ' + JSON.stringify(newValue) + ' is not a finite number');
+  // A non-zero text such as "1e-400" reads as 0 in floating point: refuse rather than write a zero.
+  require(v !== 0 || text === null || !/[1-9]/.test(text.split(/[EeDd]/)[0]), 'KERNEL_VALUE_PRECISION_LOST', where,
+    'new value ' + JSON.stringify(newValue) + ' is not zero but is too small to hold');
   return v === 0 ? 0 : v; // -0 -> 0
 }
 
 /**
  * Format a number for a 13-character CII field in the same form as oldToken.
  * Returns the full field text (right-aligned, exactly `width` characters).
- * Refuses KERNEL_TOKEN_FORM_UNKNOWN, KERNEL_VALUE_INVALID, KERNEL_VALUE_DOES_NOT_FIT.
+ * Refuses KERNEL_TOKEN_FORM_UNKNOWN, KERNEL_VALUE_INVALID, KERNEL_VALUE_DOES_NOT_FIT, and
+ * KERNEL_VALUE_PRECISION_LOST when the written token, read back, is not the value asked for
+ * (more digits than the field keeps, or a non-zero value that would be written as zero).
+ * Float noise is allowed: up to one millionth of a unit in the last written place.
  */
 export function formatCiiNumber(value, oldToken = '0.000000E+00', width = 13, where = '') {
   const { decimals, letter, expDigits } = tokenForm(oldToken, where);
@@ -35,6 +41,10 @@ export function formatCiiNumber(value, oldToken = '0.000000E+00', width = 13, wh
     v + ' needs a ' + m[5].length + '-digit exponent; the old token ' + JSON.stringify(oldToken) + ' has ' + expDigits);
   const token = m[1] + m[2] + '.' + m[3] + letter + m[4] + m[5].padStart(expDigits, '0');
   require(token.length <= width, 'KERNEL_VALUE_DOES_NOT_FIT', where, token + ' is ' + token.length + ' characters; the field holds ' + width);
+  const back = Number(token.replace(/[Dd]/, 'E'));
+  const ulp = Math.pow(10, Number(m[4] + m[5]) - decimals);
+  require(!(v !== 0 && back === 0) && Math.abs(back - v) <= ulp * 1e-6, 'KERNEL_VALUE_PRECISION_LOST', where,
+    v + ' would be written as ' + token + '; the field keeps ' + (decimals + 1) + ' significant digits');
   return token.padStart(width, ' ');
 }
 
