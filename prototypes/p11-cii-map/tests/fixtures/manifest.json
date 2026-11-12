@@ -1,0 +1,38 @@
+{
+ "note": "One entry per file in this folder: invented data only, or cut from a PUBLIC benchmark (name it in 'from').",
+ "files": [
+  {
+   "file": "bend-moved.cii",
+   "sha256": "cf81705866a4e5c91b67cfd65f0ee7f442fd5f85ca81a991ea1f0d6758719743",
+   "bytes": 5732,
+   "madeBy": "tests/fixture-tools.mjs (invented)",
+   "purpose": "T7: bend.cii with node 30 moved +0.5 mm in X (other nodes unchanged)"
+  },
+  {
+   "file": "bend.cii",
+   "sha256": "7703dde70ab1073094643c1ca55eb96db58e1e674ff55070435fd482084cecd1",
+   "bytes": 5732,
+   "madeBy": "tests/fixture-tools.mjs (invented)",
+   "purpose": "T7: 4 elements in an L and a riser (not on one line)"
+  },
+  {
+   "file": "line3.cii",
+   "sha256": "0cbc1f0df3dd4d229473834ae0c3561bbb863c86d5cca1630475939a603245c1",
+   "bytes": 4541,
+   "madeBy": "tests/fixture-tools.mjs (invented)",
+   "purpose": "T6: 3 elements, all 4 nodes on one straight line (automatic anchors must refuse)"
+  },
+  {
+   "file": "X-S1M.cii",
+   "sha256": "26efdb0ae2bc6ecfc99e1c61682721b5da51ec9f11d22106e7948208974098be",
+   "bytes": 108330,
+   "madeBy": "tests/fixture-tools.mjs makeS1M (T3 rewrites it)",
+   "from": {
+    "id": "X-S1",
+    "path": "Benchmark/S1.CII",
+    "sha256": "9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b"
+   },
+   "purpose": "T3 / B1: X-S1 with 4 planted changes: RIGID 1 weight x 1.1, T1 of elements 3 and 7 (0-based) + 25, NODENAME entry 1 FROM name"
+  }
+ ]
+}

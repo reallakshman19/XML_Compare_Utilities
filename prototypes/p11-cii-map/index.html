@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>P1.1 CII ↔ CII map (read-only)</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 1.5rem; color: #222; }
+  fieldset { border: 1px solid #ccc; padding: .6rem 1rem; margin-bottom: 1rem; }
+  label { margin-right: 1.2rem; }
+  table { border-collapse: collapse; margin: .4rem 0 1.4rem; }
+  th, td { border: 1px solid #ddd; padding: 2px 8px; text-align: left; font-variant-numeric: tabular-nums; }
+  th { background: #f3f3f3; }
+  .bad { color: #a00; }
+  .muted { color: #777; }
+  details { margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+<h1>CII ↔ CII map <span class="muted">(P1.1, read-only)</span></h1>
+<p>Load two CAESAR II version 14 files. Elements and nodes are paired by geometry; the table lists the named values that differ.</p>
+<fieldset>
+  <label>File A <input type="file" id="fa" accept=".cii,.CII"></label>
+  <label>File B <input type="file" id="fb" accept=".cii,.CII"></label><br><br>
+  <label>Tolerance (mm) <input id="tol" value="1" size="5"></label>
+  <label>Anchors (optional) <input id="anchors" placeholder="10:10,20:20,30:30" size="28"></label>
+  <button id="go">Compare</button>
+</fieldset>
+<div id="out"></div>
+<script type="module">
+import { attempt } from './kit/core.mjs';
+import { readCiiGraph } from './engine/cii-graph.mjs';
+import { compareCii } from './engine/compare.mjs';
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const table = (head, rows) => '<table><tr>' + head.map(h => '<th>' + esc(h) + '</th>').join('') + '</tr>' +
+  rows.map(r => '<tr>' + r.map(c => '<td>' + esc(c) + '</td>').join('') + '</tr>').join('') + '</table>';
+const bytesOf = async input => input.files[0] ? new Uint8Array(await input.files[0].arrayBuffer()) : null;
+const el = r => r.elementIndex + ' (' + r.fromNode + '→' + r.toNode + ')';
+
+$('go').onclick = async () => {
+  const out = $('out');
+  out.textContent = 'Working…';
+  const [a, b] = [await bytesOf($('fa')), await bytesOf($('fb'))];
+  if (!a || !b) { out.innerHTML = '<p class="bad">Choose both files.</p>'; return; }
+  const r = await attempt(async () => compareCii(await readCiiGraph(a, { member: 'A' }), await readCiiGraph(b, { member: 'B' }),
+    { anchors: $('anchors').value.trim() || undefined, toleranceMm: Number($('tol').value) }));
+  if (!r.ok) {
+    out.innerHTML = '<h2 class="bad">Refused</h2>' + table(['code', 'where', 'detail'], r.refusals.map(x => [x.code, x.where, x.detail]));
+    return;
+  }
+  const s = r.summary, ep = r.pairs.filter(p => p.kind === 'element');
+  out.innerHTML =
+    '<h2>Summary</h2>' + table(['', 'A', 'B'], [
+      ['elements', s.elementsA, s.elementsB], ['element pairs', s.elementPairs, s.elementPairs],
+      ['unmatched elements', s.unmatchedA, s.unmatchedB], ['unmatched nodes', s.unmatchedNodesA, s.unmatchedNodesB]]) +
+    '<p>Anchors: ' + s.anchors + ' (' + s.anchorMode + '), tolerance ' + s.toleranceMm + ' mm. Pairs by rule: ' +
+      Object.entries(s.elementPairsByRule).map(([k, v]) => k + ' ' + v).join(', ') + '.</p>' +
+    '<h2>Differences (' + r.fieldDiffs.length + ')</h2>' +
+    table(['element A', 'element B', 'value', 'A', 'B'], r.fieldDiffs.map(d => [el(d.a), el(d.b), d.field, d.valueA, d.valueB])) +
+    '<h2>Unmatched elements</h2>' +
+    table(['side', 'element', 'reason'], [...r.unmatchedA.map(u => ['A', el(u), u.reason]), ...r.unmatchedB.map(u => ['B', el(u), u.reason])]) +
+    '<details><summary>Element pairs (' + ep.length + ')</summary>' +
+    table(['element A', 'element B', 'rule', 'reversed', 'distance mm'], ep.map(p => [el(p.a), el(p.b), p.rule, p.reversed ? 'yes' : '', p.distanceMm.toFixed(4)])) +
+    '</details>';
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+// p11-cii-map: CII v14 -> geometry graph with the SAME shape as ciifr-map buildXmlGraph.
+// Pure: bytes in, graph out. No DOM, no fs, no network.
+//
+// How it works:
+//  1. kit/cii14.mjs readCii14 reads the file (v14 only; it refuses everything else with CII_* codes).
+//  2. We turn the CII into the same "profile" object that ciifr-map xml-profiles.js makes from an
+//     F05 / R4 XML: {profile, elements[{index, from, to, delta, od, wall, witness, xmlWitness}], units, seeds, claimedCii}.
+//     - delta = [DX, DY, DZ] of the element (the 3rd-5th numbers of its first ELEMENTS line).
+//     - seeds = the #$ COORDS rows (see readCoords below).
+//     - units = the #$ UNITS labels/factors, checked to be native mm by ciifr-map's assertMillimetres.
+//  3. The vendored, unchanged ciifr-map buildXmlGraph walks the deltas from the seeds and builds the graph.
+//     So the node/edge/component shape is identical by construction (T8 checks it against X-F05).
+//  4. We then fill in what only a CII has: node names (NODENAME), and a `cii` handle for field comparison.
+import { refuse, require, sha256Hex } from '../kit/core.mjs';
+import { readCii14, field, rigidOf } from '../kit/cii14.mjs';
+import { buildXmlGraph } from '../vendor/prototypes/ciifr-map/xml-graph.js';
+import { assertMillimetres } from '../vendor/prototypes/ciifr-map/xml-utils.js';
+
+/** Slots per RESTRANT record and rows per slot (6 restraints x 4 rows = 24 rows, per kit ROWS_PER_RECORD). */
+const RESTRAINT_SLOTS = 6, ROWS_PER_SLOT = 4;
+
+/**
+ * #$ COORDS, as written by CAESAR II v14 (checked on S1 and T):
+ *   row 1: field 0 = number of start points N
+ *   rows 2..N+1: field 0 = node number, fields 1-3 = X, Y, Z (mm)
+ * Each start point fixes the absolute position of one connected piece of the model.
+ * A model without a COORDS section is read in a relative frame starting at 0,0,0 (what CAESAR II does).
+ */
+export function readCoords(cii) {
+  const rows = cii.sections.get('COORDS');
+  if (!rows) return [];
+  require(rows.length >= 1, 'MAP_COORDS_INVALID', 'COORDS', 'no count row');
+  const count = field(rows[0], 0, 'COORDS count').value;
+  require(Number.isSafeInteger(count) && count >= 0 && rows.length === count + 1, 'MAP_COORDS_INVALID', 'COORDS',
+    'count row says ' + count + ', section has ' + (rows.length - 1) + ' start points');
+  return rows.slice(1).map((line, i) => {
+    const where = 'COORDS row ' + (i + 2);
+    const f = [0, 1, 2, 3].map(k => field(line, k, where));
+    require(f.every(x => x.value !== null && Number.isFinite(x.value)), 'MAP_COORDS_INVALID', where, 'not a number');
+    require(Number.isSafeInteger(f[0].value) && f[0].value > 0, 'MAP_COORDS_INVALID', where, 'node ' + f[0].token);
+    return { node: String(f[0].value), xyz: [f[1].value, f[2].value, f[3].value], witness: where };
+  });
+}
+
+/** #$ UNITS: 4 factor rows (22 factors) then 24 label rows; same indexes ciifr-map uses for F05. */
+export function readUnits(cii) {
+  const rows = cii.sections.get('UNITS');
+  require(rows && rows.length >= 28, 'MAP_UNITS_NOT_MM', 'UNITS', 'section missing or short');
+  const label = i => rows[i].text.trim();
+  const factor = n => field(rows[Math.floor((n - 1) / 6)], (n - 1) % 6, 'UNITS factor ' + n).token;
+  try {
+    return assertMillimetres([label(4), label(6), label(26), label(27)], [1, 21, 22].map(factor));
+  } catch (e) {
+    refuse('MAP_UNITS_NOT_MM', 'UNITS', 'lengths must be native mm (' + e.message + ')');
+  }
+}
+
+/** Number of used restraint slots in an element's RESTRANT record (node or type not zero). */
+export function restraintCount(cii, el) {
+  const p = el.pointers.RESTRANT;
+  if (!p) return 0;
+  const rows = cii.sections.get('RESTRANT');
+  let n = 0;
+  for (let s = 0; s < RESTRAINT_SLOTS; s++) {
+    const line = rows[(p - 1) * RESTRAINT_SLOTS * ROWS_PER_SLOT + s * ROWS_PER_SLOT];
+    const node = field(line, 0, 'RESTRANT ' + p + ' slot ' + (s + 1)).value, type = field(line, 1, 'RESTRANT ' + p).value;
+    if (node || type) n++;
+  }
+  return n;
+}
+
+/** The named values compared per element pair (compare.mjs fieldDiffs). */
+export function elementValues(cii, el) {
+  const nn = el.pointers.NODENAME ? cii.nodeNames[el.pointers.NODENAME - 1] : null;
+  const rigid = rigidOf(cii, el.index);
+  return {
+    diameter: el.fields.DIAMETER.value, wall: el.fields.WALL.value, insulation: el.fields.INSUL.value,
+    T1: el.fields.T1.value, P1: el.fields.P1.value,
+    rigidWeight: rigid ? rigid.weight.value : null,
+    restraintCount: restraintCount(cii, el),
+    fromName: nn ? nn.from.token : '', toName: nn ? nn.to.token : '',
+  };
+}
+
+/** CII -> the profile object buildXmlGraph expects (same keys as ciifr-map xml-profiles.js). */
+export function ciiProfile(cii, { elements = cii.elements } = {}) {
+  return {
+    profile: 'CII v14 (kit/cii14.mjs)',
+    elements: elements.map((el, i) => {
+      const witness = 'ELEMENTS/' + (el.index + 1);
+      return {
+        index: i, from: String(el.from), to: String(el.to),
+        delta: [el.fields.DX.value, el.fields.DY.value, el.fields.DZ.value],
+        od: el.fields.DIAMETER.value, wall: el.fields.WALL.value, witness,
+        // Same role as xmlWitness in the XML graph: where the values sit, with byte spans.
+        xmlWitness: { section: 'ELEMENTS', recordId: witness, recordIndex: el.index + 1,
+          fields: ['FROM', 'TO', 'DX', 'DY', 'DZ', 'DIAMETER', 'WALL'].map(name => ({ name,
+            value: name === 'FROM' ? String(el.from) : name === 'TO' ? String(el.to) : el.fields[name].token,
+            start: name === 'FROM' || name === 'TO' ? null : el.fields[name].start,
+            end: name === 'FROM' || name === 'TO' ? null : el.fields[name].end })) },
+        ciiElementIndex: el.index,
+      };
+    }),
+    units: readUnits(cii), seeds: readCoords(cii), claimedCii: { status: 'IS_CII_V14' },
+  };
+}
+
+/**
+ * Build the graph from an already-read CII (readCii14 result). `elements` lets a caller (tests)
+ * drop elements in memory. Returns the buildXmlGraph shape plus `cii` and `elementValues`.
+ */
+export function graphFromCii(cii, { member = 'CII', sha256, byteLength, elements = cii.elements } = {}) {
+  require(elements.length > 0, 'MAP_EMPTY_INPUT', 'ELEMENTS', 'no elements');
+  const profile = ciiProfile(cii, { elements });
+  let graph;
+  try {
+    graph = buildXmlGraph(profile, { member, sha256, byteLength });
+  } catch (e) {
+    refuse('MAP_GRAPH_INVALID', member, e.message);
+  }
+  graph.byteAuthority = 'CII_BYTES_MEASURED';
+  graph.authority = 'CII_GEOMETRY_PREVIEW_ONLY';
+  // Node names: NODENAME FROM name belongs to the element's FROM node, TO name to its TO node.
+  for (const el of elements) {
+    const nn = el.pointers.NODENAME ? cii.nodeNames[el.pointers.NODENAME - 1] : null;
+    if (!nn) continue;
+    const a = graph.nodeIndex.get(String(el.from)), b = graph.nodeIndex.get(String(el.to));
+    if (a && nn.from.token && !a.nodeName) a.nodeName = nn.from.token;
+    if (b && nn.to.token && !b.nodeName) b.nodeName = nn.to.token;
+  }
+  graph.cii = cii;
+  graph.ciiElements = elements;
+  return graph;
+}
+
+/** readCiiGraph(bytes): CII v14 bytes -> geometry graph (buildXmlGraph shape). */
+export async function readCiiGraph(bytes, { member = 'CII' } = {}) {
+  require(bytes instanceof Uint8Array && bytes.length > 0, 'MAP_EMPTY_INPUT', member);
+  const cii = readCii14(bytes);
+  const sha256 = await sha256Hex(bytes);
+  return graphFromCii(cii, { member, sha256, byteLength: bytes.length });
+}

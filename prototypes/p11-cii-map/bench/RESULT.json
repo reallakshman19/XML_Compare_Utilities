@@ -1,0 +1,75 @@
+{
+ "card": "p11-cii-map",
+ "at": "2026-11-12T11:35:35.866Z",
+ "node": "v22.23.2",
+ "rows": [
+  {
+   "bench": "B1",
+   "input": "X-S1 vs X-S1M",
+   "sha256": {
+    "X-S1": "9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b",
+    "X-S1M": "26efdb0ae2bc6ecfc99e1c61682721b5da51ec9f11d22106e7948208974098be"
+   },
+   "elementPairs": 56,
+   "nodePairs": 57,
+   "unmatchedA": 0,
+   "unmatchedB": 0,
+   "unmatchedNodesA": 0,
+   "unmatchedNodesB": 0,
+   "fieldDiffs": 4,
+   "ms": 21.6,
+   "runs": [
+    19.9,
+    21.6,
+    79.4
+   ],
+   "limitMs": 300,
+   "pass": true
+  },
+  {
+   "bench": "B2",
+   "input": "X-S2 vs X-S2",
+   "sha256": {
+    "X-S2": "7ec48b76b65eedfd5ecc9c8e8feca1a45dd8c83721a68b53aa0db3363e6d27fd"
+   },
+   "elementPairs": 46,
+   "nodePairs": 47,
+   "unmatchedA": 0,
+   "unmatchedB": 0,
+   "unmatchedNodesA": 0,
+   "unmatchedNodesB": 0,
+   "fieldDiffs": 0,
+   "ms": 19.1,
+   "runs": [
+    16.5,
+    19.1,
+    29.3
+   ],
+   "limitMs": 300,
+   "pass": true
+  },
+  {
+   "bench": "B3",
+   "input": "X-T vs X-TEXP",
+   "sha256": {
+    "X-T": "abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060",
+    "X-TEXP": "bb7c43ab883de3deeae6f73ec37538d977d395dacb9631e3501878d5459162c9"
+   },
+   "elementPairs": 1614,
+   "nodePairs": 1619,
+   "unmatchedA": 0,
+   "unmatchedB": 0,
+   "unmatchedNodesA": 0,
+   "unmatchedNodesB": 0,
+   "fieldDiffs": 72,
+   "ms": 985.4,
+   "runs": [
+    950.6,
+    985.4,
+    1102.6
+   ],
+   "limitMs": 30000,
+   "pass": true
+  }
+ ]
+}
