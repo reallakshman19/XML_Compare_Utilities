@@ -187,3 +187,37 @@ node ../_kit/card-check.mjs . --final
 ```
 
 Both modes: 56 elements, 57 nodes, zero unmatched. Map: 57 candidate pairs, validator OK. Different S2 model refuses same-run and writes no Map.
+
+
+## P1.2/P1.3 review fixes (Oracle, 13 Nov 2026)
+
+Review result: P1.3 PASS 92, P1.2 PASS 90; no HIGH. This follow-up is on P1.2 only, atop 2d2060ab. P1.3's delivered branch remains unchanged.
+
+- Closure records now include the exact fundamental cycle's node IDs and original CII element indices, derived from the existing BFS tree plus closing edge. The original closure fields remain.
+- Both Map exporters use the same evidence-note format. Each affected element/node pair receives the complete record for each applicable source/target closure. XML exports retain target CII closures rather than refusing valid looped graphs. If a particular closure has no matched pair, the first pair retains its map-wide note; no pairs or missing membership still refuse rather than lose evidence.
+- Same-run tolerance is capped at 1 mm (inclusive). Geometry tolerance is unchanged. The result summary records mode and actual tolerance.
+- Existing tests, kit and shared formats remain unchanged. Three added tests cover an invented looped CII with non-loop lead-in/spur for both exports (the XML-map test uses the equivalent exact-loop graph as its input), and the tolerance cap, summary and CLI refusal.
+
+### TESTS
+
+Fresh local run after applying the two original patches and these review changes, Node 22.16.0, inside the card folder:
+
+```text
+1..50
+# tests 50
+# suites 0
+# pass 50
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1683.856376
+```
+
+Final card-check: PASS C1–C9. **C3 checks only P1.1 IDs T1–T8**; it does not verify the later card IDs. The kit was not edited. The full node --test run includes these separately named IDs:
+
+- P1.3 T1, P1.3 T2, P1.3 T3, P1.3 T4, P1.3 T5 (tests/p13.test.mjs).
+- P1.2 T1, P1.2 T2, P1.2 T3, P1.2 T4, P1.2 T5, P1.2 T6, P1.2 T7, P1.2 T8 (tests/p12.test.mjs).
+- Three review tests in tests/loop-notes-review.test.mjs, plus the existing supplemental tests.
+
+FAILING: none. No browser, network from sandbox, main change, PR, merge or force-push.

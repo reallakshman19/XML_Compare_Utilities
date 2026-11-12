@@ -1,5 +1,6 @@
 import { require } from '../kit/core.mjs';
 import { validateMap } from './map-validation.mjs';
+import { addLoopNotes } from './loop-notes.mjs';
 
 export function xmlMatchToMapFile(result, {xmlFile, ciiFile, createdAt = new Date().toISOString()} = {}) {
   require(Array.isArray(result?.nodePairs) && result.ok !== false, 'MAP_EXPORT_INVALID', 'match', 'complete XML match needed');
@@ -13,7 +14,6 @@ export function xmlMatchToMapFile(result, {xmlFile, ciiFile, createdAt = new Dat
       source: {kind: 'xml', branchOrdinal: 0, branchName: '', nodeOrdinal: p.nodeOrdinal, nodeNumber: p.xml, componentRefNo: ''},
       target: {kind: 'cii-node', node: p.cii}, status: 'candidate', evidence: {rule: p.rule, detail: `${p.distanceMm} mm`}};
   });
-  // Loop corrections must not be silently lost in this distance-only format.
-  require(!result.loopClosures?.length, 'MAP_EXPORT_INVALID', 'loop closures', 'XML map v1 distance-only evidence cannot carry loop closure notes; review matching result instead');
+  addLoopNotes(pairs, (result.loopClosures || []).map(closure => ({side: 'target', closure})));
   return validateMap({format: 'topofix.map', version: 1, createdAt, source: file('xml', xmlFile), target: file('cii', ciiFile), method: 'geometry-pair', pairs});
 }

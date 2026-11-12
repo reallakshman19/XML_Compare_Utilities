@@ -22,7 +22,7 @@ function indexGraph(graph, side) {
 export function matchXmlCii(xmlGraph, ciiGraph, { mode = 'same-run', toleranceMm = mode === 'same-run' ? 0.01 : 1 } = {}) {
   require(mode === 'same-run' || mode === 'geometry', 'MATCH_MODE_INVALID', 'mode', String(mode));
   const tol = toleranceMm;
-  require(typeof tol === 'number' && Number.isFinite(tol) && tol > 0, 'MATCH_TOLERANCE_INVALID', 'toleranceMm', String(tol));
+  require(typeof tol === 'number' && Number.isFinite(tol) && tol > 0 && (mode !== 'same-run' || tol <= 1), 'MATCH_TOLERANCE_INVALID', 'toleranceMm', String(tol));
   const xn = indexGraph(xmlGraph, 'XML'), cn = indexGraph(ciiGraph, 'CII');
   const xe = xmlGraph.edges, ce = ciiGraph.edges;
   const elementPairs = [], nodePairs = [], unmatchedElementsXml = [], unmatchedNodesXml = [];
@@ -72,7 +72,7 @@ export function matchXmlCii(xmlGraph, ciiGraph, { mode = 'same-run', toleranceMm
       addEdge(k, j, a.rule === 'same-position' && b.rule === 'same-position' ? 'same-position' : 'nearest-within-tolerance', ce[j].from !== a.cii);
     });
   }
-  return {mode, toleranceMm: tol, inputs: {xml: {sha256: xmlGraph.sha256}, cii: {sha256: ciiGraph.sha256}}, elementPairs, nodePairs,
+  return {mode, toleranceMm: tol, summary: {mode, toleranceMm: tol}, inputs: {xml: {sha256: xmlGraph.sha256}, cii: {sha256: ciiGraph.sha256}}, elementPairs, nodePairs,
     unmatchedElementsXml, unmatchedElementsCii: ce.map((_, j) => j).filter(j => !usedEdges.has(j)),
     unmatchedNodesXml, unmatchedNodesCii: [...cn.keys()].filter(id => !usedNodes.has(id)),
     loopClosures: ciiGraph.loopClosures || []};

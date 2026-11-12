@@ -53,7 +53,7 @@ Page: serve this folder over http (for example `python -m http.server 8011` insi
 | `MAP_EXPORT_INVALID` | The comparison, input file identity, selection, approval details or Map file is invalid. No Map file is produced. |
 | `MAP_NOT_ONE_TO_ONE` | Two approved pairs would share a source or target. No approval is changed. |
 | `MATCH_SAME_RUN_BROKEN` | Element count, end nodes, delta or positions disagree in same-run mode. |
-| `MATCH_TOLERANCE_INVALID` | Tolerance must be a finite positive number. |
+| `MATCH_TOLERANCE_INVALID` | Tolerance must be a finite positive number, at most 1 mm in same-run mode. |
 | `MATCH_NODE_AMBIGUOUS` | Several CII nodes are close to one XML node, or a CII node would be reused. |
 | `MATCH_ELEMENT_AMBIGUOUS` | More than one element pairing uses the matched endpoints. |
 | `MATCH_GRAPH_INVALID` | Graph has invalid or repeated nodes, or invalid element data. |
@@ -66,11 +66,11 @@ Use the same page as P1.1 (`python -m http.server 8011` from this folder, then o
 
 `toMapFile(compareResult, {sourceFile, targetFile, method, createdAt})` takes file descriptors `{fileName, sha256}` taken from the compared graphs. It checks both hashes against the comparison, preserves the pair rule and after-fit residual, and validates the result. `approvePairs(map, ids | 'all-exact', {by, at})` and `rejectPairs(map, ids)` return a new Map file or refuse; they never mutate the input. The shared validator is vendored unchanged. The page maps Node-only CLI imports to throwing browser stubs; the pure validator runs without filesystem calls.
 
-Map v1 does not permit an extra review-notes property. All loop closure records, including unmatched closures, are preserved as a clearly labelled map-wide review note in the first pair's `evidence.detail`, after its residual. The comparison page also shows the closure table before approval. If there are closure notes but no pairs, export refuses rather than discarding them. No CII bytes are changed.
+Map v1 does not permit an extra review-notes property. Each loop closure record is preserved in `evidence.detail` on every affected element or node pair. If a closure has no affected pair, its map-wide note is carried on the first pair. The comparison page also shows the closure table before approval. If there are closure notes but no pairs, export refuses rather than discarding them. No CII bytes are changed.
 
 ## P1.2: Match InputXML to CII (read-only)
 
-Use F05 RichInputXML and CII v14 in the same coordinate frame. Same-run checks the element order, node numbers, deltas and end positions (default 0.01 mm). Geometry uses positions only (default 1 mm), refuses ambiguous matches, and can pair reversed elements. No rigid fit, rotation, translation, PSI116 or editing. The result includes paired and unmatched nodes and elements on both sides, plus CII loop closure notes. The optional Map is node-only and candidate-only; its XML ordinals are graph ordinals, not PSI116 editing addresses. The map cannot carry loop closure notes in its distance-only evidence, so export refuses when closures are present. Output names must not already exist.
+Use F05 RichInputXML and CII v14 in the same coordinate frame. Same-run checks the element order, node numbers, deltas and end positions (default 0.01 mm, maximum 1 mm). The result summary records the tolerance used. Geometry uses positions only (default 1 mm), refuses ambiguous matches, and can pair reversed elements. No rigid fit, rotation, translation, PSI116 or editing. The result includes paired and unmatched nodes and elements on both sides, plus CII loop closure notes. The optional Map is node-only and candidate-only; its XML ordinals are graph ordinals, not PSI116 editing addresses. CII loop closure notes are appended to the evidence of every affected target node pair, using the same format as P1.3; unmatched closures retain a map-wide note on the first pair. Output names must not already exist.
 
 From the card folder:
 
