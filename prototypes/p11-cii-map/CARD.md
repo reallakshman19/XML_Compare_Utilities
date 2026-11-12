@@ -84,3 +84,23 @@
 **Owner demo.** X-T vs X-TEXP, then "Approve all exact", then Export. Then run the validator; it prints OK.
 
 **Out of scope:** XML↔CII (P1.2); applying anything.
+
+## P1.2 — InputXML to CII matching (Oracle follow-up)
+
+Base: XCU main `8409590f36b641bfc755809e27f2e46d315300f2` plus P1.3 patch `45b74e1212c7e47b92021379192e4bcbe8482e1272feeabae87f353cc793066c`. InputXML F05 only; PSI116 deferred. No fitting, editing, browser work, push or merge.
+
+- `engine/xml-match.mjs`: same-run (default 0.01 mm) checks ordered elements, node identities, delta axes and both end positions; geometry (default 1 mm) matches unique positions, independent of numbers, then matches edges in either orientation. Refuse ambiguous matches or invalid tolerance.
+- `engine/xml-to-map.mjs`: node pairs only, candidate Map v1, `source.kind=xml`, `target.kind=cii`, `method=geometry-pair`. Use measured input hashes, XML node ordinal, and distance in evidence. Element pairs remain in matching result.
+- CLI: `node cli.mjs match-xml <file.xml> <file.cii> [--mode same-run|geometry] [--tol <mm>] [--map out.json]`.
+
+Tests (titles start `P1.2 T1` through `P1.2 T8`):
+- P1.2 T1: X-F05/X-S1 same-run 56 elements, 57 nodes.
+- P1.2 T2: X-F05/X-S2 refuses.
+- P1.2 T3: in-memory XML element 10 delta +5 mm refuses naming element 10.
+- P1.2 T4: geometry matches the same refs as T1.
+- P1.2 T5: invented renumbered CII (+1000) matches by geometry, not same-run.
+- P1.2 T6: Map file validates using the shared validator CLI.
+- P1.2 T7: invalid tolerances refuse.
+- P1.2 T8: two CII nodes within tolerance refuse as ambiguous.
+
+Mutations: M1 same-run tolerance 1e6 (T3 red), M2 omit branchOrdinal (T6 red), M3 pair by node numbers (T5 red). B1 both modes, median of three engine calls including graph reads, under 2000 ms each. Pinned input hashes in `kit/BENCHMARKS.json` and tests. Fresh `node --test` and final card-check required.
