@@ -32,3 +32,9 @@ Owner demo:
 3. CLI demonstration already performed with the README commands and separate fresh output paths: validator OK, exactly 20 RIGID field differences, 20/20 read-backs OK. Demo revised CII and approved Change set delivered separately. Open revised CII in CAESAR II to complete the Owner demo.
 
 Final card-check: PASS C1–C9 (9 checks).
+
+## Review round 1 — 88/100, no HIGH
+
+- Zero approval now requires each change ID in `confirmZeros`, even if the imported row already has `zeroConfirmed` or is approved. CSV zeros remain refused; the shared R9 flag remains required for imported zeros. CLI approval accepts repeated `--confirm-zero <changeId>` options. The page resets imported approval metadata, shows separate zero ticks, and gates Apply on a successful in-session approval. Re-approval of an already approved engine row preserves its original by/at.
+- Duplicate CSV elements refuse with `WEIGHTS_ROW_DUPLICATE` and both physical line numbers; Excel trailing empty fields and an omitted optional note are accepted. Nonempty extra fields still refuse. Invalid page JSON refuses with `WEIGHTS_JSON_INVALID`.
+- Fresh Node 22 test run: 27/27 pass (original 20 including updated explicit-zero call, plus 7 review tests). Final card-check: 9/9 PASS. No browser or CAESAR II execution. Kernel and other vendored files unchanged. See the refreshed `bench/RESULT.json` for current benchmark timings.

@@ -13,7 +13,7 @@ node cli.mjs approve proposed.json approved.json --limit 20 --by "Engineer"
 node cli.mjs apply ../../Benchmark/T.CII approved.json revised.cii
 ```
 
-The CSV header is `fromNode,toNode,newWeight[,note]` (the optional column is literally `note`). FROM and TO must match exactly one rigid in that order. Weights are kg. The proposal has no approvals. The approval command omits changes within or exactly at the limit; a nonzero change from zero is beyond any finite relative limit. CSV zero is refused because it cannot record explicit confirmation; a valid imported Change set may specify `approval.zeroConfirmed: true` instead. No output path is overwritten. A supplied approved Change set can be applied directly, but only to the matching CII hash.
+The CSV header is `fromNode,toNode,newWeight[,note]` (the optional column is literally `note`). FROM and TO must match exactly one rigid in that order. Weights are kg. Quoted fields and escaped quotes, LF/CRLF, blank rows, and empty trailing cells (Excel trailing commas) are supported. A missing optional note is empty; nonempty extra fields and duplicate element rows are refused. Duplicate errors identify both physical CSV row numbers. The proposal has no approvals. The approval command omits changes within or exactly at the limit; a nonzero change from zero is beyond any finite relative limit. CSV zero is refused because it cannot record explicit confirmation; a valid imported Change set may specify `approval.zeroConfirmed: true` instead. No output path is overwritten. For CLI approval of a zero row, add `--confirm-zero <changeId>` for each zero to be approved. The engine option is `confirmZeros: [changeIds]`; a prior `zeroConfirmed` flag is not sufficient for approval. Re-approval preserves the original approver and timestamp. A supplied approved Change set can be applied directly by CLI, but only to the matching CII hash. The page resets imported approvals and requires fresh approval, including individual zero ticks, before Apply is enabled.
 
 For the page, serve this folder locally (e.g. `python -m http.server 8000`), then open `http://localhost:8000/index.html` in a modern browser. File URLs do not reliably support ES modules; localhost also enables Web Crypto and clipboard. The page loads no external libraries and sends no files to a server. Review all seven steps. Download the revised CII and Change set; the JSON can also be copied. The unchanged P0.2 validator imports Node CLI helpers, so the browser uses a local import map with throwing stubs for those unused functions. It executes the same validation code, not a second validator.
 
@@ -24,6 +24,7 @@ Tests: `node --test tests/engine.test.mjs`, `node --test tests/cli.test.mjs`, `n
 | Code | Meaning |
 |---|---|
 | `WEIGHTS_ROW_NOT_FOUND` | The FROM/TO pair does not identify a rigid. |
+| `WEIGHTS_ROW_DUPLICATE` | Two CSV rows identify the same rigid element. |
 | `WEIGHTS_ROW_AMBIGUOUS` | More than one rigid matches the pair. |
 | `WEIGHTS_CSV_INVALID` | CSV header, quoting, or fields are wrong. |
 | `WEIGHTS_APPROVAL_INVALID` | Missing engineer or invalid percentage. |

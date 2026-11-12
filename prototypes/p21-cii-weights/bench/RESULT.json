@@ -1,6 +1,6 @@
 {
  "card": "p21-cii-weights",
- "at": "2026-11-12T19:44:36.138Z",
+ "at": "2026-11-12T22:25:18.348Z",
  "node": "v22.16.0",
  "rows": [
   {
@@ -9,11 +9,11 @@
    "sha256": "abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060",
    "changes": 124,
    "readBackOk": 124,
-   "ms": 420.3,
+   "ms": 462.2,
    "runs": [
-    373,
-    420.3,
-    536.9
+    366.2,
+    462.2,
+    622.2
    ],
    "limitMs": 1000,
    "pass": true
@@ -24,11 +24,11 @@
    "sha256": "7ec48b76b65eedfd5ecc9c8e8feca1a45dd8c83721a68b53aa0db3363e6d27fd",
    "changes": 1,
    "readBackOk": 1,
-   "ms": 10.7,
+   "ms": 9.9,
    "runs": [
-    10,
-    10.7,
-    10.8
+    9.4,
+    9.9,
+    10.3
    ],
    "pass": true
   }
