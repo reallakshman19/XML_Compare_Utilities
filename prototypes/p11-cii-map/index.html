@@ -36,7 +36,8 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 const table = (head, rows) => '<table><tr>' + head.map(h => '<th>' + esc(h) + '</th>').join('') + '</tr>' +
   rows.map(r => '<tr>' + r.map(c => '<td>' + esc(c) + '</td>').join('') + '</tr>').join('') + '</table>';
 const bytesOf = async input => input.files[0] ? new Uint8Array(await input.files[0].arrayBuffer()) : null;
-const el = r => r.elementIndex + ' (' + r.fromNode + '→' + r.toNode + ')';
+const el = r => r.component !== undefined ? 'piece ' + r.component : r.elementIndex + ' (' + r.fromNode + '→' + r.toNode + ')';
+const val = v => v && typeof v === 'object' ? 'moved up to ' + v.maxMoveMm.toFixed(3) + ' mm, shift ' + v.translation.map(x => x.toFixed(3)).join(', ') : v;
 
 $('go').onclick = async () => {
   const out = $('out');
@@ -57,11 +58,13 @@ $('go').onclick = async () => {
     '<p>Anchors: ' + s.anchors + ' (' + s.anchorMode + '), tolerance ' + s.toleranceMm + ' mm. Pairs by rule: ' +
       Object.entries(s.elementPairsByRule).map(([k, v]) => k + ' ' + v).join(', ') + '.</p>' +
     '<h2>Differences (' + r.fieldDiffs.length + ')</h2>' +
-    table(['element A', 'element B', 'value', 'A', 'B'], r.fieldDiffs.map(d => [el(d.a), el(d.b), d.field, d.valueA, d.valueB])) +
+    table(['element A', 'element B', 'value', 'A', 'B'], r.fieldDiffs.map(d => [el(d.a), el(d.b), d.field, val(d.valueA), val(d.valueB)])) +
+    (r.unfittedComponentsA.length ? '<h2>Pieces of A not fitted</h2>' + table(['piece', 'first node', 'nodes', 'reason'],
+      r.unfittedComponentsA.map(u => [u.component, u.firstNode, u.nodeCount, u.reason])) : '') +
     '<h2>Unmatched elements</h2>' +
     table(['side', 'element', 'reason'], [...r.unmatchedA.map(u => ['A', el(u), u.reason]), ...r.unmatchedB.map(u => ['B', el(u), u.reason])]) +
     '<details><summary>Element pairs (' + ep.length + ')</summary>' +
-    table(['element A', 'element B', 'rule', 'reversed', 'distance mm'], ep.map(p => [el(p.a), el(p.b), p.rule, p.reversed ? 'yes' : '', p.distanceMm.toFixed(4)])) +
+    table(['element A', 'element B', 'rule', 'reversed', 'raw distance mm', 'after fit mm'], ep.map(p => [el(p.a), el(p.b), p.rule, p.reversed ? 'yes' : '', p.rawDistanceMm.toFixed(4), p.distanceMm.toFixed(4)])) +
     '</details>';
 };
 </script>

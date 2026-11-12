@@ -6,7 +6,7 @@ import { webcrypto } from 'node:crypto';
 import { attempt } from '../kit/core.mjs';
 import { readBenchmark } from '../kit/node.mjs';
 import { readCii14 } from '../kit/cii14.mjs';
-import { readCiiGraph, graphFromCii } from '../engine/cii-graph.mjs';
+import { readCiiGraph, graphFromCii, ciiProfile } from '../engine/cii-graph.mjs';
 import { compareCii } from '../engine/compare.mjs';
 import { readXmlGraph } from '../vendor/prototypes/ciifr-map/xml-intake.js';
 import { buildXmlGraph } from '../vendor/prototypes/ciifr-map/xml-graph.js';
@@ -130,7 +130,7 @@ test('T8 readCiiGraph(X-S1) and ciifr-map readXmlGraph(X-F05) have the same shap
   assert.equal(sha256(xmlBytes), '1154c980d08344b1f803cda3bd9884b169753148b150641a745c9bfcb15de995');
   const xml = await readXmlGraph(xmlBytes, { member: 'X-F05', cryptoRef: webcrypto, parser: xmlDomParser });
   const cii = await g('X-S1');
-  assert.deepEqual(Object.keys(cii).filter(k => !['cii', 'ciiElements'].includes(k)), Object.keys(xml), 'graph keys');
+  assert.deepEqual(Object.keys(cii).filter(k => !['cii', 'ciiElements', 'loopClosures'].includes(k)), Object.keys(xml), 'graph keys');
   assert.deepEqual(Object.keys(cii.nodes[0]), Object.keys(xml.nodes[0]), 'node keys');
   assert.deepEqual(Object.keys(cii.edges[0]).filter(k => k !== 'ciiElementIndex'), Object.keys(xml.edges[0]), 'edge keys');
   assert.equal(cii.nodes.length, xml.nodes.length);
@@ -164,11 +164,11 @@ test('refusal MAP_UNITS_NOT_MM when lengths are not native mm', async () => {
   assert.equal(r.refusals[0].code, 'MAP_UNITS_NOT_MM');
 });
 
-test('refusal MAP_GRAPH_INVALID when a loop of elements does not close', async () => {
-  const model = { elements: [{ from: 10, to: 20, d: [1000, 0, 0] }, { from: 20, to: 30, d: [0, 1000, 0] }, { from: 30, to: 10, d: [-1000, 0, 0] }] };
+test('refusal MAP_GRAPH_INVALID for an element from a node to itself', async () => {
+  const model = { elements: [{ from: 10, to: 20, d: [1000, 0, 0] }, { from: 20, to: 20, d: [0, 0, 0] }] };
   const r = await attempt(() => readCiiGraph(makeCii(model)));
   assert.equal(r.refusals[0].code, 'MAP_GRAPH_INVALID');
-  assert.match(r.refusals[0].detail, /CYCLE_CONFLICT/);
+  assert.match(r.refusals[0].detail, /SELF_LOOP/);
 });
 
 test('refusal MAP_ANCHOR_INVALID for a badly written anchor or a node that is not in the file', async () => {
@@ -193,9 +193,21 @@ test('manual anchors give the same result as automatic anchors on X-S1', async (
   const r = await attempt(async () => compareCii(await g('X-S1'), await g('X-S1'), { anchors: '3790:3790,3830:3830,3840:3840,3870:3870' }));
   assert.equal(r.ok, true);
   assert.equal(r.summary.anchorMode, 'manual');
-  assert.equal(elementPairs(r).length, 56);
+  const auto = compareCii(await g('X-S1'), await g('X-S1'));
+  const key = p => [p.kind, JSON.stringify(p.a), JSON.stringify(p.b), p.rule, p.reversed ?? ''].join('|');
+  assert.deepEqual(r.pairs.map(key), auto.pairs.map(key));
+  assert.equal(r.pairs.length, 56 + 57);
+  assert.deepEqual(r.fieldDiffs, auto.fieldDiffs);
 });
 
-test('the vendored buildXmlGraph is the one the CII graph is built with', () => {
-  assert.equal(typeof buildXmlGraph, 'function');
+test('the CII graph is exactly the vendored buildXmlGraph output for the CII profile', async () => {
+  const bytes = await bench('X-S1'), cii = readCii14(bytes), graph = await g('X-S1');
+  const direct = buildXmlGraph(ciiProfile(cii), { member: 'X-S1', sha256: graph.sha256, byteLength: bytes.length });
+  const strip = n => ({ ...n, nodeName: '' }); // readCiiGraph fills node names from NODENAME afterwards
+  assert.deepEqual(graph.nodes.map(strip), direct.nodes.map(strip));
+  assert.deepEqual(graph.edges, direct.edges);
+  assert.deepEqual(graph.components, direct.components);
+  assert.deepEqual(graph.coordinateFrames, direct.coordinateFrames);
+  assert.equal(graph.nodes.filter(n => n.nodeName).length, 38);
 });
+

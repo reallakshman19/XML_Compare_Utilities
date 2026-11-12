@@ -105,13 +105,59 @@ export function ciiProfile(cii, { elements = cii.elements } = {}) {
   };
 }
 
+/** Loop closure: a loop may miss by 1e-6 x (sum of |delta| around it), but never less than 1e-4 mm. */
+export const LOOP_RELATIVE = 1e-6, LOOP_MIN_MM = 1e-4;
+const absSum = d => Math.abs(d[0]) + Math.abs(d[1]) + Math.abs(d[2]);
+
+/**
+ * CII v14 writes 7 significant digits, so a loop of long elements may not close to the 1e-4 mm that
+ * ciifr-map's buildXmlGraph demands. Walk each piece first (breadth first, elements in file order).
+ * When an element closes a loop, the miss is compared with LOOP_RELATIVE x (path length from the
+ * walk's start to both ends + the element's own length), at least LOOP_MIN_MM:
+ *  - within it, the element's delta is replaced by the difference of the first-reached positions, so
+ *    the loop closes exactly (the edge's xmlWitness keeps the file's own tokens);
+ *  - beyond it, MAP_LOOP_NOT_CLOSED names the node and the miss.
+ * Returns {elements, loops:[{element, node, missMm, toleranceMm}]}; only changed elements are new objects.
+ */
+export function closeLoops(elements) {
+  const adj = new Map();
+  const push = (n, x) => { if (!adj.has(n)) adj.set(n, []); adj.get(n).push(x); };
+  elements.forEach((e, i) => { if (e.from === e.to) return; push(e.from, { i, to: e.to, sign: 1 }); push(e.to, { i, to: e.from, sign: -1 }); });
+  const pos = new Map(), len = new Map(), seen = new Set(), fixed = new Map(), loops = [];
+  for (const root of adj.keys()) {
+    if (pos.has(root)) continue;
+    pos.set(root, [0, 0, 0]); len.set(root, 0);
+    for (let q = [root], k = 0; k < q.length; k++) {
+      const n = q[k];
+      for (const { i, to, sign } of adj.get(n)) {
+        if (seen.has(i)) continue;
+        seen.add(i);
+        const d = elements[i].delta, next = pos.get(n).map((v, j) => v + sign * d[j]);
+        if (!pos.has(to)) { pos.set(to, next); len.set(to, len.get(n) + absSum(d)); q.push(to); continue; }
+        const miss = Math.hypot(...next.map((v, j) => v - pos.get(to)[j]));
+        const tol = Math.max(LOOP_MIN_MM, LOOP_RELATIVE * (len.get(n) + len.get(to) + absSum(d)));
+        require(miss <= tol, 'MAP_LOOP_NOT_CLOSED', 'node ' + to + ' (' + elements[i].witness + ')',
+          'the loop through this element misses by ' + miss.toFixed(4) + ' mm; allowed ' + tol.toFixed(4) + ' mm');
+        if (miss > 0) {
+          const [f, t] = sign > 0 ? [n, to] : [to, n];
+          fixed.set(i, pos.get(t).map((v, j) => v - pos.get(f)[j]));
+          loops.push({ element: elements[i].witness, node: to, missMm: miss, toleranceMm: tol });
+        }
+      }
+    }
+  }
+  return { elements: elements.map((e, i) => fixed.has(i) ? { ...e, delta: fixed.get(i) } : e), loops };
+}
+
 /**
  * Build the graph from an already-read CII (readCii14 result). `elements` lets a caller (tests)
  * drop elements in memory. Returns the buildXmlGraph shape plus `cii` and `elementValues`.
  */
 export function graphFromCii(cii, { member = 'CII', sha256, byteLength, elements = cii.elements } = {}) {
   require(elements.length > 0, 'MAP_EMPTY_INPUT', 'ELEMENTS', 'no elements');
-  const profile = ciiProfile(cii, { elements });
+  const raw = ciiProfile(cii, { elements });
+  const closed = closeLoops(raw.elements);
+  const profile = { ...raw, elements: closed.elements };
   let graph;
   try {
     graph = buildXmlGraph(profile, { member, sha256, byteLength });
@@ -128,6 +174,7 @@ export function graphFromCii(cii, { member = 'CII', sha256, byteLength, elements
     if (a && nn.from.token && !a.nodeName) a.nodeName = nn.from.token;
     if (b && nn.to.token && !b.nodeName) b.nodeName = nn.to.token;
   }
+  graph.loopClosures = closed.loops;
   graph.cii = cii;
   graph.ciiElements = elements;
   return graph;
