@@ -61,6 +61,9 @@ $('go').onclick = async () => {
     table(['element A', 'element B', 'value', 'A', 'B'], r.fieldDiffs.map(d => [el(d.a), el(d.b), d.field, val(d.valueA), val(d.valueB)])) +
     (r.unfittedComponentsA.length ? '<h2>Pieces of A not fitted</h2>' + table(['piece', 'first node', 'nodes', 'reason'],
       r.unfittedComponentsA.map(u => [u.component, u.firstNode, u.nodeCount, u.reason])) : '') +
+    '<h2>Loop closures (Owner: up to ±6 mm, all shown)</h2>' +
+    table(['side', 'element', 'node', 'miss mm', 'allowed mm'], [...(r.loopClosures?.a || []).map(c => ['A', c.element, c.node, c.missMm.toFixed(4), c.toleranceMm]),
+      ...(r.loopClosures?.b || []).map(c => ['B', c.element, c.node, c.missMm.toFixed(4), c.toleranceMm])]) +
     '<h2>Unmatched elements</h2>' +
     table(['side', 'element', 'reason'], [...r.unmatchedA.map(u => ['A', el(u), u.reason]), ...r.unmatchedB.map(u => ['B', el(u), u.reason])]) +
     '<details><summary>Element pairs (' + ep.length + ')</summary>' +

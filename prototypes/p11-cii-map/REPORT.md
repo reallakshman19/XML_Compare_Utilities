@@ -1,7 +1,7 @@
 # p11-cii-map report
-Branch / head commit: `proto/p11-cii-map-20261112`. The head is the commit that adds this report update, on top of b15f7810 (repair round 1), 46fb28ff and 27b8c3ce (cut from main 1cba98a5). It is local only and not pushed.
+Branch / head commit: `proto/p11-cii-map-20261112`. The head is the review-round-3 finish commit, on top of 2d05f1f2 (round 3: fixed ±6 mm loop limit, Owner 12 Nov), d90f3313, b15f7810 (repair round 1), 46fb28ff and 27b8c3ce (cut from main 1cba98a5).
 
-Tests: 27 pass / 0 fail   (`node --test`: `# tests 27 / # pass 27 / # fail 0`). T1-T8 are present by name, with one test per refusal code. The 7 repair-round tests are in `tests/review.test.mjs`.
+Tests: 29 pass / 0 fail   (`node --test`: `# tests 29 / # pass 29 / # fail 0`). T1-T8 are present by name, with one test per refusal code. The 9 repair-round tests are in `tests/review.test.mjs`. Loop closures (up to ±6 mm) are listed in the compare output, in `cli.mjs --summary`, and in a "Loop closures" table on the page.
 
 Mutation check (re-run after the repair; each break was made in engine/, `node --test` was run, then the break was undone with `git checkout -- engine`):
 - M1: ignore DY (`delta = [DX, 0, DZ]` in `ciiProfile`). **T1 red: yes.** T8, MAP_FIT_FAILED, the manual-anchor test and the 100 mm shift test also went red.

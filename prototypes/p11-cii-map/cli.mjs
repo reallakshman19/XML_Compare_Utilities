@@ -17,6 +17,6 @@ const result = await attempt(async () => {
   const b = await readCiiGraph(readBytes(fb), { member: 'B' });
   const r = compareCii(a, b, { anchors: args.anchors, toleranceMm: args.tol === undefined ? 1 : Number(args.tol) });
   const files = { a: { file: fa, sha256: a.sha256, bytes: a.byteLength }, b: { file: fb, sha256: b.sha256, bytes: b.byteLength } };
-  return args.summary ? { files, summary: r.summary, unmatchedA: r.unmatchedA, unmatchedB: r.unmatchedB, fieldDiffs: r.fieldDiffs } : { files, ...r };
+  return args.summary ? { files, summary: r.summary, unmatchedA: r.unmatchedA, unmatchedB: r.unmatchedB, fieldDiffs: r.fieldDiffs, loopClosures: r.loopClosures } : { files, ...r };
 });
 finish(result);

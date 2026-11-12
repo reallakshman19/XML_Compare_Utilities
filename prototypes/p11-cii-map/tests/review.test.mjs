@@ -133,3 +133,10 @@ test('X-S1 shifted 100 mm with manual anchors: 56 pairs after fit and a 100 mm M
   assert.deepEqual(r.fieldDiffs.map(d => d.field), ['MODEL_OFFSET']);
   assert.ok(Math.abs(r.fieldDiffs[0].valueB.translation[0] - 100) < 1e-3);
 });
+
+test('review round 3: a miss of 6 mm plus float noise (6.000000000000001) still closes; 6.001 mm is refused', async () => {
+  const two = (m) => [['1', '2', [0, 0, 0]], ['1', '2', [m, 0, 0]]].map(([from, to, delta], i) => ({ from, to, delta, witness: 'E' + i }));
+  assert.ok(6.000000000000001 > 6);
+  assert.equal(closeLoops(two(6.000000000000001)).loops.length, 1);
+  assert.equal((await attempt(() => closeLoops(two(6.001)))).refusals[0].code, 'MAP_LOOP_NOT_CLOSED');
+});
