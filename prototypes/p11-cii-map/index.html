@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>P1.1 CII ↔ CII map (read-only)</title>
+<title>P1.3 CII ↔ CII map export</title>
 <style>
   body { font: 14px/1.4 system-ui, sans-serif; margin: 1.5rem; color: #222; }
   fieldset { border: 1px solid #ccc; padding: .6rem 1rem; margin-bottom: 1rem; }
@@ -16,7 +16,7 @@
 </style>
 </head>
 <body>
-<h1>CII ↔ CII map <span class="muted">(P1.1, read-only)</span></h1>
+<h1>CII ↔ CII map <span class="muted">(P1.3, read-only CII)</span></h1>
 <p>Load two CAESAR II version 14 files. Elements and nodes are paired by geometry; the table lists the named values that differ.</p>
 <fieldset>
   <label>File A <input type="file" id="fa" accept=".cii,.CII"></label>
@@ -26,10 +26,32 @@
   <button id="go">Compare</button>
 </fieldset>
 <div id="out"></div>
+<section id="review" hidden>
+  <h2>Review Map pairs</h2>
+  <p>All pairs start as candidates. Review the loop closures above before approving.</p>
+  <label>Approved by <input id="by" autocomplete="name"></label>
+  <button id="exact">Approve all exact</button>
+  <button id="approve">Approve selected</button>
+  <button id="reject">Reject selected</button>
+  <button id="export">Export Map file</button>
+  <p id="map-status" role="status"></p>
+  <div id="pair-review"></div>
+  <div id="export-panel" hidden>
+    <label for="map-json">Map JSON</label><br>
+    <textarea id="map-json" readonly rows="12" cols="90"></textarea><br>
+    <button id="copy">Copy</button><button id="download">Download Map file</button>
+  </div>
+</section>
+<!-- The shared validator is unchanged; its Node-only CLI imports are never called in the browser. -->
+<script>globalThis.process ??= {argv: []};</script>
+<script type="importmap">{"imports":{"node:fs":"./engine/validator-browser-stub.mjs","node:path":"./engine/validator-browser-stub.mjs","node:url":"./engine/validator-browser-stub.mjs"}}</script>
 <script type="module">
 import { attempt } from './kit/core.mjs';
 import { readCiiGraph } from './engine/cii-graph.mjs';
 import { compareCii } from './engine/compare.mjs';
+import { toMapFile } from './engine/to-map.mjs';
+import { approvePairs, rejectPairs } from './engine/approve.mjs';
+import { validateMap } from './engine/map-validation.mjs';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -39,13 +61,60 @@ const bytesOf = async input => input.files[0] ? new Uint8Array(await input.files
 const el = r => r.component !== undefined ? 'piece ' + r.component : r.elementIndex + ' (' + r.fromNode + '→' + r.toNode + ')';
 const val = v => v && typeof v === 'object' ? 'moved up to ' + v.maxMoveMm.toFixed(3) + ' mm, shift ' + v.translation.map(x => x.toFixed(3)).join(', ') : v;
 
+let map = null, generation = 0;
+const status = text => { $('map-status').textContent = text; };
+function invalidateExport() { $('export-panel').hidden = true; $('map-json').value = ''; }
+function reset() { generation++; map = null; $('review').hidden = true; invalidateExport(); $('out').textContent = ''; }
+for (const id of ['fa', 'fb', 'tol', 'anchors']) $(id).addEventListener('input', reset);
+const displayRef = r => r.kind === 'cii-node' ? 'Node ' + r.node : el(r);
+function renderMap() {
+  const rows = map.pairs.map(p => '<tr><td><input type="checkbox" aria-label="Select ' + esc(p.pairId) + '" value="' + esc(p.pairId) + '"></td>' +
+    [p.pairId, displayRef(p.source), displayRef(p.target), p.evidence.rule, p.evidence.detail, p.status, p.approvedBy ?? ''].map(c => '<td>' + esc(c) + '</td>').join('') + '</tr>');
+  $('pair-review').innerHTML = '<table><thead><tr>' + ['Select','Pair','A','B','Rule','Evidence','Status','Approved by'].map(h=>'<th>'+h+'</th>').join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  status(map.pairs.length + ' pairs; ' + map.pairs.filter(p => p.status === 'approved').length + ' approved.');
+}
+const selected = () => [...$('pair-review').querySelectorAll('input:checked')].map(e => e.value);
+function update(action, ids) {
+  if (!map) return;
+  try {
+    map = action(map, ids, { by: $('by').value.trim(), at: new Date().toISOString() });
+    invalidateExport(); renderMap();
+  } catch (e) { status(e.message); }
+}
+$('exact').onclick = () => update(approvePairs, 'all-exact');
+$('approve').onclick = () => update(approvePairs, selected());
+$('reject').onclick = () => update(rejectPairs, selected());
+$('export').onclick = () => {
+  if (!map) return;
+  try { validateMap(map); $('map-json').value = JSON.stringify(map, null, 2) + '\n'; $('export-panel').hidden = false; }
+  catch (e) { invalidateExport(); status(e.message); }
+};
+$('copy').onclick = async () => {
+  if (!map || $('export-panel').hidden) return;
+  try { await navigator.clipboard.writeText($('map-json').value); status('Map JSON copied.'); }
+  catch { $('map-json').select(); status('Clipboard unavailable. Select and copy the JSON.'); }
+};
+$('download').onclick = () => {
+  if (!map || $('export-panel').hidden) return;
+  const url = URL.createObjectURL(new Blob([$('map-json').value], {type:'application/json'}));
+  const a = document.createElement('a'); a.href = url; a.download = 'topofix.map.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 $('go').onclick = async () => {
+  reset(); const run = generation;
   const out = $('out');
   out.textContent = 'Working…';
+  const nameA = $('fa').files[0]?.name, nameB = $('fb').files[0]?.name;
   const [a, b] = [await bytesOf($('fa')), await bytesOf($('fb'))];
+  if (run !== generation) return;
   if (!a || !b) { out.innerHTML = '<p class="bad">Choose both files.</p>'; return; }
-  const r = await attempt(async () => compareCii(await readCiiGraph(a, { member: 'A' }), await readCiiGraph(b, { member: 'B' }),
-    { anchors: $('anchors').value.trim() || undefined, toleranceMm: Number($('tol').value) }));
+  const r = await attempt(async () => {
+    const ga = await readCiiGraph(a, {member: nameA}), gb = await readCiiGraph(b, {member: nameB});
+    const comparison = compareCii(ga, gb, { anchors: $('anchors').value.trim() || undefined, toleranceMm: Number($('tol').value) });
+    const candidateMap = toMapFile(comparison, {sourceFile: {fileName: nameA, sha256: ga.sha256}, targetFile: {fileName: nameB, sha256: gb.sha256}});
+    return {...comparison, candidateMap};
+  });
+  if (run !== generation) return;
   if (!r.ok) {
     out.innerHTML = '<h2 class="bad">Refused</h2>' + table(['code', 'where', 'detail'], r.refusals.map(x => [x.code, x.where, x.detail]));
     return;
@@ -69,6 +138,7 @@ $('go').onclick = async () => {
     '<details><summary>Element pairs (' + ep.length + ')</summary>' +
     table(['element A', 'element B', 'rule', 'reversed', 'raw distance mm', 'after fit mm'], ep.map(p => [el(p.a), el(p.b), p.rule, p.reversed ? 'yes' : '', p.rawDistanceMm.toFixed(4), p.distanceMm.toFixed(4)])) +
     '</details>';
+  map = r.candidateMap; $('review').hidden = false; renderMap();
 };
 </script>
 </body>
