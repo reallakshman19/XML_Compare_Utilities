@@ -20,7 +20,7 @@
    "sha256": "95948be9c13072ffefde71c941a25e3b600c0f3699d3a996062e2af1e4bae78c",
    "bytes": 1533,
    "from": "X-T (Benchmark/T.CII, sha256 abfa3ffc...c060): element refs and old tokens of rigids 1-3",
-   "madeBy": "one-off script in REPORT.md Owner demo; new weights 1000, 975.5, 400 are invented",
+   "madeBy": "one-off node script during the build (refs and old tokens read with kit readCii14); new weights 1000, 975.5, 400 are invented",
    "purpose": "Owner demo: node cli.mjs apply on X-T with 3 weight changes"
   }
  ]
