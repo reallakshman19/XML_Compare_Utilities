@@ -46,7 +46,7 @@ Page: serve this folder over http (for example `python -m http.server 8011` insi
 | `MAP_UNITS_NOT_MM` | The `#$ UNITS` section is missing or does not say lengths are in native mm. |
 | `MAP_GRAPH_INVALID` | The elements cannot form a geometry: for example, an element from a node to itself, or two COORDS start points that disagree. The detail gives ciifr-map's reason. |
 | `MAP_ANCHORS_TOO_FEW` | No piece of model A can be fitted: every piece has fewer than 3 anchors, or its anchors all lie on one straight line. Give manual anchors (`--anchors 10:10,20:20,30:30`). |
-| `MAP_LOOP_NOT_CLOSED` | A loop of elements does not close: the miss is more than 1e-6 × the loop length (at least 1e-4 mm). The refusal names the node and the miss. |
+| `MAP_LOOP_NOT_CLOSED` | A loop of elements does not close: the miss is more than 6 mm (Owner, 12 Nov). The refusal names the node and the miss. Closures within 6 mm are listed in `graph.loopClosures` and in the compare output (`loopClosures`, `summary.loopClosuresA/B`). |
 | `MAP_ANCHOR_INVALID` | A manual anchor is badly written, names a node that is not in the file, or uses a node twice. |
 | `MAP_FIT_FAILED` | The anchors disagree: after the best rigid fit they are further apart than the tolerance. |
 | `MAP_TOLERANCE_INVALID` | The tolerance is not a number from 0 to 100000 mm. |

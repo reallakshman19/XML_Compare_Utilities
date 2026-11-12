@@ -32,9 +32,9 @@ Repair round 1 (review FAIL 64/100), item by item:
    - Tests: X-S1 shifted 0.5 mm (automatic; at tolerance 0.1 it refuses), and shifted 100 mm with manual anchors (probe1 P1/P1c).
 3. **Loop closure scales with the loop.**
    - `cii-graph.mjs` `closeLoops` checks every loop before the vendored builder (left unchanged).
-   - The allowed miss is 1e-6 × the loop length, never less than 1e-4 mm. Within it, the closing element's delta becomes the difference of the first-reached positions, recorded in `graph.loopClosures`.
+   - Round 3 (Owner, 12 Nov: "+-6mm is fine"): the allowed miss is a fixed 6 mm, whatever the loop or lead-in length (this replaces the 1e-6 x path-length rule that review round 2 found too loose after a long lead-in). Within it, the closing element's delta becomes the difference of the first-reached positions, recorded in `graph.loopClosures` and shown in the compare output (`loopClosures`, `summary.loopClosuresA/B`).
    - Beyond it, the new code `MAP_LOOP_NOT_CLOSED` names the node and the miss.
-   - Tests: a 0.01 mm miss on a 135 m loop closes (probe2 Q4) and a 0.5 mm miss refuses. On a 4 m loop, 0.003 mm closes and 0.01 mm refuses. On a 40 mm loop the 1e-4 mm floor holds (9e-5 closes, 2e-4 refuses).
+   - Tests: a 0.01 mm miss on a 135 m loop closes and a 7 mm miss refuses; on a 4 m loop 5.9 mm closes and 6.1 mm refuses; review probe3 (1000 m lead-in, 1.5 mm loop error) closes and the compare output shows the 1.5 mm miss, while 7 mm refuses.
    - MAP_GRAPH_INVALID is now tested with an element from a node to itself.
 4. **The test claims are true now.**
    - The graph test deep-compares `readCiiGraph`'s nodes, edges, components and frames with a direct `buildXmlGraph(ciiProfile(cii))` call; only the node names, filled in afterwards from NODENAME, are excluded.

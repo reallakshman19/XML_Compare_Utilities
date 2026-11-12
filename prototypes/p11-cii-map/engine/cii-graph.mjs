@@ -106,14 +106,15 @@ export function ciiProfile(cii, { elements = cii.elements } = {}) {
 }
 
 /** Loop closure: a loop may miss by 1e-6 x (sum of |delta| around it), but never less than 1e-4 mm. */
-export const LOOP_RELATIVE = 1e-6, LOOP_MIN_MM = 1e-4;
+// Owner (12 Nov): a loop may miss by up to +-6 mm. Every closure is reported
+// (graph.loopClosures and the compare output), so nothing is closed silently.
+export const LOOP_TOLERANCE_MM = 6;
 const absSum = d => Math.abs(d[0]) + Math.abs(d[1]) + Math.abs(d[2]);
 
 /**
  * CII v14 writes 7 significant digits, so a loop of long elements may not close to the 1e-4 mm that
  * ciifr-map's buildXmlGraph demands. Walk each piece first (breadth first, elements in file order).
- * When an element closes a loop, the miss is compared with LOOP_RELATIVE x (path length from the
- * walk's start to both ends + the element's own length), at least LOOP_MIN_MM:
+ * When an element closes a loop, the miss is compared with LOOP_TOLERANCE_MM (Owner: +-6 mm):
  *  - within it, the element's delta is replaced by the difference of the first-reached positions, so
  *    the loop closes exactly (the edge's xmlWitness keeps the file's own tokens);
  *  - beyond it, MAP_LOOP_NOT_CLOSED names the node and the miss.
@@ -135,7 +136,7 @@ export function closeLoops(elements) {
         const d = elements[i].delta, next = pos.get(n).map((v, j) => v + sign * d[j]);
         if (!pos.has(to)) { pos.set(to, next); len.set(to, len.get(n) + absSum(d)); q.push(to); continue; }
         const miss = Math.hypot(...next.map((v, j) => v - pos.get(to)[j]));
-        const tol = Math.max(LOOP_MIN_MM, LOOP_RELATIVE * (len.get(n) + len.get(to) + absSum(d)));
+        const tol = LOOP_TOLERANCE_MM;
         require(miss <= tol, 'MAP_LOOP_NOT_CLOSED', 'node ' + to + ' (' + elements[i].witness + ')',
           'the loop through this element misses by ' + miss.toFixed(4) + ' mm; allowed ' + tol.toFixed(4) + ' mm');
         if (miss > 0) {

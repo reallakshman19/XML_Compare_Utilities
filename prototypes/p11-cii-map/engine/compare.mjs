@@ -241,7 +241,10 @@ export function compareCii(a, b, { anchors, toleranceMm = 1 } = {}) {
       elementsA: a.edges.length, elementsB: b.edges.length, elementPairs: elementPairs.length, nodePairs: nodePairs.length,
       unmatchedA: unmatchedA.length, unmatchedB: unmatchedB.length,
       unmatchedNodesA: unmatchedNodesA.length, unmatchedNodesB: unmatchedNodesB.length,
-      fieldDiffs: fieldDiffs.length, elementPairsByRule: byRule },
+      fieldDiffs: fieldDiffs.length, elementPairsByRule: byRule,
+      loopClosuresA: (a.loopClosures || []).length, loopClosuresB: (b.loopClosures || []).length },
+    // Loops each reader closed within +-6 mm (Owner): the miss is shown, never hidden.
+    loopClosures: { a: a.loopClosures || [], b: b.loopClosures || [] },
     fits: fits.map(f => ({ componentA: f.componentA, componentB: f.componentB, anchors: f.anchors,
       rotation: f.transform.rotation, translation: f.transform.translation, maxResidualMm: f.transform.maxResidualMm })),
     unfittedComponentsA, pairs, unmatchedA, unmatchedB, unmatchedNodesA, unmatchedNodesB, fieldDiffs,

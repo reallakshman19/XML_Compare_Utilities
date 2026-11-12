@@ -18,33 +18,47 @@ const loop = miss => ({ elements: [{ from: 10, to: 20, d: [33333.33, 0, 0] }, { 
   { from: 30, to: 40, d: [0, 1000, 0] }, { from: 40, to: 50, d: [-66666.66 - miss, 0, 0] }, { from: 50, to: 10, d: [0, -1000, 0] }],
   coords: [{ node: 10, xyz: [0, 0, 0] }] });
 
-test('loop closure: a 0.01 mm miss on a 135 m loop is within 1e-6 x loop length and closes on the first-reached positions', async () => {
+test('loop closure: a 0.01 mm miss on a 135 m loop is within the Owner +-6 mm and closes on the first-reached positions', async () => {
   const graph = await readCiiGraph(makeCii(loop(0.01)));
   assert.equal(graph.loopClosures.length, 1);
   const c = graph.loopClosures[0];
   assert.ok(Math.abs(c.missMm - 0.01) < 1e-6, 'miss ' + c.missMm);
-  assert.ok(c.toleranceMm > 0.13 && c.toleranceMm < 0.14, 'tolerance ' + c.toleranceMm);
+  assert.equal(c.toleranceMm, 6);
   // Every edge of the graph now closes exactly.
   for (const e of graph.edges) {
     const d = graph.nodeIndex.get(e.to).xyz.map((v, i) => v - graph.nodeIndex.get(e.from).xyz[i]);
     assert.ok(d.every((v, i) => Math.abs(v - e.delta[i]) < 1e-6));
   }
-  // A 4 m loop may miss by 4e-3 mm (1e-6 x 4000 mm) but not by 1e-2 mm; a 40 mm loop keeps the 1e-4 mm floor.
+  // The limit is a fixed +-6 mm (Owner, 12 Nov), whatever the loop or lead-in length.
   const sq = (L, m) => [['1', '2', [L, 0, 0]], ['2', '3', [0, L, 0]], ['3', '4', [-L, 0, 0]], ['4', '1', [0, -L + m, 0]]]
     .map(([from, to, delta], i) => ({ from, to, delta, witness: 'e' + i }));
-  assert.equal(closeLoops(sq(1000, 0.003)).loops.length, 1);
-  assert.equal((await attempt(() => closeLoops(sq(1000, 0.01)))).refusals[0].code, 'MAP_LOOP_NOT_CLOSED');
-  assert.equal(closeLoops(sq(10, 0.00009)).loops.length, 1);
-  const r = await attempt(() => closeLoops(sq(10, 0.0002)));
-  assert.equal(r.refusals[0].code, 'MAP_LOOP_NOT_CLOSED');
+  assert.equal(closeLoops(sq(1000, 5.9)).loops.length, 1);
+  assert.equal((await attempt(() => closeLoops(sq(1000, 6.1)))).refusals[0].code, 'MAP_LOOP_NOT_CLOSED');
+  assert.equal((await attempt(() => closeLoops(sq(10, 6.1)))).refusals[0].code, 'MAP_LOOP_NOT_CLOSED');
+});
+
+// Review round 2 probe3: 1000 m lead-in, then a 4 m loop with one element 1.5 mm too long.
+// Within +-6 mm it closes (Owner), and the compare output shows the 1.5 mm miss.
+test('a loop miss after a long lead-in is judged on +-6 mm alone and reported in the compare output', async () => {
+  const leadIn = { elements: [{ from: 10, to: 20, d: [1000000, 0, 0] }, { from: 20, to: 30, d: [0, 0, 1000000] },
+    { from: 30, to: 40, d: [4000, 0, 0] }, { from: 40, to: 50, d: [0, 4000, 0] }, { from: 50, to: 60, d: [-4001.5, 0, 0] },
+    { from: 60, to: 30, d: [0, -4000, 0] }], coords: [{ node: 10, xyz: [0, 0, 0] }] };
+  const graph = await readCiiGraph(makeCii(leadIn));
+  assert.equal(graph.loopClosures.length, 1);
+  assert.ok(Math.abs(graph.loopClosures[0].missMm - 1.5) < 1e-6);
+  const r = compareCii(graph, graph);
+  assert.equal(r.summary.loopClosuresA, 1);
+  assert.ok(Math.abs(r.loopClosures.a[0].missMm - 1.5) < 1e-6);
+  const far = { ...leadIn, elements: leadIn.elements.map(e => e.from === 50 ? { ...e, d: [-4007, 0, 0] } : e) };
+  assert.equal((await attempt(() => readCiiGraph(makeCii(far)))).refusals[0].code, 'MAP_LOOP_NOT_CLOSED');
 });
 
 test('refusal MAP_LOOP_NOT_CLOSED when a loop misses by more than its tolerance, naming the node and the miss', async () => {
-  const r = await attempt(() => readCiiGraph(makeCii(loop(0.5))));
+  const r = await attempt(() => readCiiGraph(makeCii(loop(7))));
   assert.equal(r.ok, false);
   assert.equal(r.refusals[0].code, 'MAP_LOOP_NOT_CLOSED');
   assert.match(r.refusals[0].where, /^node \d+/);
-  assert.match(r.refusals[0].detail, /misses by 0\.5000 mm/);
+  assert.match(r.refusals[0].detail, /misses by 7\.0000 mm/);
 });
 
 test('unmatchedB: X-S1 minus its last element against the full X-S1 leaves that element unmatched in B', async () => {
