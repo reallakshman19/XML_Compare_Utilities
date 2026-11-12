@@ -4,7 +4,7 @@ Base XCU main `8409590f36b641bfc755809e27f2e46d315300f2`, verified from ZIP comm
 
 ## TESTS
 
-`node --test`: 18 pass / 18 total, 0 fail. T1: 35 proposals, noEntry node 10330. T2: all 35 names refused atomically with `KERNEL_NAME_IN_USE`, no bytes. T2b: explicit 12-name subset applied, exactly 24 NODENAME diffs, 12 read-backs OK. T3–T6 and all additional refusal, CLI and kit tests pass.
+`node --test`: 23 pass / 23 total, 0 fail. T1: 35 proposals, noEntry node 10330. T2: all 35 names refused atomically with `KERNEL_NAME_IN_USE`, no bytes. T2b: explicit 12-name subset applied, exactly 24 NODENAME diffs, 12 read-backs OK. T3–T6 and all additional refusal, CLI and kit tests pass.
 
 ## MUTATIONS
 
@@ -12,7 +12,7 @@ M1 allow 26-character names → T4 red (exit 1). M2 inject extra ELEMENTS DX byt
 
 ## BENCH
 
-B1 X-TEXP → X-T, apply the explicitly selected and approved subset: 12 names, 24 slots, 12 verified. Median 292.8 ms (264.8, 292.8, 334.8), limit 2000 ms, PASS. Timing covers apply and verification only, not plan/approval. See `bench/RESULT.json`.
+B1 X-TEXP → X-T, apply the explicitly selected and approved subset: 12 names, 24 slots, 12 verified. Median 293.5 ms (267.3, 293.5, 324.2), limit 2000 ms, PASS. Timing covers apply and verification only, not plan/approval. See `bench/RESULT.json`.
 
 ## DECISIONS
 
@@ -29,3 +29,7 @@ None. Final card-check: 9/9 PASS. Browser and CAESAR II are Owner/Oracle checks,
 ## Owner demo
 
 Use the CLI commands in README.md. Full-map plan shows 35 proposals and 1 noEntry; approving all refuses without creating output. Run `node --test --test-name-pattern="T2b explicitly"` for the passing 12-name subset, and `node bench/run.mjs --repo-root ../..` for successful apply timing.
+
+## Review fixes
+
+All four Oracle findings implemented. `wouldRepeat` reports final-name collisions for every proposed node without filtering; full-map warnings match the kernel's 35 refusals, and simultaneous name swaps remain valid. Source and target conflicts identify their file. Blank-source approved pairs enter `skipped` with reason `SOURCE_NAME_BLANK`; totals reconcile. Independent read-back checks every unplanned node's name and record counts. Five new regression tests pass, 23/23 total; final card-check 9/9, B1 PASS. No vendor or kernel changes, no browser execution.
