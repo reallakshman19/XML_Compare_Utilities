@@ -146,7 +146,12 @@ def parse_cii(text: str) -> dict:
     other = {k: v for k, v in s.items() if k not in ("CONTROL", "ELEMENTS", "NODENAME", "RIGID", "MISCEL_1")}
     other = {k: (v if k not in ROW_SECTIONS else [cells(l) for l in v]) for k, v in other.items()}
     other["MISCEL_1(tail)"] = s["MISCEL_1"][mat_rows:]
-    return {"control": control, "elements": elements, "other": other}
+    counts = {"BEND": int(control[1][0]), "SIF&TEES": int(control[2][4]), "REDUCERS": int(control[0][4]),
+              "RESTRANT": int(control[1][3])}
+    per = {k: (len(s.get(k, [])) // n if n else 0) for k, n in counts.items()}
+    rest = s.get("RESTRANT", [])
+    restraint_nodes = {k + 1: num((cells(rest[k * per["RESTRANT"]]) or [None])[0]) for k in range(counts["RESTRANT"])}         if per["RESTRANT"] else {}
+    return {"control": control, "elements": elements, "other": other, "per": per, "restraintNodes": restraint_nodes}
 
 
 # ---------------------------------------------------------------- XML identity

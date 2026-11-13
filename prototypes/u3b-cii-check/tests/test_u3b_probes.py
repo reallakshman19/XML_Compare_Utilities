@@ -116,7 +116,7 @@ class ReviewProbes(unittest.TestCase):
         bad = tamper(self.BC, i5, 0, 5, cell(c1, i5, 0, 5))
         self.assertEqual(self.verdict(b1, self.BB, ch, c1, bad, e1, self.BE), "FAIL")
 
-    def test_p1c_od_taken_from_a_port_is_not_reported_carried(self):
+    def test_p1c_od_not_taken_from_this_node_is_not_reported_carried(self):
         b, c, e = self.conv("p1cbase", set_node(self.src, 680, "=67132086/491", "OutsideDiameter", "50"))
         ch = [{"field": "Node/OutsideDiameter", "before": "50", "after": "60.3", "ref": ref_of(self.BB, 680, "=67132086/491")}]
         rep = u3b_check.check(b, self.BB, receipt(b, self.BB, ch), c, self.BC, e, self.BE)
@@ -184,6 +184,39 @@ class ReviewProbes(unittest.TestCase):
         last = len(e) - 1
         bad = tamper_line(c, "MISCEL_1", last // 6, last % 6, "107.000")
         self.assertEqual(u3b_check.check(self.BB, r, receipt(self.BB, r, ch), self.BC, bad, self.BE, e)["verdict"], "FAIL")
+
+    def split(self):
+        tn = self.BE[0]["to"]
+        r4, c4, e4 = self.conv("r1rev", set_node(self.src, tn["number"], tn["ref"], "Weight", "123.5"))
+        ch = [{"field": "Node/Weight", "before": "0", "after": "123.5", "ref": ref_of(self.BB, tn["number"], tn["ref"])}]
+        return r4, c4, e4, ch
+
+    def test_r1_record_pointers_stay_exact_when_a_split_exists(self):
+        r4, c4, e4, ch = self.split()
+        self.assertEqual(self.verdict(self.BB, r4, ch, self.BC, c4, self.BE, e4), "PASS")
+        for li, ci in ((12, 3), (12, 0)):
+            held = [k for k in range(2, len(e4)) if cell(c4, k, li, ci) not in ("0", "")]
+            a, b = held[0], held[-1]
+            bad = tamper(tamper(c4, a, li, ci, cell(c4, b, li, ci)), b, li, ci, cell(c4, a, li, ci))
+            self.assertEqual(self.verdict(self.BB, r4, ch, self.BC, bad, self.BE, e4), "FAIL", (li, ci))
+
+    def test_r1_restraint_stays_on_its_half_and_halves_stay_on_the_line(self):
+        r4, c4, e4, ch = self.split()
+        h0, h1 = cell(c4, 0, 12, 3), cell(c4, 1, 12, 3)
+        moved = tamper(tamper(c4, 0, 12, 3, h1), 1, 12, 3, h0)
+        self.assertEqual(self.verdict(self.BB, r4, ch, self.BC, moved, self.BE, e4), "FAIL")
+        dy0, dy1 = float(cell(c4, 0, 0, 3)), float(cell(c4, 1, 0, 3))
+        off = tamper(tamper(c4, 0, 0, 3, f"{dy0 + 500:.4f}"), 1, 0, 3, f"{dy1 - 500:.4f}")
+        self.assertEqual(self.verdict(self.BB, r4, ch, self.BC, off, self.BE, e4), "FAIL")
+
+    def test_r1_section_rows_change_only_through_their_own_element(self):
+        r5, c5, e5 = self.conv("r1od", set_node(self.src, 100, "=67132086/1665", "OutsideDiameter", "300"))
+        ch = [{"field": "Node/OutsideDiameter", "before": "355.6", "after": "300", "ref": ref_of(self.BB, 100, "=67132086/1665")}]
+        self.assertEqual(self.verdict(self.BB, r5, ch, self.BC, c5, self.BE, e5), "PASS")
+        secs = sections_of(c5)
+        for s in ("BEND", "REDUCERS"):
+            if any(l.strip() for l in secs[s]):
+                self.assertEqual(self.verdict(self.BB, r5, ch, self.BC, tamper_line(c5, s, 0, 0, "300.000"), self.BE, e5), "FAIL", s)
 
     def test_sentinels_and_zero_wall_expectations(self):
         self.assertEqual(u3b_check.expected_cii("Branch/Pressure/Pressure3", "-100000"), 0.0)

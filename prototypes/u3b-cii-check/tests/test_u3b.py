@@ -162,6 +162,13 @@ class U3bOnPublicBenchmark(unittest.TestCase):
 
 
 class U3bPure(unittest.TestCase):
+    def test_od_taken_from_a_connected_port_is_not_carried(self):
+        end = lambda n: {"number": n, "ref": "R", "pos": [0.0, 0.0, float(n)]}  # noqa: E731
+        edges = [{"branch": "B", "from": end(10), "to": end(20), "odEnd": "port"}]
+        row, claims = u3b_check.judge_node({}, "Node/OutsideDiameter", "60.3", [(0, "from")], edges, [])
+        self.assertEqual((row["status"], claims), ("NOT_CARRIED", {}))
+        self.assertIn("port", row["reason"])
+
     def test_receipt_format_is_required(self):
         with self.assertRaises(Refusal) as e:
             u3b_check.check(b"", b"", {"format": "other"}, "", "", [], [])

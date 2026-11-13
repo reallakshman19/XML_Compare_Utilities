@@ -17,8 +17,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-from u3b_blocks import align, compare_block, compare_pair, control_ok, section_changes
-from u3b_core import (BRANCH_CELLS, DENSITY_FACTOR, ENTRY, FORMAT, NAME_LIMIT, NODE_CELLS, NOT_READ, Refusal, convert,
+from u3b_blocks import align, compare_block, compare_pair, control_ok, restraint_misplaced, section_changes
+from u3b_core import (BRANCH_CELLS, DENSITY_FACTOR, ENTRY, FORMAT, NAME_LIMIT, NODE_CELLS, NOT_READ, SECTION_FIELDS,
+                      Refusal, convert,
                       ends_at, expected_cii, git_head, num, parse_cii, same, sha256, xml_nodes)
 
 BAD = ("MISMATCH", "UNKNOWN_FIELD", "BRANCH_NAME_SHARED")
@@ -126,6 +127,21 @@ def explained(diff: tuple, value, claims: dict) -> bool:
     return same(value if isinstance(value, float) else num(value), want)
 
 
+def section_allowed(changes: list[dict], nodes: dict, edges: list[dict]) -> dict:
+    """element -> {section: values} that transferred OD / wall changes at its end nodes may write."""
+    out: dict = {}
+    for c in changes:
+        field, ref = c.get("field"), c.get("ref") or {}
+        sections = [k for k, fields in SECTION_FIELDS.items() if field in fields]
+        node = nodes.get((ref.get("branchOrdinal"), ref.get("nodeOrdinal")))
+        if not sections or not node:
+            continue
+        for i, _ in ends_at(edges, node, nodes):
+            for k in sections:
+                out.setdefault(i, {}).setdefault(k, []).append(expected_cii(field, c.get("after")))
+    return out
+
+
 def branch_names_shared(nodes: dict) -> set:
     names = {}
     for (bi, _), n in nodes.items():
@@ -165,23 +181,21 @@ def check(base_bytes: bytes, revised_bytes: bytes, receipt: dict, base_cii: str,
         rows.append(row)
         claims.update(c)
     unexplained = [d for d, v in diffs.items() if not explained(d, v, claims)]
-    afters: dict[str, list] = {}
-    for c in changes:
-        afters.setdefault(c.get("field"), []).append(expected_cii(str(c.get("field")), c.get("after")))
-    sections = section_changes(b["other"], r["other"], afters)
+    sections = section_changes(b, r, section_allowed(changes, nodes, revised_edges))
+    misplaced = restraint_misplaced(r, revised_edges)
     ctl = control_ok(b["control"], r["control"], len(revised_edges) - len(base_edges),
                      any(c.get("field") == "Node/NodeName" for c in changes))
     counts: dict[str, int] = {}
     for row in rows:
         counts[row["status"]] = counts.get(row["status"], 0) + 1
-    bad = any(counts.get(k) for k in BAD) or unexplained or not ctl or any(not s["explained"] for s in sections) \
+    bad = any(counts.get(k) for k in BAD) or unexplained or misplaced or not ctl or any(not s["explained"] for s in sections) \
         or any(not x["explained"] for x in structure)
     return {"format": FORMAT, "version": 2, "verdict": "FAIL" if bad else "PASS", "elements": len(r["elements"]),
             "changes": len(rows), "counts": counts,
             "unexplainedCiiChanges": [{"element": d[0], "fromNode": revised_edges[d[0]]["from"]["number"],
                                        "toNode": revised_edges[d[0]]["to"]["number"], "kind": d[1], "line": d[2],
                                        "column": d[3], "value": diffs[d]} for d in unexplained],
-            "otherSectionChanges": sections, "controlUnchanged": ctl, "structureChanges": structure, "rows": rows}
+            "otherSectionChanges": sections, "controlUnchanged": ctl, "restraintsOffTheirNode": misplaced, "structureChanges": structure, "rows": rows}
 
 
 def run(a: argparse.Namespace) -> dict:

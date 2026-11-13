@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import difflib
 
-from u3b_core import ROW_SECTIONS, SECTION_FIELDS, num, same
+from u3b_core import ROW_SECTIONS, num, same
 
 # ELEMENTS pointer rows 13-15 (0-based within "ptr"): bend, rigid, restraint / sif, nodename / reducer.
 PTR_RIGID, PTR_NAME = (0, 1), (1, 5)
@@ -55,7 +55,8 @@ def compare_pair(x: dict, y: dict, i: int, exact_ptr: bool) -> dict:
         for ci in range(max(len(x["ptr"][li]), len(y["ptr"][li]))):
             a = x["ptr"][li][ci] if ci < len(x["ptr"][li]) else None
             b = y["ptr"][li][ci] if ci < len(y["ptr"][li]) else None
-            by_presence = not exact_ptr or (li, ci) in (PTR_RIGID, PTR_NAME)
+            # rigid and name record numbers shift when records are added; the others never do
+            by_presence = (li, ci) == PTR_NAME or ((li, ci) == PTR_RIGID and not exact_ptr)
             if (present(a) != present(b)) if by_presence else (a != b):
                 out[(i, "ptr", li, ci)] = b
     out.update({(i, "name", s, None): y["name"][s] for s in (0, 1) if x["name"][s] != y["name"][s]})
@@ -83,8 +84,9 @@ def compare_block(blk: dict, base_edges: list, revised_edges: list, bel: list, r
     b, be = bel[old[0]], base_edges[old[0]]
     touches = all(e["from"]["ref"] in weight_refs or e["to"]["ref"] in weight_refs for e in [be] + [revised_edges[i] for i in new])
     ends = revised_edges[new[0]]["from"]["number"] == be["from"]["number"] and revised_edges[new[-1]]["to"]["number"] == be["to"]["number"]
-    length = all(same(sum(num(rel[i]["E"][0][c]) or 0.0 for i in new), num(b["E"][0][c])) for c in (2, 3, 4))
-    records = all(sum(present(rel[i]["ptr"][li][ci]) for i in new) == int(present(b["ptr"][li][ci])) for li, ci in PTR_COUNTED)
+    length = collinear([[num(rel[i]["E"][0][c]) or 0.0 for c in (2, 3, 4)] for i in new],
+                       [num(b["E"][0][c]) or 0.0 for c in (2, 3, 4)])
+    records = all(same_record(b["ptr"][li][ci], [rel[i]["ptr"][li][ci] for i in new]) for li, ci in PTR_COUNTED)
     rigid = [i for i in new if rel[i]["rigidRows"]]
     diffs = {}
     for k, i in enumerate(new):
@@ -106,9 +108,44 @@ def compare_block(blk: dict, base_edges: list, revised_edges: list, bel: list, r
     ok = touches and ends and length and records and one_rigid
     why = "the converter splits a weighted RIGID from its flange" if ok else \
         "not explained: " + ", ".join(k for k, v in (("not on a weighted component", touches), ("end nodes differ", ends),
-                                                     ("length differs", length), ("records moved", records),
+                                                     ("not on the original line", length), ("records moved", records),
                                                      ("RIGID record not kept once", one_rigid)) if not v)
     return {**report, "explained": ok, "why": why}, diffs
+
+
+def collinear(parts: list[list[float]], whole: list[float], offset_mm: float = 0.5) -> bool:
+    """The halves add up to the base element and each lies on its line, in the same direction."""
+    if not all(same(sum(p[c] for p in parts), whole[c]) for c in range(3)):
+        return False
+    norm = sum(x * x for x in whole) ** 0.5
+    if norm == 0:
+        return all(abs(x) < 1e-9 for p in parts for x in p)
+    for p in parts:
+        dot = sum(a * b for a, b in zip(p, whole)) / norm
+        cross = [p[1] * whole[2] - p[2] * whole[1], p[2] * whole[0] - p[0] * whole[2], p[0] * whole[1] - p[1] * whole[0]]
+        if dot < -1e-9 or sum(x * x for x in cross) ** 0.5 / norm > offset_mm:
+            return False
+    return True
+
+
+def same_record(base_value, revised_values: list) -> bool:
+    """A bend/restraint/SIF/reducer record of the base element sits, with the same number,
+    on exactly one element of the split; the other halves have none."""
+    held = [v for v in revised_values if present(v)]
+    return held == ([base_value] if present(base_value) else [])
+
+
+def restraint_misplaced(r: dict, edges: list[dict]) -> list[int]:
+    """Elements whose restraint record names a node that is not one of their ends (the
+    converter puts a restraint on the first element touching its node)."""
+    out = []
+    for i, el in enumerate(r["elements"]):
+        k = el["ptr"][0][3] if len(el["ptr"][0]) > 3 else "0"
+        if present(k):
+            node = r["restraintNodes"].get(int(k))
+            if node is None or node not in (edges[i]["from"]["number"], edges[i]["to"]["number"]):
+                out.append(i)
+    return out
 
 
 def control_ok(bc: list, rc: list, added: int, names_changed: bool) -> bool:
@@ -129,21 +166,29 @@ def control_ok(bc: list, rc: list, added: int, names_changed: bool) -> bool:
     return True
 
 
-def section_changes(bo: dict, ro: dict, afters: dict) -> list[dict]:
-    """Other sections must be identical; in BEND / SIF&TEES / REDUCERS a differing cell is
-    allowed only when it equals a transferred value of a field that feeds that section."""
+SECTION_PTR = {"BEND": (0, 0), "SIF&TEES": (1, 4), "REDUCERS": (2, 0)}
+
+
+def section_changes(b: dict, r: dict, allowed: dict) -> list[dict]:
+    """Other sections must be identical. In BEND / SIF&TEES / REDUCERS a differing cell is
+    allowed only in the record of an element that carries a transferred OD (or wall, for
+    REDUCERS) at one of its ends, and only when it equals that value
+    (allowed: element -> {section: values})."""
     out = []
-    for k in sorted(set(bo) | set(ro)):
-        x, y = bo.get(k), ro.get(k)
+    for k in sorted(set(b["other"]) | set(r["other"])):
+        x, y = b["other"].get(k), r["other"].get(k)
         if x == y:
             continue
-        allowed = [v for f in SECTION_FIELDS.get(k, ()) for v in afters.get(f, []) if v is not None]
-        ok = k in ROW_SECTIONS and x is not None and y is not None and len(x) == len(y)
+        ok = k in ROW_SECTIONS and x is not None and y is not None and len(x) == len(y) and bool(r["per"].get(k))
         if ok:
-            for lx, ly in zip(x, y):
-                for ci in range(max(len(lx), len(ly))):
-                    a, b = (lx[ci] if ci < len(lx) else None), (ly[ci] if ci < len(ly) else None)
-                    if a != b and not any(same(num(b), v) for v in allowed):
+            li, ci = SECTION_PTR[k]
+            owner = {int(el["ptr"][li][ci]): i for i, el in enumerate(r["elements"]) if present(el["ptr"][li][ci])}
+            for row, (lx, ly) in enumerate(zip(x, y)):
+                i = owner.get(row // r["per"][k] + 1)
+                values = allowed.get(i, {}).get(k, []) if i is not None else []
+                for c in range(max(len(lx), len(ly))):
+                    a, v = (lx[c] if c < len(lx) else None), (ly[c] if c < len(ly) else None)
+                    if a != v and not any(same(num(v), w) for w in values):
                         ok = False
         out.append({"section": k, "explained": ok})
     return out
