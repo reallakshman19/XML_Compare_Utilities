@@ -9,6 +9,9 @@ import { toMapFile } from '../engine/to-map.mjs';
 import { readInputXmlGraph } from '../engine/xml-input.mjs';
 import { matchXmlCii } from '../engine/xml-match.mjs';
 
+import { readPsi116Graph, matchPsi116Cii } from '../engine/psi116-match.mjs';
+import { makePsi116Case } from '../tests/psi116-fixtures.mjs';
+
 const args = parseArgs();
 if (args['repo-root']) args.roots.XCU = args['repo-root'];
 const rows = [];
@@ -52,6 +55,12 @@ for (const mode of ['same-run', 'geometry']) {
     unmatchedNodesA:r.unmatchedNodesXml.length,unmatchedNodesB:r.unmatchedNodesCii.length,ms:timed.ms,runs:timed.runs,limitMs:2000,
     pass:timed.ms<2000 && r.elementPairs.length===56 && r.nodePairs.length===57 && !r.unmatchedElementsXml.length && !r.unmatchedElementsCii.length && !r.unmatchedNodesXml.length && !r.unmatchedNodesCii.length});
 }
+// P1.2b: invented 41 x 40 XML records; coincident branch endpoints share CII nodes.
+const psi = makePsi116Case({branches:41,nodes:40,renumber:1000});
+const pt = await timeMedian(async () => matchPsi116Cii(await readPsi116Graph(psi.xml), await readCiiGraph(psi.cii)));
+const ps = pt.last.summary;
+rows.push({bench:'P1.2b B1',input:'invented PSI116 41 x 40 vs renumbered CII',sha256:{xml:pt.last.inputs.xml.sha256,cii:pt.last.inputs.cii.sha256},
+  ...ps,ms:pt.ms,runs:pt.runs,limitMs:2000,pass:pt.ms<2000&&ps.paired===1640&&ps.pairedCii===1600&&ps.unmatchedXml===0&&ps.unmatchedCii===0&&ps.ambiguous===0});
 const doc = writeResult(rows);
 console.table(doc.rows.map(({ sha256, runs, ...r }) => r));
 process.exit(rows.every(r => r.pass !== false) ? 0 : 1);

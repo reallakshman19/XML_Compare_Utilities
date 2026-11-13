@@ -221,3 +221,61 @@ Final card-check: PASS C1–C9. **C3 checks only P1.1 IDs T1–T8**; it does not
 - Three review tests in tests/loop-notes-review.test.mjs, plus the existing supplemental tests.
 
 FAILING: none. No browser, network from sandbox, main change, PR, merge or force-push.
+
+# P1.2b REPORT — PSI116 geometry matching
+
+Base: `proto/p12-xml-cii-match-20261113` @ `9bc224822ec7b776fc185044c5566a599d507288`. New branch `proto/p12b-psi116-match-20261113`. One commit in `prototypes/p11-cii-map/` only. Original ZIP comment and original P1.3/P1.2 patch SHA-256 values verified; six reconstructed review engine/test files match the GitHub parent blob hashes. No old tests edited. No Owner-only inputs, browser, npm, network from sandbox or changes to shared formats/kit.
+
+## TESTS
+
+Node 22.16.0, full run inside card folder after restoration of both mutations:
+
+```text
+1..58
+# tests 58
+# suites 0
+# pass 58
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2658.962429
+```
+
+50 previous tests + 8 new. P1.2b T1: 12/12 XML records, 10 distinct CII nodes, zero unmatched. T2: 11 paired, moved XML node named by full ref, CII node 14 unmatched. T3: 0.5 mm competing CII nodes refuse without pairs. T4: +1000 renumbering still gives 12/12. T5: Map candidate refs validate in the shared validator child process (exit 0, OK); simultaneous approval of coincident targets refuses R10. Supplemental tests: nearest rule, invalid tolerance/position and distinct-point target collision; CLI summary, atomic export and no overwrite/refusal; nested branch ordinals, direct nodes only, different node numbers at the same point.
+
+Card-check: C1–C9 PASS. C3 checks only P1.1 IDs; later IDs P1.3 T1–T5, P1.2 T1–T8 and P1.2b T1–T5 are checked by the full test suite, not by C3.
+
+## MUTATIONS
+
+| Mutation | Named test | Result |
+|---|---|---|
+| M1 replace distance filter with node-number equality | P1.2b T4 | RED: exit 1, pass 0/fail 1 |
+| M2 omit branchOrdinal from Map source ref | P1.2b T5 | RED: exit 1, pass 0/fail 1 |
+
+Original engine restored byte-for-byte after each mutation; final full suite green.
+
+## BENCH
+
+Invented 41 branches × 40 XML records, 40 duplicate endpoints, 1,600 distinct CII nodes renumbered +1000. Both graph reads and match timed together, excluding file I/O, fixture construction and export. Median of three runs: 318.3 ms (296.1, 318.3, 401.1), limit 2,000 ms: PASS. Paired 1,640/1,640 XML records, 1,600/1,600 CII nodes; unmatched XML 0, unmatched CII 0, ambiguity 0. Hashes and all benchmark rows in bench/RESULT.json. Existing public benchmark rows rerun and pass; no new public or Owner-only input used.
+
+## DECISIONS
+
+1. Geometry-only in a common coordinate frame, no fitting. Exact numeric coordinate equality (including signed zero) defines groups; no fuzzy transitive grouping. Matching is Euclidean and node numbers are carried only as evidence.
+2. A point with more than one CII candidate refuses even if one is exact. Distinct points competing for one target also refuse, rather than silently allowing near-coincident groups to collapse. Collect ambiguity refusals, return no partial pairs. Unmatched counts on a refused CLI result are null, not fabricated zeros; ambiguity count is the number of reported conflicts.
+3. Each original PSI116 record keeps its full branch/node identity from the kit index. Map candidates may share a target within one coincident point; approved duplicates remain prohibited by unchanged R10. No automatic approval or change-set generation. Retain loop closure notes via the P1.2/P1.3 shared helper.
+4. Separate PSI116 engine and CLI command preserve the existing InputXML behavior. Positions use the kit's leaf text/child helpers; require finite decimal triples, reject empty node sets or missing/bad positions. Other scanner errors propagate. CII v14 only. No extra package or parser.
+5. Summary counts distinguish original XML records from distinct points and distinct matched CII nodes. CLI timing includes reading, matching and optional export; benchmark times engine only. Optional Map publication uses the existing atomic hard-link/no-overwrite pattern. No partial file on refusal.
+6. New test data is generated in memory by tests/psi116-fixtures.mjs, with deliberate coincident endpoints and independent CII renumbering. No new fixture files to list. Bench/run.mjs and RESULT.json extended in place; earlier reports and tests retained. Private BM2/EF-05 runs delegated to Oracle; no claims about their counts or coordinate frames.
+
+## FAILING
+
+None. Required tests, supplemental tests, mutation expectations, benchmark and final card-check all pass.
+
+Owner demo: from prototypes/p11-cii-map/, run `node cli.mjs match-psi116 <file.xml> <file.cii> --tol 1 --map <new-output.json>`, then `node ../../shared/topofix-formats/validate.mjs <new-output.json>`. Inspect the summary and all unmatched records. If ambiguity is reported, no Map is published; inspect the named point and candidate CII nodes. Do not approve more than one candidate sharing a CII target.
+
+## P1.2b review fixes (Opus 86/100)
+
+Base: 42eb128f. Union-find groups Euclidean neighbours at 0.001 mm; verify the maximum pairwise group span before matching. All group members contribute candidate claims, and a unique candidate must be within tolerance of every member. Each original record retains its own measured residual. Distinct groups claiming the same target are all ambiguous, not order-dependent. Ambiguous groups count as unmatched XML records; all unpaired CII IDs count as unmatched CII nodes. The ambiguity list identifies each affected point and candidate IDs. Diagnostic-only CLI succeeds with counts even on ambiguity; requesting a Map returns exit 1 with MATCH_NODE_AMBIGUOUS, preserves the diagnostic result and writes nothing. Direct Map export also rejects ambiguities. Negative tolerance is parsed explicitly and then refused by the matcher. These decisions supersede the original P1.2b report's exact-grouping and all-or-nothing ambiguity semantics. Only P1.2b's superseded assertions changed; earlier cards' tests are unchanged.
+
+TESTS: fresh node --test from card folder, Node 22.16.0, 60/60 pass (0 fail, skipped, cancelled or todo; 2671.632076 ms). New regression cases: 1000/1000.0001 mm grouped, overlong chain diagnosed, three good points plus one ambiguous point print 3 paired / 1 unmatched XML / 2 unmatched CII / 1 ambiguity, no Map written, negative tolerance refused in both argument forms. Card-check C1–C9 PASS. Invented 41×40 benchmark rerun: 790.2 ms median (782.7, 790.2, 822.2); 1640 records/1600 CII nodes paired, zero unmatched or ambiguities, <2 s PASS. FAILING: none. No private inputs.
