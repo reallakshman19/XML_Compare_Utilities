@@ -51,7 +51,7 @@ Page: serve this folder over http (for example `python -m http.server 8011` insi
 | `MAP_FIT_FAILED` | The anchors disagree: after the best rigid fit they are further apart than the tolerance. |
 | `MAP_TOLERANCE_INVALID` | The tolerance is not a number from 0 to 100000 mm. |
 | `MAP_EXPORT_INVALID` | The comparison, input file identity, selection, approval details or Map file is invalid. No Map file is produced. |
-| `MAP_NOT_ONE_TO_ONE` | Two approved pairs would share a source or target. No approval is changed. |
+| `MAP_NOT_ONE_TO_ONE` | Approved pairs would share a source or target, or XML-to-XML candidates repeat a structural identity. No approval or Map output is changed. |
 | `MATCH_SAME_RUN_BROKEN` | Element count, end nodes, delta or positions disagree in same-run mode. |
 | `MATCH_TOLERANCE_INVALID` | Tolerance must be a finite positive number, at most 1 mm in same-run mode. |
 | `MATCH_NODE_AMBIGUOUS` | Several CII nodes are close to one XML node, or a CII node would be reused. |
@@ -59,6 +59,7 @@ Page: serve this folder over http (for example `python -m http.server 8011` insi
 | `MATCH_GRAPH_INVALID` | Graph has invalid or repeated nodes, or invalid element data. |
 | `MATCH_MODE_INVALID` | Choose same-run or geometry. |
 | `MATCH_XML_INVALID` | XML could not be read as the supported F05 profile. |
+| `MATCH_BORE_MISMATCH` | Optional PSI116-to-PSI116 bore check refused a pair: OutsideDiameter differs or is missing/invalid. |
 | `MATCH_MAP_WRITE_FAILED` | CLI could not create a new output file; existing files are not overwritten. |
 
 ## P1.3: Review and export a Map file
@@ -98,3 +99,17 @@ PSI116 `PipeStressExport` nodes are read with the existing kit index; branch ord
 The JSON includes paired and unmatched node records, unmatched CII node IDs, loop closure notes and summary counts/time. Counts `paired` and `unmatchedXml` refer to original XML records, `xmlPoints` to distinct positions, and `pairedCii` and `unmatchedCii` to distinct CII nodes. Ambiguous points remain unmatched on both sides; the diagnostic JSON includes the complete ambiguity list and counts. Without --map the diagnostic command succeeds; with --map it returns exit 1 and MATCH_NODE_AMBIGUOUS without writing a file, retaining diagnostics. Invalid inputs still refuse before matching. Negative --tol values are accepted as arguments and refused as MATCH_TOLERANCE_INVALID. The output Map retains one candidate per matched PSI116 record with its full structural ref. Coincident records intentionally share a CII target; rule R10 still prohibits approving two such candidates together. Loop notes are carried on affected pairs. No file is overwritten. CII v14 only; no XML or CII edits.
 
 `MATCH_XML_INVALID` also covers missing/invalid PSI116 positions or an empty PSI116 model. Other XML scanner refusals propagate from the unchanged kit. The existing InputXML command is unchanged.
+
+
+## P1.2c: Pair PSI116 to PSI116 for U2 transfers (read-only)
+
+```sh
+node cli.mjs pair-psi116 source.xml target.xml --tol 1 --bore --map xml-pair-map.json
+node ../../shared/topofix-formats/validate.mjs xml-pair-map.json
+```
+
+Both inputs must be PSI116 in the same coordinate frame, in mm; no fitting. The existing PSI116 reader and union-find grouping (0.001 mm maximum diameter) are reused on both sides. A point must have a unique reciprocal opposite point within the positive finite tolerance (default 1 mm). Competing points and overlong transitive groups are ambiguous. For coincident records, use a unique assignment based on adjacent distinct branch positions (direction-independent); a final single remaining pair is forced if within tolerance. Byte-identical inputs may use their identical structural identities at an otherwise uniquely matched point. No node number, branch name, ordinal order, or bore is a geometry tie-breaker. If the record assignment cannot be uniquely established, the whole point is ambiguous. Each pair's residual is its own Euclidean distance; at most 0.001 mm is `same-position`, otherwise `nearest-within-tolerance`.
+
+The optional `--bore` compares finite positive numeric `OutsideDiameter` values exactly, after geometry pairing. Different, absent, or invalid values produce a named `MATCH_BORE_MISMATCH` in `boreRefused`; the pair is not exported and both records remain unmatched. Without the flag, OD is not read or used. The summary includes `paired`, `unmatchedSource`, `unmatchedTarget`, `ambiguous`, `boreRefused`, and `ms` (CLI includes reading and export). Ambiguous records count as unmatched; counts and full diagnostics remain available without `--map`. With `--map`, ambiguity blocks the entire export (exit 1, no file); bore-refused pairs alone do not block export of other safe pairs. Invalid input/tolerance refuses before counts exist. Existing output files are never replaced.
+
+Map v1 uses `source.kind=xml`, `target.kind=xml`, both complete structural refs, input SHA-256 hashes, and one-to-one candidate pairs. Use explicit pair IDs with `approvePairs` for Owner approval; the existing `all-exact` shortcut is CII-specific and does not approve these pairs. U2a `planTransfer` consumes only approved pairs with matching input hashes. It is not called by the pairing CLI, and no XML is changed. The integration test imports the real U2a planner read-only; all production code stays inside this card.

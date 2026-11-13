@@ -1,16 +1,16 @@
 // PSI116 nodes have structural identities, not unique converter node numbers.
 import { require, sha256Hex } from '../kit/core.mjs';
-import { scanXml, psi116Index, child, text } from '../kit/xmlspan.mjs';
+import { scanXml, psi116Index, child, children, text } from '../kit/xmlspan.mjs';
 import { validateMap } from './map-validation.mjs';
 import { addLoopNotes } from './loop-notes.mjs';
 
 const decimal = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
-const vector = v => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
-const label = r => `branch ${r.branchOrdinal} (${r.branchName}) node ${r.nodeOrdinal} (${r.nodeNumber})`;
-const key = r => `${r.branchOrdinal}:${r.nodeOrdinal}`;
-const distance = (a,b) => Math.hypot(...a.map((v,i)=>v-b[i]));
+export const vector = v => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
+export const label = r => `branch ${r.branchOrdinal} (${r.branchName}) node ${r.nodeOrdinal} (${r.nodeNumber})`;
+export const key = r => `${r.branchOrdinal}:${r.nodeOrdinal}`;
+export const distance = (a,b) => Math.hypot(...a.map((v,i)=>v-b[i]));
 
-export async function readPsi116Graph(bytes) {
+export async function readPsi116Graph(bytes, {includeBore=false}={}) {
   const doc = scanXml(bytes), index = psi116Index(doc);
   require(index.nodes.length > 0, 'MATCH_XML_INVALID', 'PSI116', 'no direct Branch/Node records');
   const nodes = index.nodes.map(({branchOrdinal,branchName,nodeOrdinal,nodeNumber,componentRefNo,element}) => {
@@ -19,9 +19,40 @@ export async function readPsi116Graph(bytes) {
     require(position, 'MATCH_XML_INVALID', where, 'missing Position');
     const parts = text(doc,position).value.split(/\s+/), xyz = parts.map(Number);
     require(parts.every(p=>decimal.test(p)) && vector(xyz), 'MATCH_XML_INVALID', where, 'Position must have three finite numbers in mm');
+    if (includeBore) {
+      const od = children(element,'OutsideDiameter');
+      const raw = od.length===1 && !od[0].children.length && !od[0].cdata ? text(doc,od[0]).value : '';
+      const outsideDiameter = decimal.test(raw) && Number.isFinite(Number(raw)) && Number(raw)>0 ? Number(raw) : null;
+      return {ref,xyz,outsideDiameter};
+    }
     return {ref,xyz};
   });
   return {profile:'PSI116',sha256:await sha256Hex(bytes),nodes,branchCount:index.branches.length};
+}
+
+// Shared by both PSI116 geometry matchers; no change to P1.2b grouping.
+export function groupPsi116Points(nodes) {
+  const epsilon = 0.001;
+  // Union-find over the epsilon-neighbour graph; validate each component's diameter.
+  const parent = nodes.map((_,i)=>i);
+  const root = i => { while (parent[i]!==i) {parent[i]=parent[parent[i]];i=parent[i];} return i; };
+  for (let i=0;i<nodes.length;i++) for(let j=0;j<i;j++) {
+    const a=nodes[i].xyz,b=nodes[j].xyz;
+    if (Math.abs(a[0]-b[0])<=epsilon && Math.abs(a[1]-b[1])<=epsilon && Math.abs(a[2]-b[2])<=epsilon && distance(a,b)<=epsilon)
+      parent[root(i)]=root(j);
+  }
+  const points=new Map();
+  for (let i=0;i<nodes.length;i++) {
+    const k=root(i);
+    if(!points.has(k)) points.set(k,{nodes:[],hits:[],issues:[]});
+    points.get(k).nodes.push(nodes[i]);
+  }
+  for (const point of points.values()) {
+    const ns=point.nodes;
+    if(ns.some((n,i)=>ns.slice(0,i).some(m=>distance(n.xyz,m.xyz)>epsilon)))
+      point.issues.push('coincident group spans more than 0.001 mm');
+  }
+  return points;
 }
 
 export function matchPsi116Cii(xml, cii, {toleranceMm=1}={}) {
@@ -38,25 +69,10 @@ export function matchPsi116Cii(xml, cii, {toleranceMm=1}={}) {
     require(typeof c?.id==='string' && c.id && vector(c.xyz) && !cids.has(c.id),'MATCH_GRAPH_INVALID','CII','invalid or repeated node');
     cids.add(c.id);
   }
-  // Union-find over the epsilon-neighbour graph; validate each component's diameter.
-  const parent = nodes.map((_,i)=>i);
-  const root = i => { while (parent[i]!==i) {parent[i]=parent[parent[i]];i=parent[i];} return i; };
-  for (let i=0;i<nodes.length;i++) for(let j=0;j<i;j++) {
-    const a=nodes[i].xyz,b=nodes[j].xyz;
-    if (Math.abs(a[0]-b[0])<=epsilon && Math.abs(a[1]-b[1])<=epsilon && Math.abs(a[2]-b[2])<=epsilon && distance(a,b)<=epsilon)
-      parent[root(i)]=root(j);
-  }
-  const points=new Map();
-  for (let i=0;i<nodes.length;i++) {
-    const k=root(i);
-    if(!points.has(k)) points.set(k,{nodes:[],hits:[],issues:[]});
-    points.get(k).nodes.push(nodes[i]);
-  }
+  const points=groupPsi116Points(nodes);
   const claims=new Map(), ambiguities=[], nodePairs=[], unmatchedNodesXml=[], used=new Set();
   for (const point of points.values()) {
     const ns=point.nodes;
-    if(ns.some((n,i)=>ns.slice(0,i).some(m=>distance(n.xyz,m.xyz)>epsilon)))
-      point.issues.push('coincident group spans more than 0.001 mm');
     // Every member contributes candidates; do not hide competitors at the tolerance boundary.
     for (const c of cii.nodes) {
       const ds=ns.map(n=>distance(n.xyz,c.xyz));
