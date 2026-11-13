@@ -41,7 +41,7 @@ if (command === 'pair-psi116') {
     }
     return r;
   });
-  result.summary={...(result.summary||{paired:null,unmatchedSource:null,unmatchedTarget:null,ambiguous:null,boreRefused:null}),ms:performance.now()-start};
+  result.summary={...(result.summary||{paired:null,unmatchedSource:null,unmatchedTarget:null,ambiguous:null,boreRefused:null,boreBlockedTargetBranches:null,boreBlockedPairs:null}),ms:performance.now()-start};
   finish(result);
 }
 if (command === 'match-psi116') {

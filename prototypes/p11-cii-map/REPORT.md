@@ -329,3 +329,23 @@ P1.2c B1: 41 branches × 40 nodes per side (1,640 records, 1,600 distinct points
 ## FAILING
 
 None. The initial T3 run found an adjacent-context dependency when a nearby node moved; the unique-context assignment now permits one forced leftover pair within tolerance, and the unchanged T3 passes. No old tests weakened. No unresolved test, mutation, benchmark or card check.
+
+
+## P1.2c review fixes (Opus 88/100)
+
+Base: e1156230. Same branch, one follow-up commit.
+
+### DECISIONS
+
+1. Chosen option: withhold every pair targeting a branch with a bore-refused record. An unapproved mismatched candidate cannot protect a branch-wide field in U2a, because the planner ignores candidates. The matcher therefore removes even otherwise valid pairs from the affected target branch and lists the branch ordinal/name in `boreBlockedTargetBranches`, with the additional withheld pairs in `boreBlockedPairs`. `boreRefused` still counts only actual OD failures. All withheld records count as unmatched; paired means eligible for export. The exporter independently refuses any attempted reintroduction of a blocked branch. Unaffected branches remain eligible. This supersedes P1.2c decision 3 and its previous 11-pair T4 counts. No shared validator or U2a changes.
+2. Unequal coincident group cardinality is diagnosed explicitly with source and target record counts, e.g. "record count differs (2 vs 1)". No guessing or change to ambiguity export gating.
+3. When bore reading is enabled, multiple direct OutsideDiameter tags are recorded on the node and a geometrically matched record with that issue yields MATCH_BORE_DUPLICATE_TAG, naming the affected side(s). The target branch is withheld as for other bore refusals. This preserves diagnostics rather than aborting the read. Without bore, OD remains unread.
+
+### TESTS
+
+Fresh node --test in the card folder, Node 22.16.0: 72/72 pass, 0 fail/skipped/cancelled/todo, 3005.82621 ms. Baseline 69/69. C1–C9 PASS. Earlier cards' tests unchanged; T4 and the existing P1.2c CLI assertions now enforce the stricter whole-branch rule (8 exported, 1 bore-refused, 3 additionally withheld, 4 unmatched each side). Three new tests cover:
+- Reviewer Temperature 200 vs 20 and OD 60.3/60.3 vs 60.3/88.9: plain approved Map + actual U2a items ['element'], bore:true yields U2_BORE_MISMATCH for Branch/Temperature. Actual CLI --bore Map has no pairs for L, including after approval; real U2a receives zero pairs and plans zero edits. Since the entire branch is absent, U2a emits no field-refusal row for that Map; the named refusal is in the P1.2c diagnostics. Exporter refuses reintroduced blocked pair.
+- Unequal coincident record counts 2 vs 1 appear in the ambiguity detail and block export.
+- Duplicate direct OutsideDiameter tags on either input yield dedicated refusal, block the target branch, and leave other branches eligible. Without bore, the same inputs still pair.
+
+FAILING: none. No private input, browser, main change, PR, force-push or modification outside the card folder.

@@ -23,7 +23,7 @@ export async function readPsi116Graph(bytes, {includeBore=false}={}) {
       const od = children(element,'OutsideDiameter');
       const raw = od.length===1 && !od[0].children.length && !od[0].cdata ? text(doc,od[0]).value : '';
       const outsideDiameter = decimal.test(raw) && Number.isFinite(Number(raw)) && Number(raw)>0 ? Number(raw) : null;
-      return {ref,xyz,outsideDiameter};
+      return {ref,xyz,outsideDiameter,...(od.length>1?{boreIssue:'MATCH_BORE_DUPLICATE_TAG'}:{})};
     }
     return {ref,xyz};
   });

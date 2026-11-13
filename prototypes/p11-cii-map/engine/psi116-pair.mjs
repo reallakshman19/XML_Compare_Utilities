@@ -91,7 +91,7 @@ export function pairPsi116(sourceGraph,targetGraph,{toleranceMm=1,bore=false}={}
   }
   const uniqueTargets=new Map();
   for(const s of source.points) if(!s.issues.length&&s.hits.length===1&&!s.hits[0].issues.length&&s.hits[0].hits.length===1) uniqueTargets.set(s,s.hits[0]);
-  const nodePairs=[], boreRefused=[], ambiguities=[], usedS=new Set(),usedT=new Set();
+  const matched=[], nodePairs=[], boreRefused=[], ambiguities=[], usedS=new Set(),usedT=new Set();
   const identical=typeof sourceGraph.sha256==='string'&&/^[a-f0-9]{64}$/.test(sourceGraph.sha256)&&sourceGraph.sha256===targetGraph.sha256;
   // Emit one diagnostic per affected source point, or per isolated target
   // point. Target-only competitors are included in their source's candidate list.
@@ -105,26 +105,38 @@ export function pairPsi116(sourceGraph,targetGraph,{toleranceMm=1,bore=false}={}
     if(!t)continue;
     const resolved=resolveRecords(s,t,source,target,uniqueTargets,toleranceMm,identical);
     if(!resolved) {
-      ambiguities.push(diagnostic(s,[t],'coincident records have no unique position-based one-to-one assignment'));continue;
+      ambiguities.push(diagnostic(s,[t],s.nodes.length!==t.nodes.length?`record count differs (${s.nodes.length} vs ${t.nodes.length})`:'coincident records have no unique position-based one-to-one assignment'));continue;
     }
     for(const [a,b] of resolved) {
       const d=distance(a.xyz,b.xyz),p={source:a.ref,target:b.ref,rule:d<=EPS?'same-position':'nearest-within-tolerance',distanceMm:d};
-      if(bore&&(!Number.isFinite(a.outsideDiameter)||a.outsideDiameter<=0||!Number.isFinite(b.outsideDiameter)||b.outsideDiameter<=0||a.outsideDiameter!==b.outsideDiameter)) {
-        boreRefused.push({...p,code:'MATCH_BORE_MISMATCH',where:label(a.ref),detail:'OutsideDiameter differs or is missing/invalid',sourceOD:a.outsideDiameter??null,targetOD:b.outsideDiameter??null});continue;
+      if(bore&&(a.boreIssue||b.boreIssue||!Number.isFinite(a.outsideDiameter)||a.outsideDiameter<=0||!Number.isFinite(b.outsideDiameter)||b.outsideDiameter<=0||a.outsideDiameter!==b.outsideDiameter)) {
+        const duplicate=a.boreIssue==='MATCH_BORE_DUPLICATE_TAG'||b.boreIssue==='MATCH_BORE_DUPLICATE_TAG';
+        const sides=[a.boreIssue==='MATCH_BORE_DUPLICATE_TAG'?'source':null,b.boreIssue==='MATCH_BORE_DUPLICATE_TAG'?'target':null].filter(Boolean);
+        boreRefused.push({...p,code:duplicate?'MATCH_BORE_DUPLICATE_TAG':'MATCH_BORE_MISMATCH',where:label(a.ref),detail:duplicate?`duplicate OutsideDiameter tags on ${sides.join(' and ')}`:'OutsideDiameter differs or is missing/invalid',sourceOD:a.outsideDiameter??null,targetOD:b.outsideDiameter??null});continue;
       }
-      nodePairs.push(p);usedS.add(a);usedT.add(b);
+      matched.push({a,b,p});
     }
   }
   for(const t of target.points) if(t.issues.length&&!t.hits.length) ambiguities.push(diagnostic(null,[t],t.issues.join('; ')));
+  // U2a cannot see a removed bore-refused pair. Withhold its entire target
+  // branch so even an approved subset cannot authorize branch-wide edits.
+  const blocked=new Map(boreRefused.map(p=>[p.target.branchOrdinal,{branchOrdinal:p.target.branchOrdinal,branchName:p.target.branchName}]));
+  const boreBlockedTargetBranches=[...blocked.values()].sort((a,b)=>a.branchOrdinal-b.branchOrdinal), boreBlockedPairs=[];
+  for(const {a,b,p} of matched) {
+    if(blocked.has(b.ref.branchOrdinal)) {boreBlockedPairs.push(p);continue;}
+    nodePairs.push(p);usedS.add(a);usedT.add(b);
+  }
   const unmatchedNodesSource=sourceGraph.nodes.filter(n=>!usedS.has(n)).map(record),unmatchedNodesTarget=targetGraph.nodes.filter(n=>!usedT.has(n)).map(record);
-  return {mode:'psi116-pair',inputs:{source:{sha256:sourceGraph.sha256},target:{sha256:targetGraph.sha256}},nodePairs,unmatchedNodesSource,unmatchedNodesTarget,ambiguities,boreRefused,
+  return {mode:'psi116-pair',inputs:{source:{sha256:sourceGraph.sha256},target:{sha256:targetGraph.sha256}},nodePairs,unmatchedNodesSource,unmatchedNodesTarget,ambiguities,boreRefused,boreBlockedTargetBranches,boreBlockedPairs,
     summary:{toleranceMm,bore,sourceNodes:sourceGraph.nodes.length,targetNodes:targetGraph.nodes.length,sourcePoints:source.points.length,targetPoints:target.points.length,
-      paired:nodePairs.length,unmatchedSource:unmatchedNodesSource.length,unmatchedTarget:unmatchedNodesTarget.length,ambiguous:ambiguities.length,boreRefused:boreRefused.length,ms:performance.now()-start}};
+      paired:nodePairs.length,unmatchedSource:unmatchedNodesSource.length,unmatchedTarget:unmatchedNodesTarget.length,ambiguous:ambiguities.length,boreRefused:boreRefused.length,boreBlockedTargetBranches:boreBlockedTargetBranches.length,boreBlockedPairs:boreBlockedPairs.length,ms:performance.now()-start}};
 }
 
 export function psi116PairToMapFile(result,{sourceFile,targetFile,createdAt=new Date().toISOString()}={}) {
   require(result?.mode==='psi116-pair'&&result.ok!==false&&Array.isArray(result.nodePairs),'MAP_EXPORT_INVALID','PSI116 pair','complete result required');
   require(Array.isArray(result.ambiguities)&&result.ambiguities.length===0&&result.summary?.ambiguous===0,'MATCH_NODE_AMBIGUOUS','PSI116 pair','Map export requires zero ambiguities');
+  require(Array.isArray(result.boreRefused)&&Array.isArray(result.boreBlockedTargetBranches),'MAP_EXPORT_INVALID','PSI116 pair','missing bore diagnostics');
+  const blocked=new Set([...result.boreRefused.map(p=>p.target.branchOrdinal),...result.boreBlockedTargetBranches.map(b=>b.branchOrdinal)]);
   const file=(side,f)=>{
     require(f&&f.sha256===result.inputs?.[side]?.sha256,'MAP_EXPORT_INVALID',side,'descriptor must match input graph');
     return {kind:'xml',fileName:f.fileName,sha256:f.sha256};
@@ -133,6 +145,7 @@ export function psi116PairToMapFile(result,{sourceFile,targetFile,createdAt=new 
   const ss=new Set(),tt=new Set();
   const pairs=result.nodePairs.map(p=>{
     require(validRef(p.source)&&validRef(p.target)&&Number.isFinite(p.distanceMm)&&p.distanceMm>=0&&['same-position','nearest-within-tolerance'].includes(p.rule),'MAP_EXPORT_INVALID','node pair','invalid ref, residual or rule');
+    require(!blocked.has(p.target.branchOrdinal),'MAP_EXPORT_INVALID','node pair','target branch blocked by bore refusal');
     require(!ss.has(key(p.source))&&!tt.has(key(p.target)),'MAP_NOT_ONE_TO_ONE','node pair','duplicate structural identity');
     ss.add(key(p.source));tt.add(key(p.target));
     return {pairId:'psi116-pair-'+key(p.source),source:ref(p.source),target:ref(p.target),status:'candidate',evidence:{rule:p.rule,detail:`${p.distanceMm} mm`}};
