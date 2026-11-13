@@ -1,7 +1,7 @@
 {
  "card": "p11-cii-map",
- "at": "2026-11-12T11:48:53.186Z",
- "node": "v22.23.2",
+ "at": "2026-11-12T19:42:46.465Z",
+ "node": "v22.16.0",
  "rows": [
   {
    "bench": "B1",
@@ -17,11 +17,11 @@
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
    "fieldDiffs": 4,
-   "ms": 18.7,
+   "ms": 14.3,
    "runs": [
-    18.2,
-    18.7,
-    59.8
+    13.6,
+    14.3,
+    45.3
    ],
    "limitMs": 300,
    "pass": true
@@ -39,11 +39,11 @@
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
    "fieldDiffs": 0,
-   "ms": 14.4,
+   "ms": 16.6,
    "runs": [
-    13.9,
-    14.4,
-    21.6
+    9.6,
+    16.6,
+    18.1
    ],
    "limitMs": 300,
    "pass": true
@@ -62,13 +62,32 @@
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
    "fieldDiffs": 72,
-   "ms": 717,
+   "ms": 511.4,
    "runs": [
-    716.6,
-    717,
-    757.6
+    507.3,
+    511.4,
+    535.9
    ],
    "limitMs": 30000,
+   "pass": true
+  },
+  {
+   "bench": "P1.3 B1",
+   "input": "X-T vs X-TEXP",
+   "sha256": {
+    "X-T": "abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060",
+    "X-TEXP": "bb7c43ab883de3deeae6f73ec37538d977d395dacb9631e3501878d5459162c9"
+   },
+   "elementPairs": 1614,
+   "nodePairs": 1619,
+   "pairs": 3233,
+   "ms": 2.8,
+   "runs": [
+    1.5,
+    2.8,
+    6.6
+   ],
+   "limitMs": 1000,
    "pass": true
   }
  ]

@@ -43,3 +43,44 @@
 2. Load X-S1 and X-S1M (the test writes X-S1M to `tests/fixtures/`, listed in the manifest as cut from X-S1). The 4 planted changes are listed.
 
 **Out of scope:** writing a Map file (that is P1.3); XML inputs (P1.2); any editing.
+
+
+### P1.3 · Map file export (L1 Mapping)
+**Repo / folder:** XCU, `prototypes/p11-cii-map/` (same folder; continue the P1.1 branch, or branch from it after P1.1 merges) **Needs:** P1.1 merged, K1
+
+**Goal.** Turn P1.1's pairs into a `topofix.map` v1 file that a person approves, pair by pair or all at once.
+
+**Build:**
+
+1. `engine/to-map.mjs`: `toMapFile(compareResult, {sourceFile, targetFile, method:'geometry-pair'})` returns a Map file.
+   - Every pair starts with `status: candidate`.
+   - `evidence.rule` = the P1.1 rule, and `evidence.detail` = the residual in mm.
+   - Element pairs use `cii` refs; node pairs use `cii-node` refs.
+2. `engine/approve.mjs`:
+   - `approvePairs(map, pairIds|'all-exact', {by, at})` sets the status to `approved`. `'all-exact'` approves only pairs whose rule is `same-number-same-position`.
+   - `rejectPairs(map, pairIds, ...)` sets the status to `rejected`.
+   - Approving a pair that would break 1:1 (rule R10) gives `MAP_NOT_ONE_TO_ONE` and changes nothing.
+3. The UI gets a checkbox per pair, plus "Approve all exact", "Approve selected" and "Export Map file". The export shows JSON in a text box with a Copy button; downloads also work when the page runs locally.
+4. Every exported file passes `shared/topofix-formats/validate.mjs`.
+
+**Tests:**
+
+- T1: X-S1 vs X-S1M, then `toMapFile`, passes the validator, with 56 element pairs, all candidates.
+- T2: `'all-exact'` on X-T vs X-TEXP: every approved pair has the rule `same-number-same-position`. The test asserts the count is above 0 and prints it.
+- T3: Forcing a second approved pair onto the same target gives `MAP_NOT_ONE_TO_ONE`, and the file is unchanged.
+- T4: A round trip (export, parse, export) gives identical JSON.
+- T5: Each header `sha256` equals the sha256 of its input file.
+
+**Mutation check:**
+
+- M1: write the wrong sha256 (T5 red).
+- M2: let `'all-exact'` approve nearest pairs (T2 red).
+- M3: skip the 1:1 check (T3 red).
+
+**Benchmark:**
+
+- B1: Map file for X-T vs X-TEXP. Report the pair count and the time; it must be under 1 s after the compare.
+
+**Owner demo.** X-T vs X-TEXP, then "Approve all exact", then Export. Then run the validator; it prints OK.
+
+**Out of scope:** XML↔CII (P1.2); applying anything.

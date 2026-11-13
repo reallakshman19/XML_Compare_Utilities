@@ -5,8 +5,10 @@ import { timeMedian, requireSha256 } from '../kit/core.mjs';
 import { parseArgs, readBenchmark, writeResult } from '../kit/node.mjs';
 import { readCiiGraph } from '../engine/cii-graph.mjs';
 import { compareCii } from '../engine/compare.mjs';
+import { toMapFile } from '../engine/to-map.mjs';
 
 const args = parseArgs();
+if (args['repo-root']) args.roots.XCU = args['repo-root'];
 const rows = [];
 const run = async (bench, ia, a, ib, b, limitMs) => {
   const t = await timeMedian(async () => compareCii(await readCiiGraph(a, { member: ia }), await readCiiGraph(b, { member: ib })));
@@ -28,6 +30,13 @@ await run('B2', 'X-S2', s2.bytes, 'X-S2', s2.bytes, 300);
 const t = await readBenchmark('X-T', args), te = await readBenchmark('X-TEXP', args);
 await run('B3', 'X-T', t.bytes, 'X-TEXP', te.bytes, 30000);
 
+const ga = await readCiiGraph(t.bytes), gb = await readCiiGraph(te.bytes);
+const comparison = compareCii(ga, gb);
+const options = {sourceFile: {fileName: 'T.CII', sha256: ga.sha256}, targetFile: {fileName: 'TEXPECTED-PARTIALLLYDONE.CII', sha256: gb.sha256}};
+const mt = await timeMedian(() => toMapFile(comparison, options));
+rows.push({bench:'P1.3 B1', input:'X-T vs X-TEXP', sha256:{'X-T':ga.sha256,'X-TEXP':gb.sha256},
+  elementPairs:comparison.summary.elementPairs,nodePairs:comparison.summary.nodePairs,pairs:mt.last.pairs.length,
+  ms:mt.ms,runs:mt.runs,limitMs:1000,pass:mt.ms<1000});
 const doc = writeResult(rows);
 console.table(doc.rows.map(({ sha256, runs, ...r }) => r));
 process.exit(rows.every(r => r.pass !== false) ? 0 : 1);

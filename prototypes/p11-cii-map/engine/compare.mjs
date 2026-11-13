@@ -237,6 +237,7 @@ export function compareCii(a, b, { anchors, toleranceMm = 1 } = {}) {
   const pairs = [...elementPairs.map(({ edgeA, edgeB, ...p }) => p), ...nodePairs];
   const byRule = Object.fromEntries(RULES.map(r => [r, elementPairs.filter(p => p.rule === r).length]));
   return {
+    inputs: { a: { sha256: a.sha256 }, b: { sha256: b.sha256 } },
     summary: { toleranceMm: tol, anchorMode: manual ? 'manual' : 'automatic', anchors: anchorList.length,
       elementsA: a.edges.length, elementsB: b.edges.length, elementPairs: elementPairs.length, nodePairs: nodePairs.length,
       unmatchedA: unmatchedA.length, unmatchedB: unmatchedB.length,
