@@ -7,9 +7,12 @@ const keys=['branchOrdinal','branchName','nodeOrdinal','nodeNumber','componentRe
 const fields={name:['Node/NodeName'],weight:['Node/Weight'],element:['Node/OutsideDiameter','Node/WallThickness','Node/CorrosionAllowance','Node/InsulationThickness','Branch/Temperature','Branch/Pressure','Branch/FluidDensity','Branch/MaterialNumber','Branch/InsulationDensity']};
 // ASME B36.10M steel pipe OD (mm) -> nominal DN (mm); exact to 0.05 mm rounding.
 export const OD_NB=Object.freeze([[10.3,6],[13.7,8],[17.1,10],[21.3,15],[26.7,20],[33.4,25],[42.2,32],[48.3,40],[60.3,50],[73,65],[88.9,80],[101.6,90],[114.3,100],[141.3,125],[168.3,150],[219.1,200],[273.1,250],[323.9,300],[355.6,350],[406.4,400],[457.2,450],[508,500],[558.8,550],[609.6,600]]);
-// Match U1 psi116-patchback.mjs: decimal/exponent text, finite numeric value.
-const numberPattern=/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
-const validNumber=s=>typeof s==='string'&&numberPattern.test(s)&&Number.isFinite(Number(s));
+// Source write values must match merged U1: finite decimal text, excluding negative zero.
+// Existing target numeric spellings may still be compared numerically without rewriting.
+const numberPattern=/^-?\d+(?:\.\d+)?$/;
+const comparablePattern=/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+const comparableNumber=s=>typeof s==='string'&&comparablePattern.test(s)&&Number.isFinite(Number(s));
+const validNumber=s=>typeof s==='string'&&numberPattern.test(s)&&Number.isFinite(Number(s))&&!Object.is(Number(s),-0);
 const numeric=s=>typeof s==='string'&&s.trim()!==''&&Number.isFinite(Number(s))&&Number(s)>0?Number(s):null;
 export function nominalBore(od){const v=numeric(od);return v===null?null:OD_NB.find(([d])=>Math.abs(d-v)<=0.05)?.[1]??null;}
 const id=r=>`${r.branchOrdinal}:${r.nodeOrdinal}`;
@@ -38,7 +41,7 @@ export async function planTransfer(sourceXmlBytes,targetXmlBytes,pairs,{items=['
   const source=model(sourceXmlBytes),target=model(targetXmlBytes),edits=[],ambiguities=[],refused=[],seenS=new Set(),seenT=new Set(),branches=new Map(),names=new Map(),blockedBranches=new Set();
   const selected=[...new Set(items)];
   const row=(s,t,extra)=>({lineNo,source:s.ref,target:t.ref,...extra});
-  const add=(t,field,before,after)=>{if(field==='Node/NodeName'?before!==after:!validNumber(before)||Number(before)!==Number(after))edits.push({lineNo,ref:t.ref,field,before,after});};
+  const add=(t,field,before,after)=>{if(field==='Node/NodeName'?before!==after:!comparableNumber(before)||Number(before)!==Number(after))edits.push({lineNo,ref:t.ref,field,before,after});};
   const reject=(s,t,code,field,detail)=>refused.push(row(s,t,{code,field,detail}));
   for(const p of pairs){
    const s=p?.source&&source.get(id(p.source)),t=p?.target&&target.get(id(p.target));
@@ -52,7 +55,7 @@ export async function planTransfer(sourceXmlBytes,targetXmlBytes,pairs,{items=['
     }
     if(!a||!b||b.selfClosing){reject(s,t,'U2_FIELD_UNAVAILABLE',field,'Missing source or writable target leaf.');continue;}
     if(item==='name'){if(a.value!==b.value)names.set(id(t.ref),{s,t,name:a.value});}
-    else if(!validNumber(a.value))reject(s,t,'U2_VALUE_INVALID',field,'Source must be a finite decimal or exponent number.');
+    else if(!validNumber(a.value))reject(s,t,'U2_VALUE_INVALID',field,'Source must be U1-admissible finite decimal text (no negative zero).');
     else add(t,field,b.value,a.value);
    }
   }
@@ -61,7 +64,7 @@ export async function planTransfer(sourceXmlBytes,targetXmlBytes,pairs,{items=['
    if(blockedBranches.has(t.ref.branchOrdinal)){reject(s,t,'U2_BORE_MISMATCH',field,'A refused bore pair shares this target branch.');continue;}
    if(entries.some(e=>!e.a||!e.b||e.b.selfClosing)){reject(s,t,'U2_FIELD_UNAVAILABLE',field,'At least one pair lacks a source or writable target branch leaf.');continue;}
    const invalid=entries.filter(e=>!validNumber(e.a.value));
-   if(invalid.length){for(const e of invalid)reject(e.s,e.t,'U2_VALUE_INVALID',field,'Invalid source number; shared target branch field withheld.');continue;}
+   if(invalid.length){for(const e of invalid)reject(e.s,e.t,'U2_VALUE_INVALID',field,'Source must be U1-admissible finite decimal text; shared target branch field withheld.');continue;}
    const values=[...new Map(entries.map(e=>[Number(e.a.value),e.a.value])).values()];
    if(values.length>1){ambiguities.push(row(s,t,{code:'U2_BRANCH_FIELD_SPLIT',field,values,candidates:entries.map(e=>({lineNo,source:e.s.ref,target:e.t.ref,value:e.a.value}))}));continue;}
    add(t,field,b.value,a.value);

@@ -1,6 +1,6 @@
 # U2a — Transfer planner in UXML terms
 
-Read-only PSI116 transfer planner. Node 22, no packages. `planTransfer(sourceBytes,targetBytes,pairs,{items,bore,choices})` returns a promise of `{ok,edits,ambiguities,refused,summary}` on successful planning; fatal refusal returns `{ok:false,refusals}` without edits. Each edit is `{ref,field,before,after,lineNo}`. Pass only `edits` to U1 after Owner review; U2a does not write XML or grant approval. `before` and `after` are decoded, trimmed leaf text, not numbers or raw entity spellings. Numeric source text must satisfy U1’s decimal/exponent and finite-number rule. Numerically equal text spellings do not generate edits. Invalid values refuse the affected field; an invalid contributor blocks the shared branch field. Branch edits use the first contributing target node ref; one edit per target branch and field. Pair-level diagnostics can coexist with unrelated edits. Never apply a plan blindly.
+Read-only PSI116 transfer planner. Node 22, no packages. `planTransfer(sourceBytes,targetBytes,pairs,{items,bore,choices})` returns a promise of `{ok,edits,ambiguities,refused,summary}` on successful planning; fatal refusal returns `{ok:false,refusals}` without edits. Each edit is `{ref,field,before,after,lineNo}`. Pass only `edits` to U1 after Owner review; U2a does not write XML or grant approval. `before` and `after` are decoded, trimmed leaf text, not numbers or raw entity spellings. Numeric source text must satisfy the merged U1 finite decimal rule (no exponent, leading plus, or negative zero). Numerically equal text spellings do not generate edits. Invalid values refuse the affected field; an invalid contributor blocks the shared branch field. Branch edits use the first contributing target node ref; one edit per target branch and field. Pair-level diagnostics can coexist with unrelated edits. Never apply a plan blindly.
 
 ```
 node cli.mjs plan source.xml target.xml pairs.json --items name,weight,element --bore --choices choices.json --out plan.json
@@ -57,5 +57,21 @@ Source: ASME B36.10M, Welded and Seamless Wrought Steel Pipe, standard outside d
 | `U2_BORE_UNKNOWN` | Ambiguity: repeated name with unknown bore. |
 | `U2_CHOICE_INVALID` | Popup choice contains invalid target ref. |
 | `INPUT_SHA256_MISMATCH` | Kit hash mismatch. |
+| `U2_ROUNDTRIP_MISMATCH` | U1 receipt or revised target re-plan does not reconcile. |
+| `U2_OUTPUT_EXISTS` | Either requested output path already exists, or both are identical. |
+| `U1_STALE_BEFORE` | U1 found a different current value; neither output is written. |
+| `U1_VALUE_INVALID` | U1 rejected a planned value; neither output is written. |
 
 The scanner passes through its XML refusals. CLI also reports U2_JSON_INVALID and U2_IO_FAILED.
+
+## U2b — Apply a reviewed transfer
+
+Run in the XCU checkout with merged U1 available. This command writes a **new** revised PSI116 and a JSON application receipt, after the in-memory U2a plan, U1 write-back/parity and round-trip checks pass:
+
+```
+node cli.mjs apply source.xml target.xml pairs.json --out revised.xml --changes changes.json --items name,weight,element --choices choices.json
+```
+
+A validated XML→XML Map can replace `pairs.json`; only approved pairs are used. `--bore` and `--items` behave as in `plan`. `--choices` is optional. U2a ambiguity and refusal rows are reported, not sent to U1; unrelated planned edits still apply. U1 itself remains atomic: any U1 refusal aborts the entire command. The merged U1 numeric grammar accepts finite `-?digits[.digits]` decimal text (not exponent, leading plus, or negative zero). U2a now refuses every inadmissible source numeric field as `U2_VALUE_INVALID`, even if its numeric value equals the target. Such rows are withheld before U1, while unrelated valid edits proceed. A bad branch contributor blocks the shared branch field. No silent rewriting or normalization is done.
+
+The receipt (`format: u2.transfer-receipt`, version 1) records source/base/revised SHA-256, supplied pairs-file SHA-256, options, applied `changes` (target ref, field, before/after, original target byte span `[start,end)`, lineNo, evidence pairs), initial ambiguities/refused rows, summary and round-trip result. Branch edits include all approved contributing pairs. Raw pairs receive one-based `raw-N` evidence IDs. It is an audit receipt, not an approved `topofix.changeset`: this CLI has no Owner identity/approval or explicit zero-confirmation flags, and XML byte spans need not equal decoded text lengths. Do not use the receipt as a new approved Change set. `applyTransfer` itself returns bytes and ledger in memory only; CLI creates the two files exclusively after checks. `U2_OUTPUT_EXISTS` means either path already exists or both paths are identical; `U2_ROUNDTRIP_MISMATCH` means the U1 receipt or re-plan failed to reconcile. Both are fatal and produce no output. The re-plan uses the same options and pairs (a validated Map's target hash is updated internally only), and requires zero remaining edits across all requested items, including newly appearing proposals. Unresolved ambiguity/refusal diagnostics may remain, but any residual edit causes `U2_ROUNDTRIP_MISMATCH` and neither output is written. Exit 0 = both outputs written, 1 = refusal, 2 = usage. An I/O error during two-file creation triggers rollback of files created by this call; crash-atomic multi-file filesystem transactions are not provided.
