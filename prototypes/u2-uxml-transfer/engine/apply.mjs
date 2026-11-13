@@ -27,12 +27,12 @@ export async function applyTransfer(sourceBytes,targetBytes,pairs,options={}, {w
   const checkPairs=Array.isArray(pairs)?pairs:{...pairs,target:{...pairs.target,sha256:applied.sha256After}};
   const replan=await planner(sourceBytes,applied.bytes,checkPairs,options);
   require(replan.ok,'U2_ROUNDTRIP_MISMATCH','re-plan',JSON.stringify(replan.refusals??[]));
-  const remaining=replan.edits.filter(e=>planned.has(key(e)));
-  require(remaining.length===0,'U2_ROUNDTRIP_MISMATCH','re-plan','Applied fields still require edits: '+remaining.map(key).join(', '));
+  const remaining=replan.edits;
+  require(remaining.length===0,'U2_ROUNDTRIP_MISMATCH','re-plan','Requested fields still require edits: '+remaining.map(key).join(', '));
   // Preserve evidence for every edit, including all contributors to a shared branch field.
   const eligible=Array.isArray(pairs)?pairs.map((p,i)=>({...p,pairId:`raw-${i+1}`})):pairs.pairs.filter(p=>p.status==='approved');
   const changes=applied.changes.map(c=>({...c,lineNo:'[TBA]',evidence:{pairs:eligible.filter(p=>p.target.branchOrdinal===c.ref.branchOrdinal&&(c.field.startsWith('Branch/')||p.target.nodeOrdinal===c.ref.nodeOrdinal)).map(p=>({pairId:p.pairId,source:p.source,target:p.target}))}}));
-  const ledger={format:'u2.transfer-receipt',version:1,createdAt:new Date().toISOString(),source:{fileName:sourceFile,sha256:sourceSha256},base:{fileName:targetFile,sha256:targetSha256},revised:{sha256:applied.sha256After},...(pairFileSha256?{pairFileSha256}:{}),options,changes,ambiguities:plan.ambiguities,refused:plan.refused,summary:plan.summary,roundtrip:{appliedRemaining:remaining.length,otherRemaining:replan.edits.filter(e=>!planned.has(key(e)))}};
+  const ledger={format:'u2.transfer-receipt',version:1,createdAt:new Date().toISOString(),source:{fileName:sourceFile,sha256:sourceSha256},base:{fileName:targetFile,sha256:targetSha256},revised:{sha256:applied.sha256After},...(pairFileSha256?{pairFileSha256}:{}),options,changes,ambiguities:plan.ambiguities,refused:plan.refused,summary:plan.summary,roundtrip:{appliedRemaining:remaining.length,otherRemaining:[]}};
   return {bytes:applied.bytes,ledger};
  });
 }
