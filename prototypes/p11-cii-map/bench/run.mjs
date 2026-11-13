@@ -11,6 +11,8 @@ import { matchXmlCii } from '../engine/xml-match.mjs';
 
 import { readPsi116Graph, matchPsi116Cii } from '../engine/psi116-match.mjs';
 import { makePsi116Case } from '../tests/psi116-fixtures.mjs';
+import { pairPsi116 } from '../engine/psi116-pair.mjs';
+import { makePsi116PairDoc } from '../tests/psi116-pair-fixtures.mjs';
 
 const args = parseArgs();
 if (args['repo-root']) args.roots.XCU = args['repo-root'];
@@ -61,6 +63,13 @@ const pt = await timeMedian(async () => matchPsi116Cii(await readPsi116Graph(psi
 const ps = pt.last.summary;
 rows.push({bench:'P1.2b B1',input:'invented PSI116 41 x 40 vs renumbered CII',sha256:{xml:pt.last.inputs.xml.sha256,cii:pt.last.inputs.cii.sha256},
   ...ps,ms:pt.ms,runs:pt.runs,limitMs:2000,pass:pt.ms<2000&&ps.paired===1640&&ps.pairedCii===1600&&ps.unmatchedXml===0&&ps.unmatchedCii===0&&ps.ambiguous===0});
+// P1.2c: both documents invented; target renumbered and branches reordered.
+const pairSource=makePsi116PairDoc({branches:41,nodes:40});
+const pairTarget=makePsi116PairDoc({branches:41,nodes:40,renumber:1000,reverseBranches:true});
+const xt=await timeMedian(async()=>pairPsi116(await readPsi116Graph(pairSource,{includeBore:true}),await readPsi116Graph(pairTarget,{includeBore:true}),{bore:true}));
+const xs=xt.last.summary;
+rows.push({bench:'P1.2c B1',input:'invented PSI116 41 x 40 vs renumbered, reordered PSI116',sha256:{source:xt.last.inputs.source.sha256,target:xt.last.inputs.target.sha256},
+  ...xs,ms:xt.ms,runs:xt.runs,limitMs:2000,pass:xt.ms<2000&&xs.paired===1640&&xs.unmatchedSource===0&&xs.unmatchedTarget===0&&xs.ambiguous===0&&xs.boreRefused===0});
 const doc = writeResult(rows);
 console.table(doc.rows.map(({ sha256, runs, ...r }) => r));
 process.exit(rows.every(r => r.pass !== false) ? 0 : 1);

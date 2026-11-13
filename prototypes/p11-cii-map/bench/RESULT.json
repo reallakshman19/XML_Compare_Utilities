@@ -1,6 +1,6 @@
 {
  "card": "p11-cii-map",
- "at": "2026-11-13T04:53:56.577Z",
+ "at": "2026-11-13T07:06:09.784Z",
  "node": "v22.16.0",
  "rows": [
   {
@@ -17,11 +17,11 @@
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
    "fieldDiffs": 4,
-   "ms": 17.7,
+   "ms": 17.4,
    "runs": [
-    15.4,
-    17.7,
-    61.2
+    11.6,
+    17.4,
+    46
    ],
    "limitMs": 300,
    "pass": true
@@ -39,11 +39,11 @@
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
    "fieldDiffs": 0,
-   "ms": 18.9,
+   "ms": 14,
    "runs": [
-    10.4,
-    18.9,
-    26.1
+    12.4,
+    14,
+    14.3
    ],
    "limitMs": 300,
    "pass": true
@@ -62,11 +62,11 @@
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
    "fieldDiffs": 72,
-   "ms": 697.4,
+   "ms": 752.7,
    "runs": [
-    598.2,
-    697.4,
-    734.2
+    613.5,
+    752.7,
+    781
    ],
    "limitMs": 30000,
    "pass": true
@@ -81,11 +81,11 @@
    "elementPairs": 1614,
    "nodePairs": 1619,
    "pairs": 3233,
-   "ms": 5.2,
+   "ms": 6.9,
    "runs": [
-    1.8,
-    5.2,
-    8
+    5.9,
+    6.9,
+    16.4
    ],
    "limitMs": 1000,
    "pass": true
@@ -103,11 +103,11 @@
    "unmatchedB": 0,
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
-   "ms": 124.6,
+   "ms": 134.7,
    "runs": [
-    113.2,
-    124.6,
-    131
+    125,
+    134.7,
+    144.5
    ],
    "limitMs": 2000,
    "pass": true
@@ -125,11 +125,11 @@
    "unmatchedB": 0,
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
-   "ms": 135.3,
+   "ms": 158.9,
    "runs": [
-    91,
-    135.3,
-    140.3
+    146,
+    158.9,
+    162.9
    ],
    "limitMs": 2000,
    "pass": true
@@ -150,11 +150,38 @@
    "unmatchedXml": 0,
    "unmatchedCii": 0,
    "ambiguous": 0,
-   "ms": 318.3,
+   "ms": 745.1,
    "runs": [
-    296.1,
-    318.3,
-    401.1
+    685.9,
+    745.1,
+    900.4
+   ],
+   "limitMs": 2000,
+   "pass": true
+  },
+  {
+   "bench": "P1.2c B1",
+   "input": "invented PSI116 41 x 40 vs renumbered, reordered PSI116",
+   "sha256": {
+    "source": "b37213f07939d2243ed707e08d45cb00ba45022314995c057ba6e4082f49dc17",
+    "target": "6775987dab8a3d8456c815aa1bf1a0de396855a6f98525a3fdfea6168dd62cbb"
+   },
+   "toleranceMm": 1,
+   "bore": true,
+   "sourceNodes": 1640,
+   "targetNodes": 1640,
+   "sourcePoints": 1600,
+   "targetPoints": 1600,
+   "paired": 1640,
+   "unmatchedSource": 0,
+   "unmatchedTarget": 0,
+   "ambiguous": 0,
+   "boreRefused": 0,
+   "ms": 262,
+   "runs": [
+    228.8,
+    262,
+    291.9
    ],
    "limitMs": 2000,
    "pass": true

@@ -279,3 +279,73 @@ Owner demo: from prototypes/p11-cii-map/, run `node cli.mjs match-psi116 <file.x
 Base: 42eb128f. Union-find groups Euclidean neighbours at 0.001 mm; verify the maximum pairwise group span before matching. All group members contribute candidate claims, and a unique candidate must be within tolerance of every member. Each original record retains its own measured residual. Distinct groups claiming the same target are all ambiguous, not order-dependent. Ambiguous groups count as unmatched XML records; all unpaired CII IDs count as unmatched CII nodes. The ambiguity list identifies each affected point and candidate IDs. Diagnostic-only CLI succeeds with counts even on ambiguity; requesting a Map returns exit 1 with MATCH_NODE_AMBIGUOUS, preserves the diagnostic result and writes nothing. Direct Map export also rejects ambiguities. Negative tolerance is parsed explicitly and then refused by the matcher. These decisions supersede the original P1.2b report's exact-grouping and all-or-nothing ambiguity semantics. Only P1.2b's superseded assertions changed; earlier cards' tests are unchanged.
 
 TESTS: fresh node --test from card folder, Node 22.16.0, 60/60 pass (0 fail, skipped, cancelled or todo; 2671.632076 ms). New regression cases: 1000/1000.0001 mm grouped, overlong chain diagnosed, three good points plus one ambiguous point print 3 paired / 1 unmatched XML / 2 unmatched CII / 1 ambiguity, no Map written, negative tolerance refused in both argument forms. Card-check C1–C9 PASS. Invented 41×40 benchmark rerun: 790.2 ms median (782.7, 790.2, 822.2); 1640 records/1600 CII nodes paired, zero unmatched or ambiguities, <2 s PASS. FAILING: none. No private inputs.
+
+
+# P1.2c REPORT — PSI116 to PSI116 position pairing
+
+Base: XCU main 78623ca70ff182cd5df67f4ed4319ff177100e98. New branch proto/p12c-psi116-pair-20261113. Changes confined to prototypes/p11-cii-map/. No Owner-only data, browser, npm, PR, force-push or main change.
+
+## TESTS
+
+Node 22.16.0; baseline 60/60. After restoration of both deliberate mutations, fresh `node --test` from the card folder on a clean copy: 69/69 pass, 0 failures, skipped, cancelled or todo (3467.846791 ms). P1.1/P1.2/P1.3/P1.2b tests unchanged. New tests: five required plus four supplemental.
+
+| Test | Result |
+|---|---|
+| P1.2c T1 | 12/12 paired; 10/10 distinct points; no unmatched or ambiguity |
+| P1.2c T2 | 12/12 after +1000 renumbering and branch-order reversal; original structural refs preserved |
+| P1.2c T3 | 11 paired, 1 unmatched source and target, named R1-1, displacement 5 mm |
+| P1.2c T4 | 12 paired without bore; with bore 11 paired, 1 MATCH_BORE_MISMATCH (60.3 vs 88.9 mm), 11 exported candidates |
+| P1.2c T5 | Shared validator CLI OK for candidate and approved Maps; actual U2a planner at base accepts 12 approved pairs, plans 12 weight edits, zero ambiguities/refusals; ignores unapproved candidates, refuses stale hash |
+| Supplemental 1 | epsilon grouping, overlong group, competing point counts and nearest rule |
+| Supplemental 2 | indistinguishable coincident records diagnosed, no ordinal tie-break |
+| Supplemental 3 | missing OD, invalid tolerance, stale descriptor, duplicate structural ref |
+| Supplemental 4 | CLI counts, ambiguity blocks output, bore excludes only refused pair, atomic no-overwrite and negative tolerance |
+
+Final kit C1–C9: PASS. C3 checks P1.1 T1–T8 only; subsequent IDs are separately named in their tests. P1.3 T1–T5; P1.2 T1–T8; P1.2b T1–T5; P1.2c T1–T5; supplemental/review tests included in node --test. U2a import is the explicitly requested read-only integration dependency, not an engine import. The local source was reconstructed from the supplied original ZIP, prior patches and connector-fetched merged-base files; 46 unchanged executable/fixture blobs, restored files and U2a planner/dependencies checked against Git blob identities. Existing public pinned fixtures retain their expected SHA-256 values. New fixtures are entirely invented.
+
+## MUTATIONS
+
+| Mutation | Test | Actual result |
+|---|---|---|
+| M1 use node-number equality for point candidates instead of distance | T2 | RED, exit 1, 0 pass / 1 fail |
+| M2 disable bore guard | T4 | RED, exit 1, 0 pass / 1 fail |
+
+Original engine bytes restored after each mutation. Full suite green afterward.
+
+## BENCH
+
+P1.2c B1: 41 branches × 40 nodes per side (1,640 records, 1,600 distinct points); target renumbered +1000 and branch order reversed, bore enabled. Both XML reads, SHA-256 and matching included; file I/O and Map serialization excluded. Three runs 228.8, 262.0, 291.9 ms; median 262.0 ms < 2,000 ms PASS. 1,640 paired, zero unmatched on both sides, zero ambiguous, zero bore-refused. All prior bench rows also pass. `bench/run.mjs` and `bench/RESULT.json` record measured results and hashes.
+
+## DECISIONS
+
+1. Reuse the P1.2b PSI116 reader and union-find point grouping, including maximum Euclidean group diameter 0.001 mm. No frame alignment or fitting; require the same coordinate frame. Candidate groups are reciprocal; any competing point or overlong group is ambiguous even if an exact match is among the candidates.
+2. U2a requires a one-to-one assignment of structural XML records, unlike PSI116-to-CII's many-to-one candidates. A singleton group pairs directly. Within a coincident group of equal cardinality, match unique adjacent-distinct-position signatures (order/direction independent, using reciprocal point matches). A single leftover source and target may pair if within tolerance, once other records are uniquely assigned. Equal input SHA-256 permits identical structural identities with zero residual at a uniquely matched point. Otherwise indistinguishable or unequal-cardinality groups are ambiguous, never zipped by document order or paired by node numbers. The entire unresolved group is withheld. Each pair records its own distance. This conservative policy may leave real coincident records unresolved; inspect diagnostics rather than guess.
+3. Bore is an optional post-geometry gate. Exact numeric positive finite OD equality, not nominal DN or OD tolerance. Missing/invalid/nonunique OD is refused; without bore the reader does not inspect OD. Read graphs with `{includeBore:true}` when directly calling `pairPsi116(...,{bore:true})`. Bore is never a geometry tie-breaker. Bore-refused records are included in both unmatched counts and listed separately; only safe pairs are exported. Branch-wide transfer policy remains U2a's responsibility.
+4. Ambiguity counts are diagnostic groups (affected source point, or isolated invalid target point); the full list contains source/target refs and positions. No-map CLI succeeds with diagnostics; map-request CLI blocks on any ambiguity and preserves computed counts. Bore-only refusals permit safe subset export. Invalid input/tolerance has null counts because matching did not occur. Existing output files refuse without overwriting; counts survive output-write failure.
+5. Candidate Map source and target are XML and use all six canonical structural ref fields. Validate via existing shared validator (vendored unchanged). Both hashes must match actual read bytes. Explicit uniqueness check applies even to candidates. Approval remains a separate Owner step with explicit pair IDs; no automatic approval, no transfer performed by this card. No shared validator change required.
+6. T5 integrates the actual sibling U2a planner read-only as requested, with a runtime URL import only in the integration test; card-check's standalone import scan is unchanged. U2a and shared files are untouched. Test fixture has invented weight values to prove edits, not merely successful empty planning.
+7. Benchmark includes grouping and pairing both 1,640-record XMLs with bore check, measures median of three, and uses the existing runner. All prior timings refreshed. No performance claim beyond the measured fixture. Private comparison remains Oracle-only.
+
+## FAILING
+
+None. The initial T3 run found an adjacent-context dependency when a nearby node moved; the unique-context assignment now permits one forced leftover pair within tolerance, and the unchanged T3 passes. No old tests weakened. No unresolved test, mutation, benchmark or card check.
+
+
+## P1.2c review fixes (Opus 88/100)
+
+Base: e1156230. Same branch, one follow-up commit.
+
+### DECISIONS
+
+1. Chosen option: withhold every pair targeting a branch with a bore-refused record. An unapproved mismatched candidate cannot protect a branch-wide field in U2a, because the planner ignores candidates. The matcher therefore removes even otherwise valid pairs from the affected target branch and lists the branch ordinal/name in `boreBlockedTargetBranches`, with the additional withheld pairs in `boreBlockedPairs`. `boreRefused` still counts only actual OD failures. All withheld records count as unmatched; paired means eligible for export. The exporter independently refuses any attempted reintroduction of a blocked branch. Unaffected branches remain eligible. This supersedes P1.2c decision 3 and its previous 11-pair T4 counts. No shared validator or U2a changes.
+2. Unequal coincident group cardinality is diagnosed explicitly with source and target record counts, e.g. "record count differs (2 vs 1)". No guessing or change to ambiguity export gating.
+3. When bore reading is enabled, multiple direct OutsideDiameter tags are recorded on the node and a geometrically matched record with that issue yields MATCH_BORE_DUPLICATE_TAG, naming the affected side(s). The target branch is withheld as for other bore refusals. This preserves diagnostics rather than aborting the read. Without bore, OD remains unread.
+
+### TESTS
+
+Fresh node --test in the card folder, Node 22.16.0: 72/72 pass, 0 fail/skipped/cancelled/todo, 3005.82621 ms. Baseline 69/69. C1–C9 PASS. Earlier cards' tests unchanged; T4 and the existing P1.2c CLI assertions now enforce the stricter whole-branch rule (8 exported, 1 bore-refused, 3 additionally withheld, 4 unmatched each side). Three new tests cover:
+- Reviewer Temperature 200 vs 20 and OD 60.3/60.3 vs 60.3/88.9: plain approved Map + actual U2a items ['element'], bore:true yields U2_BORE_MISMATCH for Branch/Temperature. Actual CLI --bore Map has no pairs for L, including after approval; real U2a receives zero pairs and plans zero edits. Since the entire branch is absent, U2a emits no field-refusal row for that Map; the named refusal is in the P1.2c diagnostics. Exporter refuses reintroduced blocked pair.
+- Unequal coincident record counts 2 vs 1 appear in the ambiguity detail and block export.
+- Duplicate direct OutsideDiameter tags on either input yield dedicated refusal, block the target branch, and leave other branches eligible. Without bore, the same inputs still pair.
+
+FAILING: none. No private input, browser, main change, PR, force-push or modification outside the card folder.

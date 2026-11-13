@@ -118,3 +118,18 @@ Base: P1.2 review commit `9bc22482`. Add geometry-only matching of PSI116 nodes 
 - B1: invented 41 branches × 40 nodes, median of three reads and matches under 2 seconds.
 
 Review acceptance: near-coincident endpoints 1000 and 1000.0001 mm pair as one point; an overlong transitive group is ambiguous. Three good points plus one ambiguous point retain all counts, and no Map is written. Negative --tol refuses MATCH_TOLERANCE_INVALID.
+
+
+## P1.2c · PSI116 ↔ PSI116 pairing (Oracle 13 Nov 2026)
+
+Base: XCU main `78623ca70` (P1.2b merged). Pair both PSI116 documents by position, reuse 0.001 mm point grouping, default tolerance 1 mm, report ambiguity and unmatched counts, and export one-to-one XML-to-XML candidate Map refs. Optional `--bore` excludes OD mismatches and withholds their entire target branches. CLI `pair-psi116 <source.xml> <target.xml> [--tol mm] [--bore] [--map out.json]`. No XML modification or shared format change.
+
+- P1.2c T1: identical invented documents pair 100%, including shared endpoints.
+- P1.2c T2: renumbered/reordered target still pairs by position.
+- P1.2c T3: moved target node 5 mm is named unmatched on both sides.
+- P1.2c T4: optional OD mismatch refuses one pair and excludes every pair targeting that branch from Map.
+- P1.2c T5: shared validator accepts candidate and approved XML Map; actual U2a planner accepts approved refs and plans expected edits.
+- M1: pair by node number → T2 red; M2: ignore bore → T4 red.
+- B1: invented 41 × 40 records per side, target renumbered and reordered, median of three graph reads and matches (with bore) < 2 s.
+
+Review acceptance: U2a element transfer cannot change Temperature on a bore-blocked target branch; unequal coincident counts are named; duplicate direct OutsideDiameter tags have a dedicated refusal code.
