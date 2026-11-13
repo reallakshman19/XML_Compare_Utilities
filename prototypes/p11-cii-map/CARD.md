@@ -107,12 +107,14 @@ Mutations: M1 same-run tolerance 1e6 (T3 red), M2 omit branchOrdinal (T6 red), M
 
 ## P1.2b · PSI116 XML ↔ CII matching (Oracle 13 Nov 2026)
 
-Base: P1.2 review commit `9bc22482`. Add geometry-only matching of PSI116 nodes read by `psi116Index` and `Position` in mm; group exactly coincident points, refuse ambiguous CII candidates, never use node numbers as match rules. Export candidate node pairs with full PSI116 structural refs. New CLI `match-psi116 <file.xml> <file.cii> [--tol <mm>] [--map out.json]` prints summary counts/time. No edits or PSI116 conversion.
+Base: P1.2 review commit `9bc22482`. Add geometry-only matching of PSI116 nodes read by `psi116Index` and `Position` in mm; group points within 0.001 mm by union-find, diagnose ambiguous CII candidates and block Map export, never use node numbers as match rules. Export candidate node pairs with full PSI116 structural refs. New CLI `match-psi116 <file.xml> <file.cii> [--tol <mm>] [--map out.json]` prints summary counts/time. No edits or PSI116 conversion.
 
 - P1.2b T1: invented 3 branches × 4 nodes all pair, including shared endpoints.
 - P1.2b T2: one XML node moved 5 mm is unmatched and named.
-- P1.2b T3: two CII nodes 0.5 mm apart cause MATCH_NODE_AMBIGUOUS.
+- P1.2b T3: two CII nodes 0.5 mm apart yield MATCH_NODE_AMBIGUOUS diagnostics and block Map export.
 - P1.2b T4: CII renumbered +1000 still pairs by position.
 - P1.2b T5: exported Map passes the shared validator with XML structural refs.
 - Mutations: M1 number-based matching makes T4 red; M2 omit branchOrdinal makes T5 red.
 - B1: invented 41 branches × 40 nodes, median of three reads and matches under 2 seconds.
+
+Review acceptance: near-coincident endpoints 1000 and 1000.0001 mm pair as one point; an overlong transitive group is ambiguous. Three good points plus one ambiguous point retain all counts, and no Map is written. Negative --tol refuses MATCH_TOLERANCE_INVALID.

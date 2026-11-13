@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { attempt } from '../kit/core.mjs';
 import { readCiiGraph } from '../engine/cii-graph.mjs';
 import { readPsi116Graph, matchPsi116Cii, psi116MatchToMapFile } from '../engine/psi116-match.mjs';
 import { makePsi116Case } from './psi116-fixtures.mjs';
@@ -31,9 +30,11 @@ test('P1.2b T2 moved node is unmatched on both sides and named',async()=>{
   assert.deepEqual(r.unmatchedNodesXml[0].ref,{kind:'xml',branchOrdinal:1,branchName:'B1',nodeOrdinal:1,nodeNumber:'14',componentRefNo:'R1-1'});
   assert.deepEqual(r.unmatchedNodesCii,['14']);
 });
-test('P1.2b T3 ambiguous point refuses rather than choosing the exact node',async()=>{
-  const [x,c]=await load({ambiguous:true}),r=await attempt(()=>matchPsi116Cii(x,c));
-  assert.equal(r.ok,false);assert.equal(r.refusals[0].code,'MATCH_NODE_AMBIGUOUS');assert.match(r.refusals[0].where,/branch 0.*node 0/);assert.ok(!('nodePairs' in r));
+test('P1.2b T3 ambiguous point is diagnosed and blocks Map export',async()=>{
+  const [x,c]=await load({ambiguous:true}),r=matchPsi116Cii(x,c);
+  assert.equal(r.summary.paired,11);assert.equal(r.summary.unmatchedXml,1);assert.equal(r.summary.unmatchedCii,2);
+  assert.equal(r.summary.ambiguous,1);assert.equal(r.ambiguities[0].code,'MATCH_NODE_AMBIGUOUS');assert.match(r.ambiguities[0].where,/branch 0.*node 0/);
+  assert.throws(()=>exportMap(r,x,c),{code:'MATCH_NODE_AMBIGUOUS'});
 });
 test('P1.2b T4 renumbering CII +1000 does not change geometry pairing',async()=>{
   const [x,c]=await load({renumber:1000}),r=matchPsi116Cii(x,c);
@@ -58,7 +59,7 @@ test('P1.2b supplemental: nearest, bad tolerance, malformed position, competing 
   const bad=new TextEncoder().encode('<PipeStressExport><Branch><Node><Position>0 0 0x1</Position></Node></Branch></PipeStressExport>');
   await assert.rejects(readPsi116Graph(bad),{code:'MATCH_XML_INVALID'});
   const extra={...x.nodes[0],ref:{...x.nodes[0].ref,nodeOrdinal:99},xyz:[0.1,0,0]};
-  const a=await attempt(()=>matchPsi116Cii({...x,nodes:[...x.nodes,extra]},c));assert.equal(a.refusals[0].code,'MATCH_NODE_AMBIGUOUS');
+  const a=matchPsi116Cii({...x,nodes:[...x.nodes,extra]},c);assert.equal(a.summary.ambiguous,2);assert.equal(a.ambiguities[0].code,'MATCH_NODE_AMBIGUOUS');assert.equal(a.summary.paired,11);assert.throws(()=>exportMap(a,x,c),{code:'MATCH_NODE_AMBIGUOUS'});
 });
 test('P1.2b supplemental: CLI counts, atomic Map and ambiguity refusal',()=>{
   const dir=mkdtempSync(join(tmpdir(),'p12b-cli-'));try{
@@ -75,4 +76,35 @@ test('P1.2b supplemental: nested branches, direct-node ordinals and different nu
   const x=await readPsi116Graph(xml),c=await readCiiGraph(makePsi116Case().cii),r=matchPsi116Cii(x,c);
   assert.equal(x.branchCount,2);assert.equal(r.summary.xmlPoints,2);assert.equal(r.summary.paired,3);assert.equal(r.summary.pairedCii,2);
   assert.deepEqual(r.nodePairs.map(p=>[p.xml.branchOrdinal,p.xml.nodeOrdinal,p.xml.nodeNumber,p.cii]),[[0,0,'99','10'],[1,0,'777','10'],[0,1,'99','11']]);
+});
+
+test('P1.2b review: epsilon grouping of branch endpoints and overlong transitive chain',async()=>{
+  const b=makePsi116Case({branches:2,nodes:11});
+  const raw=new TextDecoder().decode(b.xml).replace('<ComponentRefNo>R1-0</ComponentRefNo><Position>1000 0 0','<ComponentRefNo>R1-0</ComponentRefNo><Position>1000.0001 0 0');
+  const x=await readPsi116Graph(new TextEncoder().encode(raw)),c=await readCiiGraph(b.cii),r=matchPsi116Cii(x,c);
+  assert.equal(r.summary.xmlPoints,21);assert.equal(r.summary.paired,22);assert.equal(r.summary.ambiguous,0);
+  const ends=r.nodePairs.filter(p=>p.cii==='20');assert.equal(ends.length,2);assert.ok(ends.every(p=>p.rule==='same-position'));
+  assert.ok(ends.some(p=>p.distanceMm>0&&p.distanceMm<0.001));assert.equal(exportMap(r,x,c).pairs.length,22);
+  const extras=[1000.0008,1000.0016].map((v,i)=>({ref:{...x.nodes[0].ref,nodeOrdinal:99+i},xyz:[v,0,0]}));
+  const chain=matchPsi116Cii({...x,nodes:[...x.nodes,...extras]},c);
+  assert.equal(chain.summary.ambiguous,1);assert.match(chain.ambiguities[0].detail,/spans more than 0.001/);
+  assert.equal(chain.summary.unmatchedXml,4);assert.throws(()=>exportMap(chain,x,c),{code:'MATCH_NODE_AMBIGUOUS'});
+});
+
+test('P1.2b review: three good points and one ambiguity print counts, block only Map, negative tolerance refuses',()=>{
+  const dir=mkdtempSync(join(tmpdir(),'p12b-review-'));try{
+    const xp=join(dir,'input.xml'),cp=join(dir,'input.cii'),mp=join(dir,'map.json'),b=makePsi116Case({branches:1,nodes:4,ambiguous:true});
+    writeFileSync(xp,b.xml);writeFileSync(cp,b.cii);
+    const run=(...args)=>spawnSync(process.execPath,[cli,'match-psi116',xp,cp,...args],{encoding:'utf8'});
+    for(const map of [false,true]) {
+      const v=run(...(map?['--map',mp]:[]));assert.equal(v.status,map?1:0,v.stdout+v.stderr);
+      const r=JSON.parse(v.stdout);assert.equal(r.summary.paired,3);assert.equal(r.summary.unmatchedXml,1);assert.equal(r.summary.unmatchedCii,2);
+      assert.equal(r.summary.ambiguous,1);assert.equal(r.ambiguities.length,1);assert.deepEqual(r.ambiguities[0].ciiNodes,['10','900000']);
+      assert.equal(r.nodePairs.length,3);assert.throws(()=>readFileSync(mp));
+    }
+    for(const args of [['--tol','-0.5'],['--tol=-0.5']]) {
+      const v=run(...args,'--map',mp);assert.equal(v.status,1,v.stdout+v.stderr);
+      assert.equal(JSON.parse(v.stdout).refusals[0].code,'MATCH_TOLERANCE_INVALID');assert.throws(()=>readFileSync(mp));
+    }
+  }finally{rmSync(dir,{recursive:true,force:true});}
 });

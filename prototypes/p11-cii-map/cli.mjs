@@ -13,7 +13,9 @@ import { readCiiGraph } from './engine/cii-graph.mjs';
 import { compareCii } from './engine/compare.mjs';
 
 const USAGE = 'node cli.mjs compare <a.cii> <b.cii> [--anchors 10:10,20:20,30:30] [--tol 1] [--summary]';
-const args = parseArgs();
+// Explicitly bind signed tolerance tokens before the generic option parser.
+const argv = process.argv.slice(2).flatMap((a,i,all)=>a==='--tol' && /^-[^-]/.test(all[i+1]||'') ? [`--tol=${all[i+1]}`] : i>0 && all[i-1]==='--tol' && /^-[^-]/.test(a) ? [] : [a]);
+const args = parseArgs(argv);
 const [command, fa, fb] = args._;
 if (command === 'match-psi116') {
   if (!fa || !fb || args._.length !== 3 || args.map === true || args.tol === true || args.mode !== undefined) usage('node cli.mjs match-psi116 <file.xml> <file.cii> [--tol <mm>] [--map out.json]');
@@ -22,6 +24,7 @@ if (command === 'match-psi116') {
     const xml = await readPsi116Graph(readBytes(fa));
     const cii = await readCiiGraph(readBytes(fb), {member: basename(fb)});
     const r = matchPsi116Cii(xml, cii, {toleranceMm: args.tol === undefined ? undefined : Number(args.tol)});
+    if (args.map && r.ambiguities.length) return {...r,ok:false,refusals:r.ambiguities.map(({code,where,detail})=>({code,where,detail}))};
     if (args.map) {
       const map = psi116MatchToMapFile(r, {xmlFile:{fileName:basename(fa),sha256:xml.sha256},ciiFile:{fileName:basename(fb),sha256:cii.sha256}});
       let temporary;
