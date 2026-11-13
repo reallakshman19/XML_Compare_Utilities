@@ -8,6 +8,8 @@ export const U1_FIELDS = Object.freeze(Object.fromEntries(Object.entries({
   'Node/CorrosionAllowance':'MaterialBlock', 'Node/InsulationThickness':'SectionDimensionBlock',
   'Branch/Temperature':'ProcessBlock', 'Branch/Pressure':'ProcessBlock', 'Branch/FluidDensity':'ProcessBlock',
   'Branch/MaterialNumber':'MaterialBlock', 'Branch/InsulationDensity':'ProcessBlock',
+  // Real PSI116 load cases: Branch/Temperature/Temperature1..9 and Branch/Pressure/Pressure1..9.
+  ...Object.fromEntries(['Temperature','Pressure'].flatMap(t=>Array.from({length:9},(_,i)=>[`Branch/${t}/${t}${i+1}`,'ProcessBlock']))),
 }).map(([field,category]) => [field,Object.freeze({category,numeric:field!=='Node/NodeName'})])));
 const rawKeys = {'Node/NodeName':'nodeName','Node/Weight':'weight','Node/OutsideDiameter':'outsideDiameter','Node/WallThickness':'wallThickness'};
 const decoder = new TextDecoder('utf-8',{fatal:true,ignoreBOM:true});
@@ -34,9 +36,9 @@ function locate(doc,index,ref,field) {
   const a=integerForm(ref.nodeNumber), b=indexed?integerForm(indexed.nodeNumber):null;
   const checkedRef=a!==null && b!==null && a===b ? {...ref,nodeNumber:indexed.nodeNumber} : ref;
   const {row} = locatePsi116(doc,index,checkedRef,'NodeNumber');
-  const [scope,tag] = field.split('/');
+  const [scope,...path] = field.split('/');
   const owner = scope==='Branch' ? index.branches[ref.branchOrdinal] : row.element;
-  const el = child(owner,tag,true);
+  const el = path.reduce((o,t)=>o && child(o,t,true), owner);
   if (!el || el.selfClosing) fail('U1_FIELD_ABSENT',field);
   const span = scope==='Node' ? locatePsi116(doc,index,checkedRef,field).span : text(doc,el);
   // A comment or PI inside a nominal leaf is markup, not editable text.

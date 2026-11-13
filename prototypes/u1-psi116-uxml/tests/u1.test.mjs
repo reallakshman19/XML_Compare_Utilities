@@ -56,7 +56,7 @@ test('U1 T7 parity refuses mapper-normalized branch identity even though XML spa
 });
 test('U1 T8 all remaining supported fields and categories',async()=>{
   const b=fixture(),e=[edit('Node/OutsideDiameter','60','70'),edit('Node/CorrosionAllowance','1','2'),edit('Node/InsulationThickness','20','25'),edit('Branch/Pressure','2','3'),edit('Branch/FluidDensity','800','900'),edit('Branch/InsulationDensity','40','50')];
-  const r=await run(b,e);assert.equal(diff(b,r.bytes).length,6);assert.equal(mapped(r)[0].outsideDiameter,70);assert.equal(Object.keys(U1_FIELDS).length,11);
+  const r=await run(b,e);assert.equal(diff(b,r.bytes).length,6);assert.equal(mapped(r)[0].outsideDiameter,70);assert.equal(Object.keys(U1_FIELDS).length,29);
 });
 test('U1 T9 CLI refusal writes no output; exclusive create preserves existing output',async()=>{
   const dir=await mkdtemp(join(tmpdir(),'u1-'));try{
@@ -89,4 +89,11 @@ test('U1 T13 exact-span parity rejects an unplanned value change (M5)',async()=>
   const b=fixture(),changed=encode(decode(b).replace('<Pressure>2</Pressure>','<Pressure>3</Pressure>'));
   const {fileSha256}=await options(changed);
   assert.throws(()=>verifyPsi116Parity(scanXml(b),changed,[],fileSha256),/U1_PARITY_FAILED.*diff count/);
+});
+test('U1 T14 real PSI116 load cases: nested Temperature1 and Pressure2 are edited in place',async()=>{
+  const nested=t=>t.replace(/<Temperature>([^<]*)<\/Temperature>/g,'<Temperature><Temperature1>$1</Temperature1><Temperature2>-100000</Temperature2></Temperature>').replace(/<Pressure>([^<]*)<\/Pressure>/g,'<Pressure><Pressure1>$1</Pressure1><Pressure2>0</Pressure2></Pressure>');
+  const b=encode(nested(decode(fixture())));
+  const r=await run(b,[edit('Branch/Temperature/Temperature1','100','150',0,0),edit('Branch/Pressure/Pressure2','0','4.5',0,1)]),d=diff(b,r.bytes);
+  assert.equal(d.length,2);assert.deepEqual(d.map(x=>x.after.trim()).sort(),['150','4.5']);
+  await assert.rejects(run(b,[edit('Branch/Temperature','100','150',0,0)]),/^Error: XML_NOT_LEAF @ Temperature/);
 });

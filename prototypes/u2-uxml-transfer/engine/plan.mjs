@@ -4,7 +4,12 @@ import {validate} from '../vendor/validate.mjs';
 
 const lineNo='[TBA]';
 const keys=['branchOrdinal','branchName','nodeOrdinal','nodeNumber','componentRefNo'];
-const fields={name:['Node/NodeName'],weight:['Node/Weight'],element:['Node/OutsideDiameter','Node/WallThickness','Node/CorrosionAllowance','Node/InsulationThickness','Branch/Temperature','Branch/Pressure','Branch/FluidDensity','Branch/MaterialNumber','Branch/InsulationDensity']};
+// Real PSI116 files hold nine load cases as Temperature/Temperature1..9 and Pressure/Pressure1..9;
+// small hand-made files may hold one leaf Temperature/Pressure. Each file uses one form; a form
+// absent from both sides of a branch is skipped, never reported.
+const cases=(t)=>Array.from({length:9},(_,i)=>`Branch/${t}/${t}${i+1}`);
+const formFields=new Set(['Branch/Temperature','Branch/Pressure',...cases('Temperature'),...cases('Pressure')]);
+const fields={name:['Node/NodeName'],weight:['Node/Weight'],element:['Node/OutsideDiameter','Node/WallThickness','Node/CorrosionAllowance','Node/InsulationThickness','Branch/Temperature',...cases('Temperature'),'Branch/Pressure',...cases('Pressure'),'Branch/FluidDensity','Branch/MaterialNumber','Branch/InsulationDensity']};
 // ASME B36.10M steel pipe OD (mm) -> nominal DN (mm); exact to 0.05 mm rounding.
 export const OD_NB=Object.freeze([[10.3,6],[13.7,8],[17.1,10],[21.3,15],[26.7,20],[33.4,25],[42.2,32],[48.3,40],[60.3,50],[73,65],[88.9,80],[101.6,90],[114.3,100],[141.3,125],[168.3,150],[219.1,200],[273.1,250],[323.9,300],[355.6,350],[406.4,400],[457.2,450],[508,500],[558.8,550],[609.6,600]]);
 // Source write values must match merged U1: finite decimal text, excluding negative zero.
@@ -20,8 +25,9 @@ const ref=r=>Object.fromEntries(keys.map(k=>[k,r[k]]));
 const sameRef=(r,s)=>s&&keys.every(k=>r[k]===s[k])&&(s.kind===undefined||s.kind==='xml');
 function model(bytes){
  const doc=scanXml(bytes),index=psi116Index(doc),nodes=new Map();
- function value(el,tag){const e=child(el,tag,true);return e?text(doc,e):null;}
- const branchValues=index.branches.map(b=>Object.fromEntries(fields.element.filter(f=>f.startsWith('Branch/')).map(f=>[f,value(b,f.split('/')[1])])));
+ function value(el,tag){let e=el;for(const t of tag.split('/')){e=e&&child(e,t,true);}if(!e)return null;
+  try{return text(doc,e);}catch(x){if(formFields.has('Branch/'+tag)&&String(x?.message??x).includes('XML_NOT_LEAF'))return undefined;throw x;}}
+ const branchValues=index.branches.map(b=>Object.fromEntries(fields.element.filter(f=>f.startsWith('Branch/')).map(f=>[f,value(b,f.slice(7))])));
  for(const n of index.nodes){const values=Object.fromEntries([...fields.name,...fields.weight,...fields.element.filter(f=>f.startsWith('Node/'))].map(f=>[f,value(n.element,f.split('/')[1])]));const od=values['Node/OutsideDiameter']?.value??'';
   nodes.set(id(n),{ref:ref(n),values:{...values,...branchValues[n.branchOrdinal]},od,bore:nominalBore(od),position:value(n.element,'Position')?.value??null,name:values['Node/NodeName']?.value??''});}
  return nodes;
@@ -61,6 +67,7 @@ export async function planTransfer(sourceXmlBytes,targetXmlBytes,pairs,{items=['
   }
   for(const {field,entries} of branches.values()){
    const {s,t,a,b}=entries[0];
+   if(formFields.has(field)&&entries.every(e=>!e.a&&!e.b))continue;
    if(blockedBranches.has(t.ref.branchOrdinal)){reject(s,t,'U2_BORE_MISMATCH',field,'A refused bore pair shares this target branch.');continue;}
    if(entries.some(e=>!e.a||!e.b||e.b.selfClosing)){reject(s,t,'U2_FIELD_UNAVAILABLE',field,'At least one pair lacks a source or writable target branch leaf.');continue;}
    const invalid=entries.filter(e=>!validNumber(e.a.value));

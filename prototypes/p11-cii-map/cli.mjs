@@ -45,12 +45,13 @@ if (command === 'pair-psi116') {
   finish(result);
 }
 if (command === 'match-psi116') {
-  if (!fa || !fb || args._.length !== 3 || args.map === true || args.tol === true || args.mode !== undefined) usage('node cli.mjs match-psi116 <file.xml> <file.cii> [--tol <mm>] [--map out.json]');
+  if (!fa || !fb || args._.length !== 3 || args.map === true || args.tol === true || args.frame === true || args.mode !== undefined) usage('node cli.mjs match-psi116 <file.xml> <file.cii> [--tol <mm>] [--frame psi116|cii2019] [--map out.json]');
   const start = performance.now();
   const result = await attempt(async () => {
-    const xml = await readPsi116Graph(readBytes(fa));
+    const xml = await readPsi116Graph(readBytes(fa), {frame: args.frame ?? 'psi116'});
     const cii = await readCiiGraph(readBytes(fb), {member: basename(fb)});
-    const r = matchPsi116Cii(xml, cii, {toleranceMm: args.tol === undefined ? undefined : Number(args.tol)});
+    const m = matchPsi116Cii(xml, cii, {toleranceMm: args.tol === undefined ? undefined : Number(args.tol)});
+    const r = m.summary ? {...m, summary:{...m.summary, frame:xml.frame}} : m;
     if (args.map && r.ambiguities.length) return {...r,ok:false,refusals:r.ambiguities.map(({code,where,detail})=>({code,where,detail}))};
     if (args.map) {
       const map = psi116MatchToMapFile(r, {xmlFile:{fileName:basename(fa),sha256:xml.sha256},ciiFile:{fileName:basename(fb),sha256:cii.sha256}});

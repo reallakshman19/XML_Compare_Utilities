@@ -24,6 +24,7 @@ The CLI requires `{ "fileSha256": "<64 lowercase hex digits>", "edits": [...] }`
 | Node/CorrosionAllowance | MaterialBlock |
 | Node/InsulationThickness | SectionDimensionBlock |
 | Branch/Temperature | ProcessBlock |
+| Branch/Temperature/Temperature1..9, Branch/Pressure/Pressure1..9 | ProcessBlock (real PSI116 nests nine load cases; the path walks the nested leaf) |
 | Branch/Pressure | ProcessBlock |
 | Branch/FluidDensity | ProcessBlock |
 | Branch/MaterialNumber | MaterialBlock |
