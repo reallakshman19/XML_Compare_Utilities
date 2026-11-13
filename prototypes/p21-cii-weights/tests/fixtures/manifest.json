@@ -1,0 +1,22 @@
+{
+  "files": [
+    {
+      "file": "xml-weights.json",
+      "sha256": "ca9d7581141aeaf936f186250a6e70a2c63a170255f1f7ef584e69add25af4f4",
+      "bytes": 566,
+      "madeBy": "P2.1 test author",
+      "purpose": "Invented XML Change set for T7"
+    },
+    {
+      "file": "demo-x-t-20.csv",
+      "sha256": "a083f6432d0c8a4b5b457e7f3f7ac0c4fb5f587fa725d37647929734cd73d0c1",
+      "bytes": 720,
+      "madeBy": "P2.1 test author",
+      "purpose": "20 invented corrections for public X-T",
+      "from": {
+        "path": "Benchmark/T.CII",
+        "sha256": "abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060"
+      }
+    }
+  ]
+}

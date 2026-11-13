@@ -1,0 +1,21 @@
+fromNode,toNode,newWeight,note
+10,15,1331,invented demo weight
+515,520,1331,invented demo weight
+575,520,1677,invented demo weight
+580,585,1677,invented demo weight
+710,10,1172,invented demo weight
+745,750,2857,invented demo weight
+750,755,1947,invented demo weight
+755,760,11397,invented demo weight
+760,765,16679,invented demo weight
+795,800,1947,invented demo weight
+800,805,11397,invented demo weight
+805,810,16679,invented demo weight
+820,825,1947,invented demo weight
+825,830,1947,invented demo weight
+830,835,5091,invented demo weight
+1125,580,1947,invented demo weight
+1130,1135,2465,invented demo weight
+1870,1875,827,invented demo weight
+1875,1880,5111,invented demo weight
+1880,1885,7285,invented demo weight
