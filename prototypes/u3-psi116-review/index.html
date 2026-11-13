@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PSI116 revision review</title>
+<style>
+*{box-sizing:border-box}body{font:16px/1.5 system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#17242f;background:#f7f9fb}h1{margin-bottom:.25rem}h2{font-size:1.25rem}h3{font-size:1rem}label{display:block;margin:.8rem 0;font-weight:600}input{display:block;font:inherit;max-width:100%;font-weight:400}button{font:inherit;padding:.6rem 1rem;background:#164e63;color:white;border:0;border-radius:5px;cursor:pointer}button:disabled{background:#a0aab0;cursor:not-allowed}#status{padding:.7rem;border-left:4px solid #486b78;background:white}.error{color:#9f1239!important;background:#fff1f2!important;border-color:#be123c!important}section{background:white;border:1px solid #ccd5dc;padding:1rem;margin:1rem 0;overflow:auto}table{width:100%;border-collapse:collapse;table-layout:fixed}td,th{padding:.55rem;text-align:left;vertical-align:top;border-bottom:1px solid #d5dde3;overflow-wrap:anywhere;white-space:pre-wrap}th{background:#edf2f6}.changed td:nth-child(2){background:#fff1f2}.changed td:nth-child(3){background:#e8f5e9}small{display:block;color:#475569;font-size:.8rem}#counts{margin:1rem 0}
+</style></head>
+<body><h1>Review revised PSI116</h1><p>Compare original and revised files locally before conversion to CII. Only value changes are allowed; no files are uploaded or modified.</p>
+<label>Original PSI116<input type="file" id="original" accept=".xml,application/xml,text/xml"></label>
+<label>Revised PSI116<input type="file" id="revised" accept=".xml,application/xml,text/xml"></label>
+<label>Changes JSON (optional)<input type="file" id="changes" accept=".json,application/json"></label>
+<p id="status" role="status" aria-live="polite">Choose both PSI116 files.</p><div id="counts"></div><div id="rows"></div>
+<button id="approve" disabled>Approve and download approval.json</button>
+<script type="module" src="review.mjs"></script></body></html>
