@@ -32,3 +32,22 @@ test('review invalid source weight and numeric element fields refused independen
 test('review repeated name crosswise bores require explicit choices',async()=>{const s=doc(node('X',60.3),node('X',88.9)),t=doc(node('A',88.9),node('B',60.3));const r=await plan(s,t,ps,['name']);assert.equal(names(r).length,0);assert.deepEqual(r.ambiguities.map(a=>[a.code,a.target.nodeOrdinal]),[['U2_NAME_BORE_MISMATCH',0],['U2_NAME_BORE_MISMATCH',1]]);const q=await plan(s,t,ps,['name'],{choices:{X:[ref(0,1)]}});assert.deepEqual(names(q).map(e=>e.ref),[ref(0,1)]);});
 test('review numerically equal spellings do not produce edits or branch splits',async()=>{const s=xml([branch([node('A','60.30','1.0')],{Temperature:'100.0'}),branch([node('B','60.3','1.00')],{Temperature:'100.00'})]),t=doc(node('A'),node('B'));const p=[pair(0,0),pair(1,0,0,1)];const r=await plan(s,t,p,['weight','element']);assert.equal(r.edits.length,0);assert.equal(r.ambiguities.length,0);assert.equal(r.refused.length,0);const q=await plan(s,xml([branch([node('A'),node('B')],{Temperature:99})]),p,['element']);assert.equal(q.edits.length,1);assert.equal(Number(q.edits[0].after),100);});
 test('review invalid branch contribution blocks shared edit without blocking unrelated rows',async()=>{const s=xml([branch([node('A',60.3,2)],{Temperature:''}),branch([node('B',60.3,3)],{Temperature:200})]),t=doc(node('A'),node('B'));const r=await plan(s,t,[pair(0,0),pair(1,0,0,1)],['weight','element']);assert.deepEqual(r.edits.map(e=>e.field),['Node/Weight','Node/Weight']);assert.deepEqual(r.refused.map(x=>[x.code,x.field]),[['U2_VALUE_INVALID','Branch/Temperature']]);});
+// Real PSI116 files nest nine load cases: Temperature/Temperature1..9, Pressure/Pressure1..9.
+const cases=(t,first)=>Array.from({length:9},(_,i)=>`<${t}${i+1}>${i?(t==='Temperature'?'-100000':'0'):first}</${t}${i+1}>`).join('');
+const real=(T,P,names=['A','B'])=>xml([branch(names.map(n=>node(n)),{Temperature:cases('Temperature',T),Pressure:cases('Pressure',P)})]);
+test('U2a real nested load cases: Temperature1 and Pressure1 planned, legacy leaf form skipped silently',async()=>{
+  const r=await plan(real('150','4.5'),real('100','2'),[pair(0,0),pair(0,1)],['element']);
+  assert.deepEqual(r.edits.map(e=>[e.field,e.before,e.after]).sort(),[['Branch/Pressure/Pressure1','2','4.5'],['Branch/Temperature/Temperature1','100','150']]);
+  assert.equal(r.refused.length,0,JSON.stringify(r.refused));assert.equal(r.ambiguities.length,0);
+});
+test('U2a real nested files: name and weight plans no longer refuse the whole file',async()=>{
+  const r=await plan(real('100','2',['X','Y']),real('100','2'),[pair(0,0),pair(0,1)],['name','weight']);
+  assert.deepEqual(r.edits.map(e=>e.after).sort(),['X','Y']);
+});
+test('U2a mixed forms (leaf source, nested target) are refused per field, not silently copied',async()=>{
+  const leaf=xml([branch([node('A'),node('B')],{Temperature:150,Pressure:4})]);
+  const r=await plan(leaf,real('100','2'),[pair(0,0),pair(0,1)],['element']);
+  const codes=r.refused.map(x=>x.code+' '+x.field);
+  assert.ok(codes.includes('U2_FIELD_UNAVAILABLE Branch/Temperature'),codes.join());
+  assert.ok(!r.edits.some(e=>e.field.startsWith('Branch/Temperature')||e.field.startsWith('Branch/Pressure')));
+});
