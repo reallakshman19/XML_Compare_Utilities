@@ -1,0 +1,30 @@
+{
+ "card": "u2-uxml-transfer",
+ "at": "2026-11-13T05:12:19.377Z",
+ "node": "v22.16.0",
+ "rows": [
+  {
+   "bench": "B1",
+   "input": "invented 41 x 40 nodes",
+   "sha256": "7bb853343f2fdb94697bc4d4b1e9f1319bb527690abb6d0a7327d7a5fa442723",
+   "targetSha256": "cbffe256e5b09e3f73bd0421ff37f63e1f1f9cbbbe2c796b7d0afe8acabcb42f",
+   "pairs": 1640,
+   "edits": 4961,
+   "byItem": {
+    "name": 1640,
+    "weight": 1640,
+    "element": 1681
+   },
+   "ambiguous": 0,
+   "refused": 0,
+   "ms": 151.7,
+   "runs": [
+    110.4,
+    151.7,
+    196.9
+   ],
+   "limitMs": 2000,
+   "pass": true
+  }
+ ]
+}
