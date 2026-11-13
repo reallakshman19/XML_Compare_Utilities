@@ -59,3 +59,53 @@ test('U3a supplemental: CLI prints rows/counts, refuses without output', () => {
     const refused=run('--changes',fc); assert.equal(refused.status,1); assert.equal(refused.stdout,''); assert.match(refused.stderr,/U3_SHA256_MISMATCH/);
   } finally { rmSync(dir,{recursive:true,force:true}); }
 });
+
+// Fixture mirrors U2b engine/apply.mjs at ff213998, including U1 offsets and evidence.
+async function u2Receipt() {
+  const ref = {branchOrdinal:0, branchName:'B & C', nodeOrdinal:0, nodeNumber:'10', componentRefNo:'R1'};
+  const pair = {pairId:'raw-1', source:ref, target:ref};
+  const change = (field,before,after,start) => ({ref,field,before,after,start,end:start+before.length,lineNo:'[TBA]',evidence:{pairs:[pair]}});
+  const originalSha256 = await sha256Hex(a), revisedSha256 = await sha256Hex(b);
+  return {format:'u2.transfer-receipt',version:1,createdAt:'2026-11-13T00:00:00.000Z',
+    source:{fileName:'source.xml',sha256:revisedSha256},base:{fileName:'target.xml',sha256:originalSha256},revised:{sha256:revisedSha256},
+    options:{items:['weight','element'],bore:false,choices:{}},
+    changes:[change('Node/Weight','10','12',xml.indexOf('<Weight> 10 ')+9),change('Branch/Temperature','100','120',xml.indexOf('<Temperature>')+13)],
+    ambiguities:[],refused:[],summary:{pairs:1,edits:2,byItem:{weight:1,element:1},ambiguous:0,refused:0},roundtrip:{appliedRemaining:0,otherRemaining:[]}};
+}
+test('U3a T5 U2b receipt binds original, revised and exact receipt bytes',async()=>{
+  const receipt=await u2Receipt();
+  const raw=bytes('\uFEFF'+JSON.stringify(receipt,null,2).replaceAll('\n','\r\n')+'\r\n');
+  const r=await review(b,raw), p=await approve(b,raw);
+  assert.equal(r.changeCount,2);assert.equal(p.changeCount,2);
+  assert.equal(p.originalSha256,receipt.base.sha256);assert.equal(p.revisedSha256,receipt.revised.sha256);
+  assert.equal(p.changesSha256,await sha256Hex(raw));assert.equal(r.changesSha256,p.changesSha256);assert.equal(p.boundToChanges,true);
+  const differentlyFormatted=bytes(JSON.stringify(receipt));
+  assert.notEqual((await approve(b,differentlyFormatted)).changesSha256,p.changesSha256);
+  const unbound=await approve(b);assert.equal(unbound.changesSha256,null);assert.equal(unbound.boundToChanges,false);
+  const legacy=bytes(JSON.stringify({sha256After:receipt.revised.sha256}));
+  const old=await approve(b,legacy);assert.equal(old.boundToChanges,true);assert.equal(old.changesSha256,await sha256Hex(legacy));
+});
+test('U3a T6 receipt count, hash and envelope fail closed',async()=>{
+  const receipt=await u2Receipt(), wrong='0'.repeat(64);
+  for(const invalid of [{...receipt,changes:[]},{...receipt,changes:[...receipt.changes,receipt.changes[0]]}]) {
+    for(const fn of [review,approve]) await assert.rejects(fn(b,bytes(JSON.stringify(invalid))),{code:'U3_CHANGES_COUNT_MISMATCH'});
+  }
+  for(const invalid of [{...receipt,revised:{sha256:wrong}},{...receipt,base:{fileName:'target.xml',sha256:wrong}},{...receipt,sha256After:wrong}])
+    await assert.rejects(approve(b,invalid),{code:'U3_SHA256_MISMATCH'});
+  for(const invalid of [{...receipt,changes:null},{...receipt,revised:null},{...receipt,base:null},{...receipt,version:2}])
+    await assert.rejects(approve(b,invalid),{code:'U3_CHANGES_INVALID'});
+  await assert.rejects(approve(b,bytes('{bad')), {code:'U3_CHANGES_INVALID'});
+  await assert.rejects(approve(b,new Uint8Array([255])), {code:'U3_CHANGES_INVALID'});
+});
+test('U3a T7 CLI accepts U2b receipt and refuses count mismatch without output',async()=>{
+  const dir=mkdtempSync(join(tmpdir(),'u3a-receipt-'));
+  try {
+    const fa=join(dir,'target.xml'),fb=join(dir,'out.xml'),fc=join(dir,'changes.json'),receipt=await u2Receipt();
+    const raw=bytes(JSON.stringify(receipt,null,2)+'\n');
+    writeFileSync(fa,a);writeFileSync(fb,b);writeFileSync(fc,raw);
+    const run=()=>spawnSync(process.execPath,['cli.mjs','diff',fa,fb,'--changes',fc],{encoding:'utf8'});
+    const ok=run();assert.equal(ok.status,0,ok.stderr);const result=JSON.parse(ok.stdout);
+    assert.equal(result.changeCount,2);assert.equal(result.boundToChanges,true);assert.equal(result.changesSha256,await sha256Hex(raw));
+    writeFileSync(fc,JSON.stringify({...receipt,changes:[]}));const refused=run();assert.equal(refused.status,1);assert.equal(refused.stdout,'');assert.match(refused.stderr,/U3_CHANGES_COUNT_MISMATCH/);
+  } finally {rmSync(dir,{recursive:true,force:true});}
+});
