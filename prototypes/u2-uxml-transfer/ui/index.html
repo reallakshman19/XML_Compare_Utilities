@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resolve PSI116 name ambiguities</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<script type="importmap">{"imports":{"node:fs":"./popup.mjs","node:path":"./popup.mjs","node:url":"./popup.mjs"}}</script>
+<style>
+*{box-sizing:border-box}body{font:16px/1.5 system-ui,sans-serif;max-width:960px;margin:2rem auto;padding:0 1rem;background:#f6f8fa;color:#17242f}h1{line-height:1.2}h2{font-size:1.1rem}fieldset,section{background:#fff;border:1px solid #cbd5e1;border-radius:6px;margin:1rem 0;padding:1rem}legend{font-weight:700;overflow-wrap:anywhere}label{display:block;margin:.55rem 0;overflow-wrap:anywhere}input[type=file]{display:block;font:inherit;max-width:100%}input[type=checkbox]{margin-right:.6rem}button{font:inherit;background:#164e63;color:#fff;border:0;border-radius:5px;padding:.7rem 1rem;cursor:pointer}button:disabled{background:#a0aab0;cursor:not-allowed}#status{background:#fff;border-left:4px solid #486b78;padding:.7rem}small{color:#475569}.options label{display:inline-block;margin-right:1rem}
+</style></head>
+<body><h1>Resolve PSI116 name ambiguities</h1><p>Review proposed duplicate names and select target nodes. Files are read locally; this page never writes PSI116.</p>
+<section><h2>1. Load inputs</h2><label>Source PSI116<input id="source" type="file" accept=".xml,text/xml,application/xml"></label><label>Target PSI116<input id="target" type="file" accept=".xml,text/xml,application/xml"></label><label>Pairs or XML → XML Map<input id="pairs" type="file" accept=".json,application/json"></label><div class="options"><label><input id="name" type="checkbox" checked>Name</label><label><input id="weight" type="checkbox" checked>Weight</label><label><input id="element" type="checkbox" checked>Element</label><label><input id="bore" type="checkbox">Require matching OD</label></div><small>Use these same item and bore options when applying with the CLI.</small></section>
+<p id="status" role="status" aria-live="polite">Choose all three input files.</p>
+<h2>2. Resolve names and review branch splits</h2><div id="rows"></div>
+<h2>3. Export choices</h2><button id="download" disabled>Download choices.json</button><p><small>Choose one or more offered nodes, or explicitly skip each name. Existing target owners can appear in the candidate list; selecting a node does not create an edit if the name is already present.</small></p>
+<script type="module" src="./popup.mjs"></script></body></html>

@@ -79,3 +79,40 @@ In this folder run `node --test`. For reviewed PSI116 pairs and choices, run `no
 `node --test`: **38/38 PASS**, 0 failures. The prior numeric-equivalence test retains all assertions with U1-admissible source spellings; the former exponent-triggered whole-batch refusal test is superseded by the required row-level refusal test (Weight `1e0` and `-0.00`, with independent name and weight edits). Four additional tests cover the retained fatal U1_VALUE_INVALID path, newly appearing unplanned residual edits, forged writer checksums (both before and after), and forged sameEdit receipt text/ref. All use invented fixtures and verify neither output exists on fatal refusal.
 
 Mutation checks: restoring applied-keys-only residual filtering, removing the before SHA check, removing the after SHA check, and removing the sameEdit comparison each independently made its intended test fail (exit 1). All four mutants restored; final suite 38/38 PASS. Existing U2a B1 benchmark re-run: median 152.4 ms, 4,961 edits, zero ambiguity/refusal, PASS. U1 and the shared checker are unchanged; the documented direct-import C5 exception remains.
+
+
+---
+
+# U2c report — Name-ambiguity popup page
+
+Base `30080d1a911ef4d627e9007e443a2859352ab054` verified through the GitHub connector. Branch `proto/u2c-name-popup-20261113`. Reconstructed the merged planner, apply engine, original CLI, fixtures, U1 writer and both existing test files against their exact Git blob SHAs; kit/validator and UXML mapper dependencies come from the uploaded archive and match the previously verified merged versions. Node v22.16.0. Invented PSI116 only.
+
+## TESTS
+
+Fresh `node --test` in the card folder: **47/47 PASS**, 0 fail (38 unchanged U2a/U2b/kit tests plus 9 new U2c tests). T1 exact page/CLI/planner diagnostics including branch split; T2 one and several choices applied by actual CLI/U1; T3 skip writes unchanged names; T4 wrong ref/name rejected by builder and CLI with no output; T5 decoded markup-like name rendered as literal text. Additional tests cover grouped cross-bore rows and skip controls, Map hash/candidate locks and read-only branch splits, special object keys/malformed selections, and browser-style module resolution in a Node VM with no Node globals. No old test changed.
+
+## MUTATIONS
+
+- M1 replace missing offered-node lookup with a fallback accepting the supplied ref → U2c T4 red, exit 1.
+- M2 replace textContent assignment with HTML parsing assignment → U2c T5 red, exit 1.
+
+Restored module bytes after each mutant. Final 47/47 PASS.
+
+## BENCH
+
+U2c has no new performance threshold; the previous B1 result is retained unchanged (planner/apply engine unchanged).
+
+## DECISIONS
+
+1. One UI module exposes listAmbiguities, groupAmbiguities, buildChoices and renderAmbiguities. Browser and CLI use the same planner call with no preexisting choices; output list is exact and unfiltered. The CLI prints the raw array on success. Page options match the CLI items and bore options.
+2. Group by exact name; preserve each diagnostic row and deduplicate the union of target candidate refs. Branch splits are read-only. Existing owners can be offered; selecting an already-named node is not an edit. Require one or more offered targets or explicit skip for every group before page download.
+3. Build choices from canonical offered refs, validating all five identity fields (optional kind xml). Reject unknown names, unoffered refs and malformed/empty/duplicate answers. CLI apply independently rechecks any supplied choices against the initial ambiguity list, before writing. An omitted answer remains unresolved. Planner cascade rules and strict U2b re-plan remain authoritative; a newly exposed ambiguity may still require a fresh review. No changes to the planner or writer.
+4. Reuse the unchanged vendored validator in browser via import map to the same module's throwing Node-only stubs and an empty process.argv. The VM test loads the actual module graph and exercises an XML Map without Node globals. No external resources, network APIs, HTML parsing of data, or browser execution. File/options changes reset choices and invalidate pending async results.
+
+## FAILING
+
+None in the 47-test run or the required mutations. Browser visual verification is for the Oracle, not performed here. The inherited U2b direct U1 import exception to the generic standalone C5 rule remains.
+
+## Owner demo
+
+Serve this card folder on localhost; open ui/index.html. Load the source, target and pairs/Map, choose items/OD gate, select target nodes or skip each name, inspect read-only branch splits, download choices.json. Use the same files/options in CLI apply. Run `node cli.mjs ambiguities source.xml target.xml pairs.json` for the exact list and `node --test` for regression verification.
