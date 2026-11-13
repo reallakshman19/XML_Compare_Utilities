@@ -95,5 +95,5 @@ test('U1 T14 real PSI116 load cases: nested Temperature1 and Pressure2 are edite
   const b=encode(nested(decode(fixture())));
   const r=await run(b,[edit('Branch/Temperature/Temperature1','100','150',0,0),edit('Branch/Pressure/Pressure2','0','4.5',0,1)]),d=diff(b,r.bytes);
   assert.equal(d.length,2);assert.deepEqual(d.map(x=>x.after.trim()).sort(),['150','4.5']);
-  await assert.rejects(run(b,[edit('Branch/Temperature','100','150',0,0)]),/U1_|XML_NOT_LEAF/);
+  await assert.rejects(run(b,[edit('Branch/Temperature','100','150',0,0)]),/^Error: XML_NOT_LEAF @ Temperature/);
 });

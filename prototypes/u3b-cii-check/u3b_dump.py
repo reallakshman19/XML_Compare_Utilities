@@ -16,6 +16,23 @@ def node(n) -> dict:
             "type": n.component_type, "endpoint": n.endpoint, "name": n.node_name}
 
 
+def od_end(e) -> str:
+    """Which end supplies the element OD, mirroring xml_to_cii2019._element_outside_diameter."""
+    if e.connected_port_outside_diameter is not None:
+        return "port"
+    if e.to_node.component_type == "BRAN" and e.to_node.endpoint == 2:
+        return "to"
+    return "from"
+
+
+def own_material(e):
+    """The element's own material (xml_to_cii2019._material_id_for_edge); None = carried forward."""
+    for candidate in (e.to_node.material_code, e.from_node.material_code, e.branch_material_number):
+        if candidate is not None and candidate > 0:
+            return candidate
+    return None
+
+
 def main() -> None:
     conv, sidecar = Path(sys.argv[1]), Path(sys.argv[2])
     assert sys.argv[3] == "--"
@@ -27,7 +44,9 @@ def main() -> None:
     seen = {}
 
     def capture(model, *args, **kwargs):
-        seen["edges"] = [{"branch": e.branch_name, "from": node(e.from_node), "to": node(e.to_node)} for e in model.edges]
+        seen["edges"] = [{"branch": e.branch_name, "from": node(e.from_node), "to": node(e.to_node), "odEnd": od_end(e),
+                          "ownMaterial": own_material(e)}
+                         for e in model.edges]
         return original(model, *args, **kwargs)
 
     base._build_cii_text = capture

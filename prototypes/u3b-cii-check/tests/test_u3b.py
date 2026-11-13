@@ -151,12 +151,14 @@ class U3bOnPublicBenchmark(unittest.TestCase):
 
     def test_t6_negative_numbered_node_is_reported_not_carried(self):
         nodes = xml_nodes((self.tmp / "target.xml").read_bytes())
+        edges = convert(CONVERTER.resolve(), (self.tmp / "target.xml").resolve(), self.tmp / "t6.cii", self.tmp / "t6.json")
+        els = u3b_check.parse_cii((self.tmp / "t6.cii").read_text(encoding="utf-8"))["elements"]
         k, n = next((k, n) for k, n in sorted(nodes.items()) if (n["number"] or 0) < 0)
-        fake = {**self.receipt, "changes": [{"field": "Node/NodeName", "before": "", "after": "X",
-                                              "ref": {**self.ref(n, k), "nodeNumber": "-1"}}]}
-        rows, _ = u3b_check.judge_change(fake["changes"][0], n, nodes, [], [])
-        self.assertEqual(rows["status"], "NOT_CARRIED")
-        self.assertIn("0 or below", rows["reason"])
+        ch = {"field": "Node/NodeName", "before": "", "after": "X", "ref": {**self.ref(n, k), "nodeNumber": n["numberText"]}}
+        row, claims = u3b_check.judge_change(ch, n, nodes, edges, els, set())
+        self.assertEqual(row["status"], "NOT_CARRIED")
+        self.assertIn("0 or below", row["reason"])
+        self.assertEqual(claims, {})
 
 
 class U3bPure(unittest.TestCase):

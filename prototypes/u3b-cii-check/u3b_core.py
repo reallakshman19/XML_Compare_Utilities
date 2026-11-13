@@ -23,6 +23,7 @@ SENTINEL = -100000.0
 DENSITY_FACTOR = 1e-6  # app converter: kg/m3 -> kg/cm3 (convertDensityKgM3ToKgCm3 default)
 # Other sections and the transferred fields that legitimately change them
 # (bend radius default and SIF use OD; REDUCERS rows carry OD and the second wall).
+ROW_SECTIONS = ("BEND", "SIF&TEES", "REDUCERS")
 SECTION_FIELDS = {"BEND": {"Node/OutsideDiameter"}, "SIF&TEES": {"Node/OutsideDiameter"},
                   "REDUCERS": {"Node/OutsideDiameter", "Node/WallThickness"}}
 
@@ -79,8 +80,10 @@ def expected_cii(field: str, after: str) -> float | None:
     v = num(after)
     if v is None:
         return None
-    if field.startswith("Branch/Temperature/") and abs(v - SENTINEL) < 1e-9:
-        return 0.0
+    if field.startswith(("Branch/Temperature/", "Branch/Pressure/")) and abs(v - SENTINEL) < 1e-9:
+        return 0.0  # converter _case_values: -100000 (unset) is written as 0 for every load case
+    if field == "Node/WallThickness" and v <= 0.0:
+        return 0.01  # converter writes 1.000000E-02 for a missing wall
     if field in ("Branch/FluidDensity", "Branch/InsulationDensity"):
         return v * DENSITY_FACTOR
     return v
@@ -133,11 +136,15 @@ def parse_cii(text: str) -> dict:
         rows = rigid[(rigid_ptr - 1) * per_rigid:rigid_ptr * per_rigid] if rigid_ptr else []
         elements.append({
             "E": [cells(l) for l in block[:10]] + [block[10], block[11]],
+            "ptr": [cells(l) for l in block[12:15]],
             "name": (name[2:28].rstrip(), name[28:].rstrip()) if name_ptr else ("", ""),
+            "nameLines": names[(name_ptr - 1) * per_name:name_ptr * per_name] if name_ptr else [],
             "rigid": num(cells(rows[0])[0]) if rows else None,
+            "rigidRows": [cells(l) for l in rows],
             "material": num(materials[i]),
         })
     other = {k: v for k, v in s.items() if k not in ("CONTROL", "ELEMENTS", "NODENAME", "RIGID", "MISCEL_1")}
+    other = {k: (v if k not in ROW_SECTIONS else [cells(l) for l in v]) for k, v in other.items()}
     other["MISCEL_1(tail)"] = s["MISCEL_1"][mat_rows:]
     return {"control": control, "elements": elements, "other": other}
 
