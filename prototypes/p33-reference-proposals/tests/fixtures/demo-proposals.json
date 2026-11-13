@@ -1,0 +1,32 @@
+{
+  "format": "topofix.changeset",
+  "version": 1,
+  "createdAt": "2026-11-12T19:00:00Z",
+  "base": {
+    "kind": "cii",
+    "fileName": "S1.CII",
+    "sha256": "9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b"
+  },
+  "changes": [
+    {
+      "changeId": "weight-pair-0",
+      "target": {
+        "kind": "cii",
+        "elementIndex": 55,
+        "fromNode": "5220",
+        "toNode": "5229"
+      },
+      "field": "RIGID/WEIGHT",
+      "oldToken": "1.390000E+03",
+      "newValue": 1529,
+      "evidence": {
+        "source": "reference-cii",
+        "pairId": "pair-0",
+        "detail": "Reference rigid 1 (5220→5229), weight 1.529000E+03"
+      },
+      "approval": {
+        "approved": false
+      }
+    }
+  ]
+}
