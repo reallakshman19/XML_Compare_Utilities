@@ -117,3 +117,17 @@ test('P1.2d frame cii2019 reads PSI116 Position as the converter writes it (x, z
   assert.equal(g.frame, 'cii2019');
   await assert.rejects(readPsi116Graph(xml, {frame: 'other'}), /MATCH_FRAME_INVALID/);
 });
+
+test('P1.2e COORDS start points: within 6-25 mm drift is reported, beyond refuses, tolerance range enforced', async () => {
+  const { reconcileSeeds } = await import('../engine/cii-graph.mjs');
+  const els = [{from:'10',to:'20',delta:[1000,0,0]},{from:'20',to:'30',delta:[1000,0,0]}];
+  const seeds = d => [{node:'10',xyz:[0,0,0]},{node:'30',xyz:[2000+d,0,0]}];
+  const ok = reconcileSeeds(els, seeds(3.2));
+  assert.equal(ok.drifts.length, 1); assert.ok(Math.abs(ok.drifts[0].missMm - 3.2) < 1e-9);
+  assert.deepEqual(ok.seeds.map(s=>s.node), ['10']);
+  assert.throws(() => reconcileSeeds(els, seeds(6.5)), /MAP_COORDS_SEED_DRIFT/);
+  assert.equal(reconcileSeeds(els, seeds(20), 25).drifts.length, 1);
+  assert.throws(() => reconcileSeeds(els, seeds(0), 5), /MAP_SEED_TOLERANCE_INVALID/);
+  assert.throws(() => reconcileSeeds(els, seeds(0), 26), /MAP_SEED_TOLERANCE_INVALID/);
+  assert.deepEqual(reconcileSeeds(els, seeds(0)).drifts, []);
+});
