@@ -108,3 +108,12 @@ test('P1.2b review: three good points and one ambiguity print counts, block only
     }
   }finally{rmSync(dir,{recursive:true,force:true});}
 });
+
+test('P1.2d frame cii2019 reads PSI116 Position as the converter writes it (x, z, -y)', async () => {
+  const xml = new TextEncoder().encode('<PipeStressExport><Pipe><Branch><Branchname>B</Branchname><Node><NodeNumber>10</NodeNumber><ComponentRefNo>R</ComponentRefNo><Position>1 2 3</Position></Node></Branch></Pipe></PipeStressExport>');
+  assert.deepEqual((await readPsi116Graph(xml)).nodes[0].xyz, [1, 2, 3]);
+  const g = await readPsi116Graph(xml, {frame: 'cii2019'});
+  assert.deepEqual(g.nodes[0].xyz, [1, 3, -2]);
+  assert.equal(g.frame, 'cii2019');
+  await assert.rejects(readPsi116Graph(xml, {frame: 'other'}), /MATCH_FRAME_INVALID/);
+});

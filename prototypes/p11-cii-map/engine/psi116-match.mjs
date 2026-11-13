@@ -10,15 +10,21 @@ export const label = r => `branch ${r.branchOrdinal} (${r.branchName}) node ${r.
 export const key = r => `${r.branchOrdinal}:${r.nodeOrdinal}`;
 export const distance = (a,b) => Math.hypot(...a.map((v,i)=>v-b[i]));
 
-export async function readPsi116Graph(bytes, {includeBore=false}={}) {
+// PSI116 Position frames. 'psi116' = as written. 'cii2019' = the 3D_Converters XML->CII 2019
+// converter's own axis rule (xml_to_cii2019._map_position_to_cii): CII = (x, z, -y).
+export const FRAMES = Object.freeze({psi116: ([x,y,z])=>[x,y,z], cii2019: ([x,y,z])=>[x,z,-y]});
+
+export async function readPsi116Graph(bytes, {includeBore=false, frame='psi116'}={}) {
+  require(Object.hasOwn(FRAMES, frame), 'MATCH_FRAME_INVALID', 'frame', String(frame));
   const doc = scanXml(bytes), index = psi116Index(doc);
   require(index.nodes.length > 0, 'MATCH_XML_INVALID', 'PSI116', 'no direct Branch/Node records');
   const nodes = index.nodes.map(({branchOrdinal,branchName,nodeOrdinal,nodeNumber,componentRefNo,element}) => {
     const ref = {kind:'xml',branchOrdinal,branchName,nodeOrdinal,nodeNumber,componentRefNo};
     const where = label(ref), position = child(element,'Position',true);
     require(position, 'MATCH_XML_INVALID', where, 'missing Position');
-    const parts = text(doc,position).value.split(/\s+/), xyz = parts.map(Number);
-    require(parts.every(p=>decimal.test(p)) && vector(xyz), 'MATCH_XML_INVALID', where, 'Position must have three finite numbers in mm');
+    const parts = text(doc,position).value.split(/\s+/), raw = parts.map(Number);
+    require(parts.every(p=>decimal.test(p)) && vector(raw), 'MATCH_XML_INVALID', where, 'Position must have three finite numbers in mm');
+    const xyz = FRAMES[frame](raw);
     if (includeBore) {
       const od = children(element,'OutsideDiameter');
       const raw = od.length===1 && !od[0].children.length && !od[0].cdata ? text(doc,od[0]).value : '';
@@ -27,7 +33,7 @@ export async function readPsi116Graph(bytes, {includeBore=false}={}) {
     }
     return {ref,xyz};
   });
-  return {profile:'PSI116',sha256:await sha256Hex(bytes),nodes,branchCount:index.branches.length};
+  return {profile:'PSI116',sha256:await sha256Hex(bytes),nodes,branchCount:index.branches.length,frame};
 }
 
 // Shared by both PSI116 geometry matchers; no change to P1.2b grouping.
