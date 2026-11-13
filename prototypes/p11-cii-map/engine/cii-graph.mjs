@@ -122,7 +122,19 @@ export function closeLoops(elements) {
   const adj = new Map();
   const push = (n, x) => { if (!adj.has(n)) adj.set(n, []); adj.get(n).push(x); };
   elements.forEach((e, i) => { if (e.from === e.to) return; push(e.from, { i, to: e.to, sign: 1 }); push(e.to, { i, to: e.from, sign: -1 }); });
-  const pos = new Map(), seen = new Set(), fixed = new Map(), loops = [];
+  const pos = new Map(), seen = new Set(), fixed = new Map(), loops = [], parents = new Map();
+  // The BFS tree gives the unique fundamental cycle for each closing edge.
+  function cycle(n, to, i) {
+    const ancestors = new Set();
+    for (let v = n; v !== undefined; v = parents.get(v)?.node) ancestors.add(v);
+    const nodeIds = [], indices = [i];
+    let v = to;
+    while (!ancestors.has(v)) { nodeIds.push(v); const p = parents.get(v); indices.push(p.i); v = p.node; }
+    const common = v;
+    for (v = n; v !== common; v = parents.get(v).node) { nodeIds.push(v); indices.push(parents.get(v).i); }
+    nodeIds.push(common);
+    return { nodeIds, elementIndices: indices.map(j => elements[j].ciiElementIndex ?? j) };
+  }
   for (const root of adj.keys()) {
     if (pos.has(root)) continue;
     pos.set(root, [0, 0, 0]);
@@ -132,7 +144,7 @@ export function closeLoops(elements) {
         if (seen.has(i)) continue;
         seen.add(i);
         const d = elements[i].delta, next = pos.get(n).map((v, j) => v + sign * d[j]);
-        if (!pos.has(to)) { pos.set(to, next); q.push(to); continue; }
+        if (!pos.has(to)) { pos.set(to, next); parents.set(to, { node: n, i }); q.push(to); continue; }
         const miss = Math.hypot(...next.map((v, j) => v - pos.get(to)[j]));
         const tol = LOOP_TOLERANCE_MM;
         // 1e-9 mm absorbs float noise, so an exact 6.000 mm miss is not refused.
@@ -141,7 +153,7 @@ export function closeLoops(elements) {
         if (miss > 0) {
           const [f, t] = sign > 0 ? [n, to] : [to, n];
           fixed.set(i, pos.get(t).map((v, j) => v - pos.get(f)[j]));
-          loops.push({ element: elements[i].witness, node: to, missMm: miss, toleranceMm: tol });
+          loops.push({ element: elements[i].witness, node: to, missMm: miss, toleranceMm: tol, ...cycle(n, to, i) });
         }
       }
     }

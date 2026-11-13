@@ -1,6 +1,7 @@
 import { require } from '../kit/core.mjs';
 import { RULES } from './compare.mjs';
 import { validateMap } from './map-validation.mjs';
+import { addLoopNotes } from './loop-notes.mjs';
 
 const ref = (kind, value) => kind === 'node' ? { kind: 'cii-node', node: value } : {
   kind: 'cii', elementIndex: value.elementIndex, fromNode: value.fromNode, toNode: value.toNode
@@ -23,12 +24,7 @@ export function toMapFile(compareResult, { sourceFile, targetFile, method = 'geo
     return { pairId: 'pair-' + (i + 1), source: ref(p.kind, p.a), target: ref(p.kind, p.b), status: 'candidate',
       evidence: { rule: p.rule, detail: `Residual: ${p.distanceMm} mm` } };
   });
-  // v1 schema disallows additional fields. Keep full review notes in the allowed evidence.detail string,
-  // including closures on unmatched elements. No pair means no legal place to store notes: refuse.
   const notes = [...r.loopClosures.a.map(c => ({ side: 'source', closure: c })), ...r.loopClosures.b.map(c => ({ side: 'target', closure: c }))];
-  if (notes.length) {
-    require(pairs.length > 0, 'MAP_EXPORT_INVALID', 'loop closures', 'no pair can carry the loop closure review notes');
-    pairs[0].evidence.detail += '\nMap-wide loop closure review notes (Owner limit ±6 mm): ' + JSON.stringify(notes);
-  }
+  addLoopNotes(pairs, notes);
   return validateMap({ format: 'topofix.map', version: 1, createdAt, source, target, method, pairs });
 }

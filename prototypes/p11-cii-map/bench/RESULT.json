@@ -1,6 +1,6 @@
 {
  "card": "p11-cii-map",
- "at": "2026-11-12T19:42:46.465Z",
+ "at": "2026-11-12T20:04:07.439Z",
  "node": "v22.16.0",
  "rows": [
   {
@@ -17,11 +17,11 @@
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
    "fieldDiffs": 4,
-   "ms": 14.3,
+   "ms": 15.4,
    "runs": [
-    13.6,
-    14.3,
-    45.3
+    13,
+    15.4,
+    42.6
    ],
    "limitMs": 300,
    "pass": true
@@ -39,11 +39,11 @@
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
    "fieldDiffs": 0,
-   "ms": 16.6,
+   "ms": 12.5,
    "runs": [
-    9.6,
-    16.6,
-    18.1
+    11,
+    12.5,
+    13
    ],
    "limitMs": 300,
    "pass": true
@@ -62,11 +62,11 @@
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
    "fieldDiffs": 72,
-   "ms": 511.4,
+   "ms": 545.4,
    "runs": [
-    507.3,
-    511.4,
-    535.9
+    498.9,
+    545.4,
+    604.9
    ],
    "limitMs": 30000,
    "pass": true
@@ -81,13 +81,57 @@
    "elementPairs": 1614,
    "nodePairs": 1619,
    "pairs": 3233,
-   "ms": 2.8,
+   "ms": 6.4,
    "runs": [
-    1.5,
-    2.8,
-    6.6
+    2.3,
+    6.4,
+    7.6
    ],
    "limitMs": 1000,
+   "pass": true
+  },
+  {
+   "bench": "P1.2 B1 same-run",
+   "input": "X-F05 vs X-S1",
+   "sha256": {
+    "X-F05": "1154c980d08344b1f803cda3bd9884b169753148b150641a745c9bfcb15de995",
+    "X-S1": "9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b"
+   },
+   "elementPairs": 56,
+   "nodePairs": 57,
+   "unmatchedA": 0,
+   "unmatchedB": 0,
+   "unmatchedNodesA": 0,
+   "unmatchedNodesB": 0,
+   "ms": 97.8,
+   "runs": [
+    94.4,
+    97.8,
+    113.7
+   ],
+   "limitMs": 2000,
+   "pass": true
+  },
+  {
+   "bench": "P1.2 B1 geometry",
+   "input": "X-F05 vs X-S1",
+   "sha256": {
+    "X-F05": "1154c980d08344b1f803cda3bd9884b169753148b150641a745c9bfcb15de995",
+    "X-S1": "9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b"
+   },
+   "elementPairs": 56,
+   "nodePairs": 57,
+   "unmatchedA": 0,
+   "unmatchedB": 0,
+   "unmatchedNodesA": 0,
+   "unmatchedNodesB": 0,
+   "ms": 94.5,
+   "runs": [
+    87.6,
+    94.5,
+    106.1
+   ],
+   "limitMs": 2000,
    "pass": true
   }
  ]

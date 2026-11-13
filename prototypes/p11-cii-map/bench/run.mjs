@@ -6,6 +6,8 @@ import { parseArgs, readBenchmark, writeResult } from '../kit/node.mjs';
 import { readCiiGraph } from '../engine/cii-graph.mjs';
 import { compareCii } from '../engine/compare.mjs';
 import { toMapFile } from '../engine/to-map.mjs';
+import { readInputXmlGraph } from '../engine/xml-input.mjs';
+import { matchXmlCii } from '../engine/xml-match.mjs';
 
 const args = parseArgs();
 if (args['repo-root']) args.roots.XCU = args['repo-root'];
@@ -37,6 +39,19 @@ const mt = await timeMedian(() => toMapFile(comparison, options));
 rows.push({bench:'P1.3 B1', input:'X-T vs X-TEXP', sha256:{'X-T':ga.sha256,'X-TEXP':gb.sha256},
   elementPairs:comparison.summary.elementPairs,nodePairs:comparison.summary.nodePairs,pairs:mt.last.pairs.length,
   ms:mt.ms,runs:mt.runs,limitMs:1000,pass:mt.ms<1000});
+// P1.2 B1: pinned XML/CII reads and matching, timed together (file I/O excluded).
+const f05 = await readBenchmark('X-F05', args);
+await requireSha256(f05.bytes, '1154c980d08344b1f803cda3bd9884b169753148b150641a745c9bfcb15de995', 'X-F05');
+await requireSha256(s1.bytes, '9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b', 'X-S1');
+await requireSha256(s2.bytes, '7ec48b76b65eedfd5ecc9c8e8feca1a45dd8c83721a68b53aa0db3363e6d27fd', 'X-S2');
+for (const mode of ['same-run', 'geometry']) {
+  const timed = await timeMedian(async () => matchXmlCii(await readInputXmlGraph(f05.bytes, 'X-F05'), await readCiiGraph(s1.bytes, {member:'X-S1'}), {mode}));
+  const r = timed.last;
+  rows.push({bench:'P1.2 B1 ' + mode, input:'X-F05 vs X-S1', sha256:{'X-F05':r.inputs.xml.sha256,'X-S1':r.inputs.cii.sha256},
+    elementPairs:r.elementPairs.length,nodePairs:r.nodePairs.length,unmatchedA:r.unmatchedElementsXml.length,unmatchedB:r.unmatchedElementsCii.length,
+    unmatchedNodesA:r.unmatchedNodesXml.length,unmatchedNodesB:r.unmatchedNodesCii.length,ms:timed.ms,runs:timed.runs,limitMs:2000,
+    pass:timed.ms<2000 && r.elementPairs.length===56 && r.nodePairs.length===57 && !r.unmatchedElementsXml.length && !r.unmatchedElementsCii.length && !r.unmatchedNodesXml.length && !r.unmatchedNodesCii.length});
+}
 const doc = writeResult(rows);
 console.table(doc.rows.map(({ sha256, runs, ...r }) => r));
 process.exit(rows.every(r => r.pass !== false) ? 0 : 1);
