@@ -1,0 +1,14 @@
+import {resolve} from 'node:path';
+import {parseArgs,readBenchmark,writeResult} from '../kit/node.mjs';
+import {timeMedian} from '../kit/core.mjs';
+import {makeMap,at,uniqueNameSubset} from '../tests/helpers.mjs';
+import {planNames} from '../engine/plan.mjs';
+import {approveAll} from '../engine/approve.mjs';
+import {applyNames} from '../engine/run.mjs';
+const args=parseArgs();if(args['repo-root'])args.roots.XCU=resolve(args['repo-root']);
+const a=await readBenchmark('X-TEXP',args),b=await readBenchmark('X-T',args),map=await makeMap(a.bytes,b.bytes,a.entry.path,b.entry.path);
+const p=await planNames(a.bytes,b.bytes,map);if(!p.ok)throw new Error(JSON.stringify(p.refusals));
+const subset=uniqueNameSubset(p.changeset,b.bytes),approval=await approveAll(subset,{by:'bench',at});if(!approval.ok)throw new Error(JSON.stringify(approval.refusals));
+const t=await timeMedian(async()=>({...await applyNames(b.bytes,approval.changeset),proposals:p.changeset.changes.length,noEntry:p.noEntry.length}));
+const row={bench:'B1',input:'X-TEXP -> X-T',sha256:b.entry.sha256,sourceSha256:a.entry.sha256,proposals:t.last.proposals,noEntry:t.last.noEntry,selected:subset.changes.length,readBackOk:t.last.report?.filter(x=>x.ok).length??0,refusals:t.last.refusals?.map(x=>({code:x.code,where:x.where}))??[],ms:t.ms,runs:t.runs,limitMs:2000,pass:t.last.ok&&subset.changes.length===12&&t.last.report.length===12&&t.last.diff.length===24&&t.last.diff.every(d=>d.section==='NODENAME')&&t.ms<2000};
+console.log(JSON.stringify(writeResult([row]),null,2));process.exitCode=row.pass?0:1;
