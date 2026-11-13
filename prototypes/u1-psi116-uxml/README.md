@@ -11,7 +11,7 @@ node cli.mjs fields
 node cli.mjs apply in.psi116.xml edits.json out.xml
 ```
 
-The CLI accepts a JSON array of edits (measures the input hash) or `{ "fileSha256": "<64 lowercase hex digits>", "edits": [...] }` (recommended for a saved edit plan). A ref contains `branchOrdinal`, `branchName`, `nodeOrdinal`, `nodeNumber`, `componentRefNo`; ordinals are zero-based, and `before` is the exact decoded, whitespace-trimmed kit text. `after` is a string or, for numeric fields, a finite number. Output is created exclusively; existing output is never replaced.
+The CLI requires `{ "fileSha256": "<64 lowercase hex digits>", "edits": [...] }`; bare arrays are refused. A ref contains `branchOrdinal`, `branchName`, `nodeOrdinal`, `nodeNumber`, `componentRefNo`; ordinals are zero-based, and `before` is the exact decoded, whitespace-trimmed kit text. `after` is a string or, for numeric fields, a finite number in plain decimal notation (optional minus, digits, optional decimal fraction; no negative zero). NodeName refuses CR, Unicode whitespace at either edge, and U+FEFF anywhere. Integer node numbers are compared by integer value when both parse as integers. Output is created exclusively; existing output is never replaced.
 
 ## U1_FIELDS
 
@@ -37,7 +37,7 @@ Code C uses `INSUL_DENSITY` in ProcessBlock even though PSI116 stores it on a br
 - `U1_FIELD_NOT_SUPPORTED`: field outside the table or a text leaf contains markup.
 - `U1_FIELD_ABSENT`: required tag absent or self-closing (cannot insert text without a structure change).
 - `U1_STALE_BEFORE`: decoded current text differs from before.
-- `U1_VALUE_INVALID`: invalid edit input, XML characters or non-finite/non-decimal numeric value.
+- `U1_VALUE_INVALID`: invalid edit input, XML characters or non-finite/non-decimal numeric value, negative zero or NodeName normalization hazard.
 - `U1_BRANCH_FIELD_SPLIT`: different after values for one branch field.
 - `U1_CONFLICTING_EDITS`: different after values for one node field or overlapping spans.
 - `U1_PARITY_FAILED`: exact XML value diff or UXML re-read failed.

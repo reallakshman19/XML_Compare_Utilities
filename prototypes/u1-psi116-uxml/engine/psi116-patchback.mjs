@@ -13,17 +13,32 @@ const rawKeys = {'Node/NodeName':'nodeName','Node/Weight':'weight','Node/Outside
 const decoder = new TextDecoder('utf-8',{fatal:true,ignoreBOM:true});
 const encoder = new TextEncoder();
 const fail = (code,detail='') => { throw new Error(code+': '+detail); };
-const numberPattern = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+const numberPattern = /^-?\d+(?:\.\d+)?$/;
+const integerPattern = /^[+-]?\p{Nd}(?:_?\p{Nd})*$/u;
+function integerForm(value) {
+  if (typeof value==='number' && !Number.isSafeInteger(value)) return null;
+  const s=String(value).replace(/^[\p{White_Space}\u001C-\u001F]+|[\p{White_Space}\u001C-\u001F]+$/gu,'');
+  if (!integerPattern.test(s)) return null;
+  const ascii=s.replace(/\p{Nd}/gu,d=>{
+    const code=d.codePointAt(0); let first=code;
+    while(first>0 && /^\p{Nd}$/u.test(String.fromCodePoint(first-1))) first--;
+    return String((code-first)%10);
+  }).replaceAll('_','');
+  return BigInt(ascii);
+}
 const xmlChars = /^[\u0009\u000A\u000D\u0020-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]*$/u;
 
 function locate(doc,index,ref,field) {
   // Verify the entire node identity even when editing a branch-level value.
-  const {row} = locatePsi116(doc,index,ref,'NodeNumber');
+  const indexed=index.nodes.find(n=>n.branchOrdinal===ref.branchOrdinal && n.nodeOrdinal===ref.nodeOrdinal);
+  const a=integerForm(ref.nodeNumber), b=indexed?integerForm(indexed.nodeNumber):null;
+  const checkedRef=a!==null && b!==null && a===b ? {...ref,nodeNumber:indexed.nodeNumber} : ref;
+  const {row} = locatePsi116(doc,index,checkedRef,'NodeNumber');
   const [scope,tag] = field.split('/');
   const owner = scope==='Branch' ? index.branches[ref.branchOrdinal] : row.element;
   const el = child(owner,tag,true);
   if (!el || el.selfClosing) fail('U1_FIELD_ABSENT',field);
-  const span = scope==='Node' ? locatePsi116(doc,index,ref,field).span : text(doc,el);
+  const span = scope==='Node' ? locatePsi116(doc,index,checkedRef,field).span : text(doc,el);
   // A comment or PI inside a nominal leaf is markup, not editable text.
   if (span.raw.includes('<')) fail('U1_FIELD_NOT_SUPPORTED',field+' contains markup');
   return {el,span};
@@ -43,7 +58,7 @@ function patch(bytes,plans) {
   return out;
 }
 
-function verify(original,result,plans,hash) {
+export function verifyPsi116Parity(original,result,plans,hash) {
   try {
     const updated=scanXml(result), next=psi116Index(updated);
     const actual=xmlDiff(original,updated);
@@ -86,7 +101,8 @@ export async function applyPsi116Edits(bytes,edits,{fileSha256}={}) {
     const {span}=locate(doc,index,ref,field);
     if (before!==span.value) fail('U1_STALE_BEFORE',field);
     const after=typeof input==='number' && U1_FIELDS[field].numeric?String(input):input;
-    if (typeof after!=='string' || !xmlChars.test(after) || (U1_FIELDS[field].numeric && (!numberPattern.test(after) || !Number.isFinite(Number(after))))) fail('U1_VALUE_INVALID',field);
+    if (typeof after!=='string' || !xmlChars.test(after) || (U1_FIELDS[field].numeric && (!numberPattern.test(after) || !Number.isFinite(Number(after)) || Object.is(Number(after),-0) || Object.is(input,-0)))) fail('U1_VALUE_INVALID',field);
+    if (field==='Node/NodeName' && (/[\r\uFEFF]/u.test(after) || /^[\p{White_Space}\u001C-\u001F]|[\p{White_Space}\u001C-\u001F]$/u.test(after))) fail('U1_VALUE_INVALID',field);
     const key=span.start+':'+span.end;
     const previous=seen.get(key);
     if (previous) {
@@ -100,6 +116,6 @@ export async function applyPsi116Edits(bytes,edits,{fileSha256}={}) {
   const plans=[...seen.values()].filter(p=>p.before!==p.after);
   const result=plans.length?patch(bytes,plans):bytes;
   const sha256After=await sha256Hex(result);
-  verify(doc,result,plans,sha256After);
+  verifyPsi116Parity(doc,result,plans,sha256After);
   return {bytes:result,sha256Before,sha256After,changes:plans.map(({ref,field,before,after,start,end})=>({ref,field,before,after,start,end}))};
 }

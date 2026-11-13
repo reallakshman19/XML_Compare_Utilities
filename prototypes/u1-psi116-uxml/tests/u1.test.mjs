@@ -4,7 +4,7 @@ import {mkdtemp,writeFile,readFile,readdir,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
-import {applyPsi116Edits,U1_FIELDS} from '../engine/psi116-patchback.mjs';
+import {applyPsi116Edits,U1_FIELDS,verifyPsi116Parity} from '../engine/psi116-patchback.mjs';
 import {scanXml,xmlDiff,psi116Index,locatePsi116} from '../../_kit/xmlspan.mjs';
 import {mapPsi116ToUxml} from '../../../uxml/UxmlPsi116SchemaMapper.js';
 import {fixture,edit,ref,options} from './fixture.mjs';
@@ -50,8 +50,9 @@ test('U1 T6 BOM and CRLF remain byte-for-byte outside span',async()=>{
   assert.deepEqual(r.bytes,encode(decode(b).replace('<Weight>  10.0  </Weight>','<Weight>  123.456  </Weight>')));
   assert.deepEqual((await run(b,[])).bytes,b);
 });
-test('U1 T7 parity refuses mapper-normalized NodeName even though XML span is valid (M4)',async()=>{
-  const b=fixture();await assert.rejects(run(b,[edit('Node/NodeName','N-0-0','A\rB')]),/U1_PARITY_FAILED.*UXML component/);
+test('U1 T7 parity refuses mapper-normalized branch identity even though XML span is valid (M4)',async()=>{
+  const b=encode(decode(fixture()).replace('<Branchname>BR-0','<Branchname>\u00a0BR-0'));
+  await assert.rejects(run(b,[{...weight('12'),ref:{...ref(),branchName:'\u00a0BR-0'}}]),/U1_PARITY_FAILED.*UXML component/);
 });
 test('U1 T8 all remaining supported fields and categories',async()=>{
   const b=fixture(),e=[edit('Node/OutsideDiameter','60','70'),edit('Node/CorrosionAllowance','1','2'),edit('Node/InsulationThickness','20','25'),edit('Branch/Pressure','2','3'),edit('Branch/FluidDensity','800','900'),edit('Branch/InsulationDensity','40','50')];
@@ -62,8 +63,30 @@ test('U1 T9 CLI refusal writes no output; exclusive create preserves existing ou
     const b=fixture(),input=join(dir,'in.xml'),json=join(dir,'edits.json'),out=join(dir,'out.xml');await writeFile(input,b);
     const cli=()=>spawnSync(process.execPath,['cli.mjs','apply',input,json,out],{encoding:'utf8'});
     await writeFile(json,JSON.stringify({edits:[weight('12')],fileSha256:'0'.repeat(64)}));let p=cli();assert.equal(p.status,1);assert.match(p.stderr,/U1_FILE_SHA256_MISMATCH/);assert.deepEqual((await readdir(dir)).sort(),['edits.json','in.xml']);
-    await writeFile(json,JSON.stringify([weight('12')]));p=cli();assert.equal(p.status,0,p.stderr);const result=await readFile(out);assert.equal(diff(b,result).length,1);
+    await writeFile(json,JSON.stringify([weight('12')]));p=cli();assert.equal(p.status,1);assert.match(p.stderr,/U1_VALUE_INVALID/);assert.deepEqual((await readdir(dir)).sort(),['edits.json','in.xml']);
+    await writeFile(json,JSON.stringify({edits:[weight('12')],...await options(b)}));p=cli();assert.equal(p.status,0,p.stderr);const result=await readFile(out);assert.equal(diff(b,result).length,1);
     p=cli();assert.equal(p.status,1);assert.match(p.stderr,/U1_OUTPUT_EXISTS/);assert.deepEqual(await readFile(out),result);
     const f=spawnSync(process.execPath,['cli.mjs','fields'],{encoding:'utf8'});assert.equal(f.status,0);assert.deepEqual(JSON.parse(f.stdout),U1_FIELDS);
   }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('U1 T10 integer node identity, including leading zeros and branch edits',async()=>{
+  const b=encode(decode(fixture()).replace('<NodeNumber>100</NodeNumber>','<NodeNumber>0100</NodeNumber>'));
+  const r=await run(b,[{...weight('12'),ref:{...ref(),nodeNumber:100}},{...edit('Branch/Temperature','100','101'),ref:{...ref(),nodeNumber:'00100'}}]);
+  assert.equal(mapped(r)[0].nodeNumber,100);assert.equal(mapped(r)[0].weight,12);assert.equal(diff(b,r.bytes).length,2);
+  await assert.rejects(run(b,[{...weight('12'),ref:{...ref(),nodeNumber:101}}]),/XML_REF_MISMATCH/);
+  await assert.rejects(run(b,[{...weight('12'),ref:{...ref(),nodeNumber:'100.0'}}]),/XML_REF_MISMATCH/);
+});
+test('U1 T11 reject NodeName normalization hazards up front',async()=>{
+  const b=fixture();for(const name of ['A\rB',' A','A ','\u00a0A','A\u00a0','\u2003A','A\u202f','A\uFEFFB','\uFEFFA','A\uFEFF']) await assert.rejects(run(b,[edit('Node/NodeName','N-0-0',name)]),/^Error: U1_VALUE_INVALID/);
+  assert.equal(mapped(await run(b,[edit('Node/NodeName','N-0-0','A\u00a0B')]))[0].nodeName,'A\u00a0B');
+});
+test('U1 T12 only finite plain decimal numeric values',async()=>{
+  const b=fixture();for(const value of ['+3e2','5.','-0','-0.0',-0,'1e2','+3','.5',' 5','0x12','NaN','9'.repeat(400)]) await assert.rejects(run(b,[weight(value)]),/^Error: U1_VALUE_INVALID/);
+  for(const value of ['0','12.50','-2.5',5]) assert.equal(mapped(await run(b,[weight(value)]))[0].weight,Number(value));
+});
+test('U1 T13 exact-span parity rejects an unplanned value change (M5)',async()=>{
+  const b=fixture(),changed=encode(decode(b).replace('<Pressure>2</Pressure>','<Pressure>3</Pressure>'));
+  const {fileSha256}=await options(changed);
+  assert.throws(()=>verifyPsi116Parity(scanXml(b),changed,[],fileSha256),/U1_PARITY_FAILED.*diff count/);
 });
