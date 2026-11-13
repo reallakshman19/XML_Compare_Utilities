@@ -83,3 +83,18 @@ node bench/run.mjs
 ```
 
 Both comparisons should give 56 element pairs and 57 node pairs; the Map validator prints OK. The Node command uses the existing XML reader and the same XML scanner adapter as the earlier graph tests. The page is unchanged.
+
+## P1.2b: Match PSI116 to CII (read-only)
+
+From the card folder:
+
+```sh
+node cli.mjs match-psi116 input.xml model.cii --tol 1 --map psi116-map.json
+node ../../shared/topofix-formats/validate.mjs psi116-map.json
+```
+
+PSI116 `PipeStressExport` nodes are read with the existing kit index; branch ordinals count all `Branch` elements and node ordinals count direct `Node` children only. Each `Position` must contain three finite decimal numbers in mm. Matching is geometry-only, in the existing shared coordinate frame, with no fitting. Exactly equal numeric positions (including signed zero) are grouped; nearby but different points are not merged. Within the requested tolerance, a unique CII node is matched; a distance at most 0.001 mm is `same-position`, otherwise `nearest-within-tolerance`. Multiple candidate CII nodes, or distinct points competing for one CII node, refuse instead of guessing. No node number is used for matching.
+
+The JSON includes paired and unmatched node records, unmatched CII node IDs, loop closure notes and summary counts/time. Counts `paired` and `unmatchedXml` refer to original XML records, `xmlPoints` to distinct positions, and `pairedCii` and `unmatchedCii` to distinct CII nodes. On refusal there is no partial match or output file; the summary gives time, null for unavailable match counts, and the number of ambiguity refusals. The output Map retains one candidate per matched PSI116 record with its full structural ref. Coincident records intentionally share a CII target; rule R10 still prohibits approving two such candidates together. Loop notes are carried on affected pairs. No file is overwritten. CII v14 only; no XML or CII edits.
+
+`MATCH_XML_INVALID` also covers missing/invalid PSI116 positions or an empty PSI116 model. Other XML scanner refusals propagate from the unchanged kit. The existing InputXML command is unchanged.

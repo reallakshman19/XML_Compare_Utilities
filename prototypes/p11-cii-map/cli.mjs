@@ -3,6 +3,7 @@
 //   node cli.mjs compare <a.cii> <b.cii> [--anchors 10:10,20:20,30:30] [--tol 1] [--summary]
 import { writeFileSync, mkdtempSync, linkSync, rmSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
+import { readPsi116Graph, matchPsi116Cii, psi116MatchToMapFile } from './engine/psi116-match.mjs';
 import { readInputXmlGraph } from './engine/xml-input.mjs';
 import { matchXmlCii } from './engine/xml-match.mjs';
 import { xmlMatchToMapFile } from './engine/xml-to-map.mjs';
@@ -14,6 +15,30 @@ import { compareCii } from './engine/compare.mjs';
 const USAGE = 'node cli.mjs compare <a.cii> <b.cii> [--anchors 10:10,20:20,30:30] [--tol 1] [--summary]';
 const args = parseArgs();
 const [command, fa, fb] = args._;
+if (command === 'match-psi116') {
+  if (!fa || !fb || args._.length !== 3 || args.map === true || args.tol === true || args.mode !== undefined) usage('node cli.mjs match-psi116 <file.xml> <file.cii> [--tol <mm>] [--map out.json]');
+  const start = performance.now();
+  const result = await attempt(async () => {
+    const xml = await readPsi116Graph(readBytes(fa));
+    const cii = await readCiiGraph(readBytes(fb), {member: basename(fb)});
+    const r = matchPsi116Cii(xml, cii, {toleranceMm: args.tol === undefined ? undefined : Number(args.tol)});
+    if (args.map) {
+      const map = psi116MatchToMapFile(r, {xmlFile:{fileName:basename(fa),sha256:xml.sha256},ciiFile:{fileName:basename(fb),sha256:cii.sha256}});
+      let temporary;
+      try {
+        const output = resolve(args.map);
+        temporary = mkdtempSync(join(dirname(output), '.p12b-map-'));
+        const staged = join(temporary, 'map.json');
+        writeFileSync(staged, JSON.stringify(map, null, 2) + '\n', {flag:'wx'});
+        linkSync(staged, output);
+      } catch (e) { refuse('MATCH_MAP_WRITE_FAILED', args.map, e.message); }
+      finally { if (temporary) rmSync(temporary, {recursive:true,force:true}); }
+    }
+    return r;
+  });
+  result.summary = {...(result.summary || {paired:null,unmatchedXml:null,unmatchedCii:null,ambiguous:result.refusals.filter(r=>r.code==='MATCH_NODE_AMBIGUOUS').length}),ms:performance.now()-start};
+  finish(result);
+}
 if (command === 'match-xml') {
   if (!fa || !fb || args._.length !== 3 || args.map === true || args.mode === true || args.tol === true) usage('node cli.mjs match-xml <file.xml> <file.cii> [--mode same-run|geometry] [--tol <mm>] [--map out.json]');
   const result = await attempt(async () => {

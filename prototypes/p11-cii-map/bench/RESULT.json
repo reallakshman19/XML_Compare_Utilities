@@ -1,6 +1,6 @@
 {
  "card": "p11-cii-map",
- "at": "2026-11-12T20:04:07.439Z",
+ "at": "2026-11-13T04:53:56.577Z",
  "node": "v22.16.0",
  "rows": [
   {
@@ -17,11 +17,11 @@
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
    "fieldDiffs": 4,
-   "ms": 15.4,
+   "ms": 17.7,
    "runs": [
-    13,
     15.4,
-    42.6
+    17.7,
+    61.2
    ],
    "limitMs": 300,
    "pass": true
@@ -39,11 +39,11 @@
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
    "fieldDiffs": 0,
-   "ms": 12.5,
+   "ms": 18.9,
    "runs": [
-    11,
-    12.5,
-    13
+    10.4,
+    18.9,
+    26.1
    ],
    "limitMs": 300,
    "pass": true
@@ -62,11 +62,11 @@
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
    "fieldDiffs": 72,
-   "ms": 545.4,
+   "ms": 697.4,
    "runs": [
-    498.9,
-    545.4,
-    604.9
+    598.2,
+    697.4,
+    734.2
    ],
    "limitMs": 30000,
    "pass": true
@@ -81,11 +81,11 @@
    "elementPairs": 1614,
    "nodePairs": 1619,
    "pairs": 3233,
-   "ms": 6.4,
+   "ms": 5.2,
    "runs": [
-    2.3,
-    6.4,
-    7.6
+    1.8,
+    5.2,
+    8
    ],
    "limitMs": 1000,
    "pass": true
@@ -103,11 +103,11 @@
    "unmatchedB": 0,
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
-   "ms": 97.8,
+   "ms": 124.6,
    "runs": [
-    94.4,
-    97.8,
-    113.7
+    113.2,
+    124.6,
+    131
    ],
    "limitMs": 2000,
    "pass": true
@@ -125,11 +125,36 @@
    "unmatchedB": 0,
    "unmatchedNodesA": 0,
    "unmatchedNodesB": 0,
-   "ms": 94.5,
+   "ms": 135.3,
    "runs": [
-    87.6,
-    94.5,
-    106.1
+    91,
+    135.3,
+    140.3
+   ],
+   "limitMs": 2000,
+   "pass": true
+  },
+  {
+   "bench": "P1.2b B1",
+   "input": "invented PSI116 41 x 40 vs renumbered CII",
+   "sha256": {
+    "xml": "578b6c3ac8a5ec1d9860a66900e4db13b9ba831f79abc8d5e5472b613e1858b3",
+    "cii": "bd7593ff8b12380174c0483be8759bf4c118424941ef4e45d24a107dc0afff45"
+   },
+   "toleranceMm": 1,
+   "xmlNodes": 1640,
+   "xmlPoints": 1600,
+   "ciiNodes": 1600,
+   "paired": 1640,
+   "pairedCii": 1600,
+   "unmatchedXml": 0,
+   "unmatchedCii": 0,
+   "ambiguous": 0,
+   "ms": 318.3,
+   "runs": [
+    296.1,
+    318.3,
+    401.1
    ],
    "limitMs": 2000,
    "pass": true
