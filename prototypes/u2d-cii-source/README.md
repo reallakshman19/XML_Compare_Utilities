@@ -4,7 +4,7 @@ Owner, 13 Nov 2026: the engineer values live in the standalone CII that the 3D_C
 
 ```
 node ../p11-cii-map/cli.mjs match-psi116 target.xml standalone-v14.cii --tol 1 --frame cii2019 > match.json
-python -E -s u2d.py --target target.xml --cii standalone.cii --match match.json --out revised.xml --changes changes.json
+python -E -s u2d.py --target target.xml --cii standalone.cii --cii-v14 standalone-v14.cii --match match.json --weight-scale 10 --out revised.xml --changes changes.json
 node ../u3-psi116-review/cli.mjs diff target.xml revised.xml --changes changes.json     # review page / diff
 python -E -s ../u3b-cii-check/u3b_check.py --converter <3DC>/converters/scripts --base target.xml --revised revised.xml --receipt changes.json --out u3b.json --cii-dir cii
 python -E -s compare_cii.py standalone.cii cii/revised.cii --weight-scale 10           # benchmark: values reproduced
@@ -17,19 +17,19 @@ python -E -s -m unittest discover -s tests -v                                   
 
 | CII value | PSI116 field | Rule |
 |---|---|---|
-| NODENAME (from / to) | Node/NodeName of that end | |
-| RIGID weight of an element | Node/Weight of its to-node | ÷ 10 (the tab writes kg × 10 = N) |
+| NODENAME (from / to) | Node/NodeName of that end | CII keeps 25 characters: a longer PSI116 name with the same first 25 is kept; a 25-character CII name that differs is refused (`U2D_NAME_MAY_BE_CUT`) |
+| RIGID weight of an element | Node/Weight of its to-node | ÷ `--weight-scale` (required: 10 = the tab default, kg × 10 = N; 1 = kg) |
 | Wall (row 2, from end) | Node/WallThickness | 0.01 (= missing) is skipped |
 | Insulation, corrosion (row 2, to end) | Node/InsulationThickness, CorrosionAllowance | |
-| T1–T9, P1–P9 | Branch/Temperature/TemperatureN, Pressure/PressureN | CII 0 does not overwrite a PSI116 −100000 (unset) |
+| T1–T9, P1–P9 | Branch/Temperature/TemperatureN, Pressure/PressureN | A CII temperature 0 is the converter's unset and is written as −100000 |
 | Fluid density (row 6) | Branch/FluidDensity | × 1e6 (kg/cm³ → kg/m³) |
-| MISCEL_1 material | Branch/MaterialNumber | |
+| MISCEL_1 material | Branch/MaterialNumber | Not taken when it equals the material carried in from the previous element (`U2D_MATERIAL_CARRIED`): the branch may have none of its own |
 
-Branch values are taken from every element whose to-node maps into the branch; if they disagree the field is refused (`U2D_BRANCH_FIELD_SPLIT`). A CII node maps to the PSI116 record with the same NodeNumber at that point, else to the single positive-numbered record there; otherwise `U2D_NODE_AMBIGUOUS` (nothing written for that end). Only values that differ are edited. Repeated names need no popup here: pairing is by position, not by name (D2 applies to name-based pairing).
+Branch values are taken from every element whose own line-number field names the branch (shared names are refused, `U2D_BRANCH_NAME_SHARED`); if they disagree the field is refused (`U2D_BRANCH_FIELD_SPLIT`). A CII node maps to the PSI116 record with the same NodeNumber at that point, else to the single positive-numbered record there; otherwise `U2D_NODE_AMBIGUOUS` (nothing written for that end). Only values that differ are edited. Repeated names need no popup here: pairing is by position, not by name (D2 applies to name-based pairing).
 
 Writing is done by the unchanged U1 (`../u1-psi116-uxml/cli.mjs apply`). The receipt is a `u2.transfer-receipt` (`kind: cii-source`), accepted by U3a and U3b. No revised file is left without its receipt.
 
-Refusals: `U2D_OUTPUT_EXISTS`, `U2D_MATCH_INVALID`, `U2D_MATCH_FILE_MISMATCH`, `U2D_MATCH_FRAME`, `U2D_ROUNDTRIP_MISMATCH`, and any U1 refusal.
+The match must name this PSI116 and the given v14 CII by SHA-256, and the v11 and v14 files must hold the same element count. Refusals: `U2D_OUTPUT_EXISTS`, `U2D_MATCH_INVALID`, `U2D_MATCH_FILE_MISMATCH`, `U2D_CII_PAIR_MISMATCH`, `U2D_MATCH_FRAME`, `U2D_ROUNDTRIP_MISMATCH`, and any U1 refusal.
 
 ## Results on the Owner's files (Oracle, local, counts only, 13 Nov)
 
@@ -38,12 +38,12 @@ Standalone CII vs the CII converted from the PSI116, elements matched by node nu
 | | BM2 before → after | EF-05 before → after |
 |---|---|---|
 | Matched elements | 284 | 486 |
-| T1, T2, T3, P1 | 0 → 282 | 0 → 486 |
-| Fluid density | 36 → 282 | 0 → 486 |
+| T1, T2, T3, P1 | 0 → 284 | 0 → 486 |
+| Fluid density | 36 → 284 | 0 → 486 |
 | Material | 20 → 284 | 486 → 486 |
 | Wall | 0 → 209 | 4 → 437 |
 | Corrosion | 284 → 284 | 4 → 427 |
 | Names | 284 → 284 | 486 → 486 |
-| U3b | PASS (483 carried, 2 not) | PASS (1,212 carried, 12 not) |
+| U3b | PASS (459 carried, 2 not) | PASS (1,171 carried, 12 not) |
 
-Open: BM2 rigid weights (44 transferred) cannot be compared yet — the tab renumbers component nodes, so most weighted elements have no number match (2 of 144). Ends at points with several PSI116 records are refused (BM2 306, EF-05 210 element ends).
+Open: BM2 rigid weights (44 transferred) cannot be compared yet — the tab renumbers component nodes, so most weighted elements have no number match (2 of 144). Ends at points with several PSI116 records are refused (BM2 140, EF-05 92 distinct CII nodes).

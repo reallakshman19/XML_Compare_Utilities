@@ -55,8 +55,28 @@ class U2dEndToEnd(unittest.TestCase):
         assert r.returncode == 0, r.stderr[-300:]
         r = run("node", str(MATCHER), "match-psi116", str(t / "target.xml"), str(t / "standalone-v14.cii"), "--tol", "1", "--frame", "cii2019")
         (t / "match.json").write_text(r.stdout, encoding="utf-8")
-        cls.code = u2d.main(["--target", str(t / "target.xml"), "--cii", str(t / "standalone.cii"), "--match", str(t / "match.json"),
-                             "--out", str(t / "revised.xml"), "--changes", str(t / "changes.json")])
+        cls.code = u2d.main(cls.args("target", "standalone", "match", "revised", "changes"))
+
+    @classmethod
+    def args(cls, target, cii, match, out, changes, scale="10"):
+        t = cls.tmp
+        return ["--target", str(t / f"{target}.xml"), "--cii", str(t / f"{cii}.cii"), "--cii-v14", str(t / f"{cii}-v14.cii"),
+                "--match", str(t / f"{match}.json"), "--out", str(t / f"{out}.xml"), "--changes", str(t / f"{changes}.json"),
+                "--weight-scale", scale]
+
+    @classmethod
+    def make(cls, name, text, scale="10", target="target"):
+        """Write name.xml, convert it to name.cii (+ v14) and match it against target.xml."""
+        t = cls.tmp
+        (t / f"{name}.xml").write_text(text, encoding="utf-8")
+        run = lambda *a, **k: subprocess.run(list(a), capture_output=True, text=True, **k)  # noqa: E731
+        r = run(sys.executable, "-E", "-s", str(CONVERTER / "xml_to_cii2019_runtime_custody.py"), "--input", str(t / f"{name}.xml"),
+                "--output", str(t / f"{name}.cii"), "--weight-scale", scale, cwd=CONVERTER)
+        assert r.returncode == 0, r.stderr[-300:]
+        r = run(sys.executable, "-E", "-s", str(CONVERTER / "cii_v11_v14.py"), str(t / f"{name}.cii"), str(t / f"{name}-v14.cii"), cwd=CONVERTER)
+        assert r.returncode == 0, r.stderr[-300:]
+        r = run("node", str(MATCHER), "match-psi116", str(t / f"{target}.xml"), str(t / f"{name}-v14.cii"), "--tol", "1", "--frame", "cii2019")
+        (t / f"m-{name}.json").write_text(r.stdout, encoding="utf-8")
 
     @classmethod
     def tearDownClass(cls):
@@ -87,10 +107,60 @@ class U2dEndToEnd(unittest.TestCase):
         bad = json.loads((t / "match.json").read_text(encoding="utf-8"))
         bad["summary"]["frame"] = "psi116"
         (t / "bad.json").write_text(json.dumps(bad), encoding="utf-8")
-        code = u2d.main(["--target", str(t / "target.xml"), "--cii", str(t / "standalone.cii"), "--match", str(t / "bad.json"),
-                         "--out", str(t / "x.xml"), "--changes", str(t / "x.json")])
+        code = u2d.main(self.args("target", "standalone", "bad", "x", "x"))
         self.assertEqual(code, 1)
         self.assertFalse((t / "x.xml").exists())
+
+
+class U2dReviewCases(U2dEndToEnd):
+    """Cases from the independent review of 2e43abd8 (probes B, D, E, F, C)."""
+
+    def plan_of(self, name, scale="10"):
+        code = u2d.main(self.args("target", name, f"m-{name}", f"rev-{name}", f"ch-{name}", scale))
+        self.assertEqual(code, 0)
+        return json.loads((self.tmp / f"ch-{name}.json").read_text(encoding="utf-8"))
+
+    def test_b_untouched_file_against_its_own_cii_plans_nothing(self):
+        self.make("own", BENCH.read_bytes().decode("utf-8-sig"))
+        rec = self.plan_of("own")
+        self.assertEqual(rec["changes"], [], [(c["field"], c["before"], c["after"]) for c in rec["changes"]][:5])
+
+    def test_d_long_names_are_not_cut_to_25(self):
+        text = BENCH.read_bytes().decode("utf-8-sig")
+        long = re.sub(r"<NodeName>PS-171100.2</NodeName>", "<NodeName>PS-171100.2-AAAAAAAAAAAAAAAAAAAAAA</NodeName>", text, count=1)
+        (self.tmp / "tlong.xml").write_text(long, encoding="utf-8")
+        self.make("long", long, target="tlong")
+        code = u2d.main(self.args("tlong", "long", "m-long", "rev-long", "ch-long"))
+        self.assertEqual(code, 0)
+        rec = json.loads((self.tmp / "ch-long.json").read_text(encoding="utf-8"))
+        self.assertFalse([c for c in rec["changes"] if c["field"] == "Node/NodeName"])
+
+    def test_e_weight_scale_is_explicit_and_honoured(self):
+        text = BENCH.read_bytes().decode("utf-8-sig")
+        heavy = re.sub(r"(<NodeNumber>20</NodeNumber>.*?<Weight>)[^<]*(</Weight>)", r"\g<1>123.5\2", text, count=1, flags=re.S)
+        self.make("kg", heavy, scale="1")
+        rec = self.plan_of("kg", scale="1")
+        self.assertIn("123.5", {c["after"] for c in rec["changes"] if c["field"] == "Node/Weight"})
+        with self.assertRaises(SystemExit):
+            u2d.main([a for a in self.args("target", "kg", "m-kg", "x2", "x2") if a not in ("--weight-scale", "10")])
+
+    def test_f_unset_temperature_stays_unset(self):
+        text = BENCH.read_bytes().decode("utf-8-sig")
+        hot = edit_branch(text, 0, "Temperature1", "150")
+        (self.tmp / "thot.xml").write_text(hot, encoding="utf-8")
+        self.make("cold", text, target="thot")
+        code = u2d.main(self.args("thot", "cold", "m-cold", "rev-cold", "ch-cold"))
+        self.assertEqual(code, 0)
+        rec = json.loads((self.tmp / "ch-cold.json").read_text(encoding="utf-8"))
+        t1 = [c for c in rec["changes"] if c["field"] == "Branch/Temperature/Temperature1"]
+        self.assertEqual([c["after"] for c in t1], ["-100000"])
+
+    def test_c_cii_that_was_not_matched_is_refused(self):
+        code = u2d.main(["--target", str(self.tmp / "target.xml"), "--cii", str(self.tmp / "standalone.cii"),
+                         "--cii-v14", str(self.tmp / "target.xml"), "--match", str(self.tmp / "match.json"),
+                         "--out", str(self.tmp / "y.xml"), "--changes", str(self.tmp / "y.json"), "--weight-scale", "10"])
+        self.assertEqual(code, 1)
+        self.assertFalse((self.tmp / "y.xml").exists())
 
 
 if __name__ == "__main__":
