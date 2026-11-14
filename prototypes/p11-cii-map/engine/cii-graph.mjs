@@ -189,13 +189,14 @@ export function reconcileSeeds(elements, seeds, toleranceMm = SEED_TOLERANCE_MM.
     }
   }
   const first = new Map(), kept = [], drifts = [];
+  const rows = new Map(); seeds.forEach(sd => rows.set(sd.node, (rows.get(sd.node) || 0) + 1));
   for (const seed of seeds) {
+    // A node with several COORDS rows is not a start-point drift: pass every row on, so buildXmlGraph
+    // refuses a contradictory duplicate (XML_CONTRADICTORY_DUPLICATE_SEED) exactly as before (review B1, R1-a).
+    if (rows.get(seed.node) > 1) { kept.push(seed); continue; }
     if (!pos.has(seed.node)) { kept.push(seed); continue; }  // buildXmlGraph names this case itself
     const shift = seed.xyz.map((v, j) => v - pos.get(seed.node)[j]), root = piece.get(seed.node);
     if (!first.has(root)) { first.set(root, { seed, shift }); kept.push(seed); continue; }
-    // A second row for the same node is not a start-point drift: keep it, so buildXmlGraph refuses a
-    // contradictory duplicate (XML_CONTRADICTORY_DUPLICATE_SEED) exactly as before (review B1).
-    if (first.get(root).seed.node === seed.node) { kept.push(seed); continue; }
     const missMm = Math.hypot(...shift.map((v, j) => v - first.get(root).shift[j]));
     require(missMm <= toleranceMm + 1e-9, 'MAP_COORDS_SEED_DRIFT', 'COORDS node ' + seed.node,
       'start point misses node ' + first.get(root).seed.node + "'s placement by " + missMm.toFixed(3) + ' mm; allowed ' + toleranceMm + ' mm');

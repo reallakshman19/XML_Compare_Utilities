@@ -142,4 +142,8 @@ test('P1.2e review B1: two COORDS rows for one node within 6 mm are not a drift;
   const r = reconcileSeeds(els, dup);
   assert.deepEqual(r.drifts, []);
   assert.equal(r.seeds.length, 2);  // both rows go on to buildXmlGraph, which refuses the contradiction
+  // R1-a: the same for a later node of the piece
+  const els2 = [{from:'10',to:'20',delta:[1000,0,0]},{from:'20',to:'30',delta:[1000,0,0]}];
+  const r2 = reconcileSeeds(els2, [{node:'10',xyz:[0,0,0]},{node:'30',xyz:[2000,0,0]},{node:'30',xyz:[2003,0,0]}]);
+  assert.deepEqual(r2.drifts, []); assert.equal(r2.seeds.length, 3);
 });
