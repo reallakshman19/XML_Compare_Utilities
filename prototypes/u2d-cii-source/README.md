@@ -18,7 +18,7 @@ python -E -s -m unittest discover -s tests -v                                   
 | CII value | PSI116 field | Rule |
 |---|---|---|
 | NODENAME (from / to) | Node/NodeName of that end | CII keeps 25 characters: a longer PSI116 name with the same first 25 is kept; a 25-character CII name that differs is refused (`U2D_NAME_MAY_BE_CUT`) |
-| RIGID weight of an element | Node/Weight of its to-node | ÷ `--weight-scale` (required: 10 = the tab default, kg × 10 = N; 1 = kg) |
+| RIGID weight of an element | Node/Weight of its to-node | ÷ `--weight-scale` (required: 10 = the tab default, kg × 10 = N; 1 = kg). A CII weight of 0 never replaces a non-zero PSI116 weight (`U2D_WEIGHT_ZERO`) |
 | Wall (row 2, from end) | Node/WallThickness | 0.01 (= missing) is skipped |
 | Insulation, corrosion (row 2, to end) | Node/InsulationThickness, CorrosionAllowance | |
 | T1–T9, P1–P9 | Branch/Temperature/TemperatureN, Pressure/PressureN | A CII temperature 0 is the converter's unset and is written as −100000 |
