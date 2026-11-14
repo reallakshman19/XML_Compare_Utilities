@@ -161,6 +161,18 @@ class U2dReviewCases(U2dEndToEnd):
         with self.assertRaises(SystemExit):
             u2d.main([a for a in self.args("target", "kg", "m-kg", "x2", "x2") if a not in ("--weight-scale", "10")])
 
+    def test_g_a_zero_cii_weight_never_replaces_a_real_weight(self):
+        # Owner, 14 Nov: EF-05 valves, flanges and rigids got weight 0 from an older CII.
+        text = BENCH.read_bytes().decode("utf-8-sig")
+        node20 = r"(<NodeNumber>20</NodeNumber>.*?<Weight>)[^<]*(</Weight>)"
+        sub = lambda w: re.sub(node20, rf"\g<1>{w}\g<2>", text, count=1, flags=re.S)  # noqa: E731
+        (self.tmp / "theavy.xml").write_text(sub("123.5"), encoding="utf-8")
+        self.make("zero", sub("0"), target="theavy")
+        self.assertEqual(u2d.main(self.args("theavy", "zero", "m-zero", "rev-zero", "ch-zero")), 0)
+        rec = json.loads((self.tmp / "ch-zero.json").read_text(encoding="utf-8"))
+        self.assertFalse([c for c in rec["changes"] if c["field"] == "Node/Weight" and float(c["after"]) == 0])
+        self.assertIn("U2D_WEIGHT_ZERO", {r["code"] for r in rec["refused"]})
+
     def test_f_unset_temperature_stays_unset(self):
         text = BENCH.read_bytes().decode("utf-8-sig")
         hot = edit_branch(text, 0, "Temperature1", "150")

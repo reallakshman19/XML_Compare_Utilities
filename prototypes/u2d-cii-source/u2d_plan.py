@@ -182,6 +182,11 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
         elif field == "Node/NodeName" and len(next(iter(texts))) == NAME_LIMIT and differs(field, before, next(iter(texts))):
             refused.append({"code": "U2D_NAME_MAY_BE_CUT", "ref": n["ref"], "field": field,
                             "detail": f"the CII keeps {NAME_LIMIT} characters; the full name is unknown"})
+        elif field == "Node/Weight" and same(num(next(iter(texts))) or 0.0, 0.0) and not same(num(before) or 0.0, 0.0):
+            # Owner, 14 Nov: EF-05 got 171 zero weights (valves, flanges, rigids) from a CII whose RIGIDs
+            # carry 0. A CII weight of 0 means "no weight written", never a real value over a real one.
+            refused.append({"code": "U2D_WEIGHT_ZERO", "ref": n["ref"], "field": field, "before": before,
+                            "detail": "the CII weight is 0; the PSI116 weight is kept"})
         elif differs(field, before, next(iter(texts))):
             edits.append({"ref": n["ref"], "field": field, "before": before, "after": next(iter(texts)), "lineNo": "[TBA]"})
     if "element" in items:
