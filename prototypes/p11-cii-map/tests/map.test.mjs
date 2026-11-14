@@ -130,7 +130,7 @@ test('T8 readCiiGraph(X-S1) and ciifr-map readXmlGraph(X-F05) have the same shap
   assert.equal(sha256(xmlBytes), '1154c980d08344b1f803cda3bd9884b169753148b150641a745c9bfcb15de995');
   const xml = await readXmlGraph(xmlBytes, { member: 'X-F05', cryptoRef: webcrypto, parser: xmlDomParser });
   const cii = await g('X-S1');
-  assert.deepEqual(Object.keys(cii).filter(k => !['cii', 'ciiElements', 'loopClosures'].includes(k)), Object.keys(xml), 'graph keys');
+  assert.deepEqual(Object.keys(cii).filter(k => !['cii', 'ciiElements', 'loopClosures', 'seedDrifts'].includes(k)), Object.keys(xml), 'graph keys');
   assert.deepEqual(Object.keys(cii.nodes[0]), Object.keys(xml.nodes[0]), 'node keys');
   assert.deepEqual(Object.keys(cii.edges[0]).filter(k => k !== 'ciiElementIndex'), Object.keys(xml.edges[0]), 'edge keys');
   assert.equal(cii.nodes.length, xml.nodes.length);

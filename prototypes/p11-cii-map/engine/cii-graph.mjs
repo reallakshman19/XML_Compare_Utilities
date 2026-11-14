@@ -161,15 +161,61 @@ export function closeLoops(elements) {
   return { elements: elements.map((e, i) => fixed.has(i) ? { ...e, delta: fixed.get(i) } : e), loops };
 }
 
+// Owner (14 Nov): COORDS start points of one connected piece may disagree with the element
+// lengths by up to 6 mm by default; the tolerance may be set from 6 to 25 mm.
+export const SEED_TOLERANCE_MM = Object.freeze({ min: 6, max: 25, default: 6 });
+
+/**
+ * Keep the first COORDS start point of each connected piece; every further start point of the
+ * same piece is checked against it after walking the (loop-closed) element deltas. A miss within
+ * `toleranceMm` is reported in `drifts` and that start point is dropped (the piece is placed by
+ * its first start point); a larger miss refuses with MAP_COORDS_SEED_DRIFT.
+ */
+export function reconcileSeeds(elements, seeds, toleranceMm = SEED_TOLERANCE_MM.default) {
+  require(typeof toleranceMm === 'number' && toleranceMm >= SEED_TOLERANCE_MM.min && toleranceMm <= SEED_TOLERANCE_MM.max,
+    'MAP_SEED_TOLERANCE_INVALID', 'seedToleranceMm', String(toleranceMm) + ' (allowed 6 to 25 mm)');
+  const adj = new Map();
+  const push = (n, x) => { if (!adj.has(n)) adj.set(n, []); adj.get(n).push(x); };
+  elements.forEach(e => { if (e.from !== e.to) { push(e.from, { to: e.to, d: e.delta, sign: 1 }); push(e.to, { to: e.from, d: e.delta, sign: -1 }); } });
+  const pos = new Map(), piece = new Map();
+  for (const root of adj.keys()) {
+    if (pos.has(root)) continue;
+    pos.set(root, [0, 0, 0]); piece.set(root, root);
+    for (let q = [root], k = 0; k < q.length; k++) {
+      for (const { to, d, sign } of adj.get(q[k])) {
+        if (pos.has(to)) continue;
+        pos.set(to, pos.get(q[k]).map((v, j) => v + sign * d[j])); piece.set(to, root); q.push(to);
+      }
+    }
+  }
+  const first = new Map(), kept = [], drifts = [];
+  const rows = new Map(); seeds.forEach(sd => rows.set(sd.node, (rows.get(sd.node) || 0) + 1));
+  for (const seed of seeds) {
+    // A node with several COORDS rows is not a start-point drift: pass every row on, so buildXmlGraph
+    // refuses a contradictory duplicate (XML_CONTRADICTORY_DUPLICATE_SEED) exactly as before (review B1, R1-a).
+    if (rows.get(seed.node) > 1) { kept.push(seed); continue; }
+    if (!pos.has(seed.node)) { kept.push(seed); continue; }  // buildXmlGraph names this case itself
+    const shift = seed.xyz.map((v, j) => v - pos.get(seed.node)[j]), root = piece.get(seed.node);
+    if (!first.has(root)) { first.set(root, { seed, shift }); kept.push(seed); continue; }
+    const missMm = Math.hypot(...shift.map((v, j) => v - first.get(root).shift[j]));
+    require(missMm <= toleranceMm + 1e-9, 'MAP_COORDS_SEED_DRIFT', 'COORDS node ' + seed.node,
+      'start point misses node ' + first.get(root).seed.node + "'s placement by " + missMm.toFixed(3) + ' mm; allowed ' + toleranceMm + ' mm');
+    if (missMm > 1e-4) drifts.push({ node: seed.node, placedBy: first.get(root).seed.node, missMm, toleranceMm });
+    else kept.push(seed);  // an agreeing start point stays a witness, as before
+  }
+  return { seeds: kept, drifts };
+}
+
 /**
  * Build the graph from an already-read CII (readCii14 result). `elements` lets a caller (tests)
  * drop elements in memory. Returns the buildXmlGraph shape plus `cii` and `elementValues`.
  */
-export function graphFromCii(cii, { member = 'CII', sha256, byteLength, elements = cii.elements } = {}) {
+export function graphFromCii(cii, { member = 'CII', sha256, byteLength, elements = cii.elements, seedToleranceMm } = {}) {
   require(elements.length > 0, 'MAP_EMPTY_INPUT', 'ELEMENTS', 'no elements');
   const raw = ciiProfile(cii, { elements });
   const closed = closeLoops(raw.elements);
-  const profile = { ...raw, elements: closed.elements };
+  const seeds = reconcileSeeds(closed.elements, raw.seeds, seedToleranceMm);
+  const profile = { ...raw, elements: closed.elements, seeds: seeds.seeds };
   let graph;
   try {
     graph = buildXmlGraph(profile, { member, sha256, byteLength });
@@ -187,15 +233,16 @@ export function graphFromCii(cii, { member = 'CII', sha256, byteLength, elements
     if (b && nn.to.token && !b.nodeName) b.nodeName = nn.to.token;
   }
   graph.loopClosures = closed.loops;
+  graph.seedDrifts = seeds.drifts;
   graph.cii = cii;
   graph.ciiElements = elements;
   return graph;
 }
 
 /** readCiiGraph(bytes): CII v14 bytes -> geometry graph (buildXmlGraph shape). */
-export async function readCiiGraph(bytes, { member = 'CII' } = {}) {
+export async function readCiiGraph(bytes, { member = 'CII', seedToleranceMm } = {}) {
   require(bytes instanceof Uint8Array && bytes.length > 0, 'MAP_EMPTY_INPUT', member);
   const cii = readCii14(bytes);
   const sha256 = await sha256Hex(bytes);
-  return graphFromCii(cii, { member, sha256, byteLength: bytes.length });
+  return graphFromCii(cii, { member, sha256, byteLength: bytes.length, seedToleranceMm });
 }

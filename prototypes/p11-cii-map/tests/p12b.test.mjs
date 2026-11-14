@@ -117,3 +117,33 @@ test('P1.2d frame cii2019 reads PSI116 Position as the converter writes it (x, z
   assert.equal(g.frame, 'cii2019');
   await assert.rejects(readPsi116Graph(xml, {frame: 'other'}), /MATCH_FRAME_INVALID/);
 });
+
+test('P1.2e COORDS start points: within 6-25 mm drift is reported, beyond refuses, tolerance range enforced', async () => {
+  const { reconcileSeeds } = await import('../engine/cii-graph.mjs');
+  const els = [{from:'10',to:'20',delta:[1000,0,0]},{from:'20',to:'30',delta:[1000,0,0]}];
+  const seeds = d => [{node:'10',xyz:[0,0,0]},{node:'30',xyz:[2000+d,0,0]}];
+  const ok = reconcileSeeds(els, seeds(3.2));
+  assert.equal(ok.drifts.length, 1); assert.ok(Math.abs(ok.drifts[0].missMm - 3.2) < 1e-9);
+  assert.deepEqual(ok.seeds.map(s=>s.node), ['10']);
+  assert.throws(() => reconcileSeeds(els, seeds(6.5)), /MAP_COORDS_SEED_DRIFT/);
+  assert.equal(reconcileSeeds(els, seeds(20), 25).drifts.length, 1);
+  assert.throws(() => reconcileSeeds(els, seeds(0), 5), /MAP_SEED_TOLERANCE_INVALID/);
+  assert.throws(() => reconcileSeeds(els, seeds(0), 26), /MAP_SEED_TOLERANCE_INVALID/);
+  assert.deepEqual(reconcileSeeds(els, seeds(0)).drifts, []);
+  // agreeing start points stay as witnesses; the drifted one is dropped, the piece is placed by the first
+  assert.deepEqual(reconcileSeeds(els, seeds(0)).seeds.map(s=>s.node), ['10','30']);
+  assert.deepEqual(reconcileSeeds(els, [...seeds(3.2), {node:'20',xyz:[1000,0,0]}]).seeds.map(s=>s.node), ['10','20']);
+});
+
+test('P1.2e review B1: two COORDS rows for one node within 6 mm are not a drift; the old refusal stands', async () => {
+  const { reconcileSeeds, graphFromCii } = await import('../engine/cii-graph.mjs');
+  const els = [{from:'10',to:'20',delta:[1000,0,0]}];
+  const dup = [{node:'10',xyz:[5000,0,0]},{node:'10',xyz:[5003,0,0]}];
+  const r = reconcileSeeds(els, dup);
+  assert.deepEqual(r.drifts, []);
+  assert.equal(r.seeds.length, 2);  // both rows go on to buildXmlGraph, which refuses the contradiction
+  // R1-a: the same for a later node of the piece
+  const els2 = [{from:'10',to:'20',delta:[1000,0,0]},{from:'20',to:'30',delta:[1000,0,0]}];
+  const r2 = reconcileSeeds(els2, [{node:'10',xyz:[0,0,0]},{node:'30',xyz:[2000,0,0]},{node:'30',xyz:[2003,0,0]}]);
+  assert.deepEqual(r2.drifts, []); assert.equal(r2.seeds.length, 3);
+});
