@@ -71,12 +71,17 @@ if (command === 'match-psi116') {
   result.summary = {...(result.summary || {paired:null,unmatchedXml:null,unmatchedCii:null,ambiguous:result.refusals.filter(r=>r.code==='MATCH_NODE_AMBIGUOUS').length}),ms:performance.now()-start};
   finish(result);
 }
+/** P1.2e: every command that reads a CII reports the COORDS start points it accepted within tolerance. */
+function withDrifts(r, cii) {
+  return r && r.summary ? { ...r, seedDrifts: cii.seedDrifts, summary: { ...r.summary, seedDrifts: cii.seedDrifts.length,
+    maxSeedDriftMm: Math.max(0, ...cii.seedDrifts.map(d => d.missMm)) } } : r;
+}
 if (command === 'match-xml') {
   if (!fa || !fb || args._.length !== 3 || args.map === true || args.mode === true || args.tol === true) usage('node cli.mjs match-xml <file.xml> <file.cii> [--mode same-run|geometry] [--tol <mm>] [--map out.json]');
   const result = await attempt(async () => {
     const xml = await readInputXmlGraph(readBytes(fa), basename(fa));
     const cii = await readCiiGraph(readBytes(fb), {member: basename(fb)});
-    const r = matchXmlCii(xml, cii, {mode: args.mode, toleranceMm: args.tol === undefined ? undefined : Number(args.tol)});
+    const r = withDrifts(matchXmlCii(xml, cii, {mode: args.mode, toleranceMm: args.tol === undefined ? undefined : Number(args.tol)}), cii);
     if (args.map) {
       const map = xmlMatchToMapFile(r, {xmlFile: {fileName: basename(fa), sha256: xml.sha256}, ciiFile: {fileName: basename(fb), sha256: cii.sha256}});
       let temporary;
@@ -102,6 +107,7 @@ const result = await attempt(async () => {
   const b = await readCiiGraph(readBytes(fb), { member: 'B' });
   const r = compareCii(a, b, { anchors: args.anchors, toleranceMm: args.tol === undefined ? 1 : Number(args.tol) });
   const files = { a: { file: fa, sha256: a.sha256, bytes: a.byteLength }, b: { file: fb, sha256: b.sha256, bytes: b.byteLength } };
-  return args.summary ? { files, summary: r.summary, unmatchedA: r.unmatchedA, unmatchedB: r.unmatchedB, fieldDiffs: r.fieldDiffs, loopClosures: r.loopClosures } : { files, ...r };
+  const seedDrifts = { a: a.seedDrifts, b: b.seedDrifts };  // COORDS start points accepted within 6 mm (P1.2e)
+  return args.summary ? { files, summary: r.summary, unmatchedA: r.unmatchedA, unmatchedB: r.unmatchedB, fieldDiffs: r.fieldDiffs, loopClosures: r.loopClosures, seedDrifts } : { files, ...r, seedDrifts };
 });
 finish(result);

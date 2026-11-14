@@ -130,4 +130,16 @@ test('P1.2e COORDS start points: within 6-25 mm drift is reported, beyond refuse
   assert.throws(() => reconcileSeeds(els, seeds(0), 5), /MAP_SEED_TOLERANCE_INVALID/);
   assert.throws(() => reconcileSeeds(els, seeds(0), 26), /MAP_SEED_TOLERANCE_INVALID/);
   assert.deepEqual(reconcileSeeds(els, seeds(0)).drifts, []);
+  // agreeing start points stay as witnesses; the drifted one is dropped, the piece is placed by the first
+  assert.deepEqual(reconcileSeeds(els, seeds(0)).seeds.map(s=>s.node), ['10','30']);
+  assert.deepEqual(reconcileSeeds(els, [...seeds(3.2), {node:'20',xyz:[1000,0,0]}]).seeds.map(s=>s.node), ['10','20']);
+});
+
+test('P1.2e review B1: two COORDS rows for one node within 6 mm are not a drift; the old refusal stands', async () => {
+  const { reconcileSeeds, graphFromCii } = await import('../engine/cii-graph.mjs');
+  const els = [{from:'10',to:'20',delta:[1000,0,0]}];
+  const dup = [{node:'10',xyz:[5000,0,0]},{node:'10',xyz:[5003,0,0]}];
+  const r = reconcileSeeds(els, dup);
+  assert.deepEqual(r.drifts, []);
+  assert.equal(r.seeds.length, 2);  // both rows go on to buildXmlGraph, which refuses the contradiction
 });
