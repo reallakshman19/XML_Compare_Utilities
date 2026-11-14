@@ -1,0 +1,121 @@
+{
+  "scope": "All packaged payload files except this manifest; archive checksum recorded externally",
+  "files": {
+    "QUALIFICATION.md": {
+      "bytes": 4743,
+      "sha256": "e6d0b7e44f6516d3eb66fdba9c762d2dd0f29d3da7a4925f5973de53cc95e53e"
+    },
+    "README.md": {
+      "bytes": 4905,
+      "sha256": "3c7ccd6816e5be2759c237c18c70a8093df6764530632514cb55fd60fef87736"
+    },
+    "server.py": {
+      "bytes": 4677,
+      "sha256": "cb2e9d44358c49f6f0d89b0c99603ceba2ca590efc605cffd67d44bf11ee2b37"
+    },
+    "service.py": {
+      "bytes": 7394,
+      "sha256": "6edd9d196303b7538a446f56ad13bf65846b065c72cc55932b0f6587d5c1b4d1"
+    },
+    "SOURCE-MANIFEST.json": {
+      "bytes": 2192,
+      "sha256": "8073e0938c500ba8deb21049cb83758201f04dab18e7f2e6a6e6d7a4be8081e5"
+    },
+    "Start-BM2.cmd": {
+      "bytes": 374,
+      "sha256": "96f430afdc2d99a469999efc87ad48ff1a09167e86340f1ab4e5d8b50607401d"
+    },
+    "tests/http_smoke.py": {
+      "bytes": 7488,
+      "sha256": "4fb086bcb2285a60577af685273b972aa0b46a3d8a4abdc076b1c2f3ea301a67"
+    },
+    "tests/node-transfer/test_bm2_repairs.py": {
+      "bytes": 5192,
+      "sha256": "93144974153cea48c2e94e006b4aa152e5f860da8f6495a281b0df044f76b159"
+    },
+    "tests/node-transfer/test_contract.py": {
+      "bytes": 17199,
+      "sha256": "c6003053f308dea81918be200da8f9be7f76b4cfc19b0ec2bffc94d706b26eca"
+    },
+    "tests/node-transfer/test_f05_intake.py": {
+      "bytes": 8334,
+      "sha256": "364a1492d57464664fa360394866e096343459e9f4cef8db22b4886fca284616"
+    },
+    "tools/node-transfer/cli.py": {
+      "bytes": 6317,
+      "sha256": "0682862b15b39dfd279f52fcec2f532a6cfb985dbfd79e1d037b4c4421062f27"
+    },
+    "tools/node-transfer/converter_adapter.py": {
+      "bytes": 8936,
+      "sha256": "52bd48f2ef4ce7d2377aad3b63179714624d8d74a92206e2931326e8e6f461d3"
+    },
+    "tools/node-transfer/displacement_profile.py": {
+      "bytes": 5089,
+      "sha256": "4fcb9af79c4ee61b8636d65284465acb31c5b210590a9462520df291f896720b"
+    },
+    "tools/node-transfer/export_audit.py": {
+      "bytes": 2384,
+      "sha256": "e5707af91d15cb27b194aa62c6297b8ad91f4a4808e0c5db1f9b9f0c44c6904f"
+    },
+    "tools/node-transfer/node_catalogue.py": {
+      "bytes": 6782,
+      "sha256": "fcb52723569c99b87098b2b6a6e19fab657eb83000f978b3ad4178d701d24e0c"
+    },
+    "tools/node-transfer/node_mapping.py": {
+      "bytes": 4701,
+      "sha256": "a19efdb82682589e229b0398e281106e25d240af5312796abb2985a6414c9e4e"
+    },
+    "tools/node-transfer/transfer_plan.py": {
+      "bytes": 8339,
+      "sha256": "e498c2f06e6ae88b51fe7475e37c3c65e731a92e9f8098b7a68c5933e9449e1d"
+    },
+    "vendor/f05/cii_to_richinputxml.py": {
+      "bytes": 7928,
+      "sha256": "20db9559625818868effd668fe2cee6d995065974b2820094ebae231ef932fd8"
+    },
+    "vendor/f05/cii_to_xml.py": {
+      "bytes": 138,
+      "sha256": "db14b48193114a1007a20c2a07dd60c02fede2e6a427db62cfd2947ebaa70c11"
+    },
+    "vendor/f05/richcii_schema.py": {
+      "bytes": 10031,
+      "sha256": "6c6ab7884b11d6e820a1fec8e1702e9289ab69b2989530fba4924368893fd80b"
+    },
+    "vendor/f05/richcii_validate.py": {
+      "bytes": 11936,
+      "sha256": "d4f80164cd10c928827a34191e706d71aac1f53a15ce9e73aec785c1b02b0a0e"
+    },
+    "vendor/f05/richinputxml_to_cii2019.py": {
+      "bytes": 5104,
+      "sha256": "277e22e7535b0c1499eacd7c92611262443868896b260a35b0327c6a6d64bb4b"
+    },
+    "vendor/f05/v11_lexical.py": {
+      "bytes": 5145,
+      "sha256": "e5d19ba48d1ed7434e440c4fd1b7a24fbd78509904477f222de95fb7db9fdabd"
+    },
+    "vendor/f05/validate_xml.py": {
+      "bytes": 135,
+      "sha256": "577c445ab9a9efc907bb8b4784a6efed0b58c694e67837bb729ba8a515bfb928"
+    },
+    "vendor/f05/xml_to_cii.py": {
+      "bytes": 142,
+      "sha256": "4f828cc017dee56987ae12dd48f83b99aecc56a16ae0780bfbe924b0c7eded16"
+    },
+    "web/app.js": {
+      "bytes": 8021,
+      "sha256": "91ff47c9b992503260a4581e10ae227970c48a12ad55e3b7c587c082f2507dde"
+    },
+    "web/index.html": {
+      "bytes": 5565,
+      "sha256": "6182c02841cbc03431f4fd6e33fa68aee4f403f870651ac20f9a97ecc7932a58"
+    },
+    "web/render.js": {
+      "bytes": 4022,
+      "sha256": "cec1ed90343b2f3f2ed8cb8006b4c331ff7c077002734443b8737038e0cfd68d"
+    },
+    "web/styles.css": {
+      "bytes": 7446,
+      "sha256": "32f96b42e51a4b75745941cff400a812625842eada4a2deeeeebb141841315a2"
+    }
+  }
+}
