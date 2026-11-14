@@ -92,6 +92,23 @@ class U2dEndToEnd(unittest.TestCase):
         self.assertEqual(t1, {"150"})
         self.assertEqual({c["after"] for c in rec["changes"] if c["field"] == "Branch/FluidDensity"}, {"870"})
 
+    def test_revised_file_carries_the_protection_note_for_step_10(self):
+        """Owner D5: step 10 keeps what the note lists; the receipt hashes the file as written."""
+        revised = (self.tmp / "revised.xml").read_bytes()
+        rec = json.loads((self.tmp / "changes.json").read_text(encoding="utf-8"))
+        self.assertEqual(rec["revised"]["sha256"], u2d.sha256(revised))
+        found = u2d.MARK_RE.search(revised)
+        self.assertIsNotNone(found)
+        self.assertNotIn(b"--", found.group(1))
+        note = json.loads(found.group(1))
+        for c in rec["changes"]:
+            scope, _, path = c["field"].partition("/")
+            if scope == "Branch":
+                self.assertIn(path, note["branches"][c["ref"]["branchName"]])
+            else:
+                self.assertIn(path, note["nodes"][f"{c['ref']['branchName']}|{c['ref']['nodeNumber']}"])
+        self.assertEqual(u2d.protect(revised, rec["changes"]), revised, "a second note is never added")
+
     def test_converted_revised_cii_reproduces_the_standalone_values(self):
         t = self.tmp
         r = subprocess.run([sys.executable, "-E", "-s", str(CONVERTER / "xml_to_cii2019_runtime_custody.py"), "--input",

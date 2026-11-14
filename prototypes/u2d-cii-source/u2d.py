@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -25,6 +26,40 @@ U1 = Path(__file__).resolve().parents[1] / "u1-psi116-uxml" / "cli.mjs"
 
 def sha256(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
+
+
+MARK = "TOPOFIX-TRANSFER-PROTECT"
+MARK_RE = re.compile(rb"<!--\s*" + MARK.encode() + rb"\s*(.*?)-->", re.S)
+
+
+def protect(revised: bytes, changes: list) -> bytes:
+    """Add (or extend) the comment that tells the 3D_Converters step 10 which values the transfer
+    moved, so its master refills keep them (Owner D5: transferred values win)."""
+    found = MARK_RE.search(revised)
+    data = json.loads(found.group(1)) if found else {"v": 1, "branches": {}, "nodes": {}}
+    if data.get("v") != 1:
+        raise ValueError("U2D_PROTECT_VERSION: the XML carries a protection note of another version")
+    for c in changes:
+        ref, field = c["ref"], c["field"]
+        scope, _, path = field.partition("/")
+        if scope == "Branch":
+            data["branches"].setdefault(ref["branchName"], [])
+            if path not in data["branches"][ref["branchName"]]:
+                data["branches"][ref["branchName"]].append(path)
+        elif scope == "Node":
+            k = f"{ref['branchName']}|{ref['nodeNumber']}"
+            data["nodes"].setdefault(k, [])
+            if path not in data["nodes"][k]:
+                data["nodes"][k].append(path)
+    body = json.dumps(data, ensure_ascii=True, separators=(",", ":"))
+    body = body.replace("-", "\\u002d")  # a comment may not hold two dashes; JSON reads the escape as a dash
+    note = f"<!--{MARK} {body}-->".encode("ascii")
+    if found:
+        return revised[:found.start()] + note + revised[found.end():]
+    decl = re.match(rb"(?:\xef\xbb\xbf)?\s*<\?xml[^>]*\?>\r?\n?", revised)
+    at = decl.end() if decl else 0
+    nl = b"\r\n" if b"\r\n" in revised[:4096] else b"\n"
+    return revised[:at] + note + nl + revised[at:]
 
 
 def control_elements(text: str) -> int | None:
@@ -79,11 +114,14 @@ def main(argv=None) -> int:
         revised = a.out.read_bytes()
         if sha256(revised) != u1["sha256After"]:
             raise ValueError("U2D_ROUNDTRIP_MISMATCH: revised file hash differs from U1")
+        if u1["changes"]:
+            revised = protect(revised, u1["changes"])
+            a.out.write_bytes(revised)
         receipt = {"ok": True, "format": "u2.transfer-receipt", "version": 1, "kind": "cii-source",
                    "createdAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                    "source": {"fileName": a.cii.name, "sha256": sha256(cii_bytes)},
                    "base": {"fileName": a.target.name, "sha256": sha256(target)},
-                   "revised": {"fileName": a.out.name, "sha256": u1["sha256After"]},
+                   "revised": {"fileName": a.out.name, "sha256": sha256(revised), "u1Sha256": u1["sha256After"]},
                    "options": {"items": a.items.split(","), "weightScale": a.weight_scale, "densityFactor": 1e-6},
                    "changes": [{**c, "lineNo": "[TBA]"} for c in u1["changes"]],
                    "refused": result["refused"], "summary": result["summary"]}
