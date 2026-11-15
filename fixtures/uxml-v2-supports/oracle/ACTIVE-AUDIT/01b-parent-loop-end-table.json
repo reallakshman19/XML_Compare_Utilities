@@ -1,0 +1,41 @@
+[
+ {
+  "branch": "/AUDIT/B1",
+  "nodeIndex": 0,
+  "NodeNumber": "10",
+  "NodeName": "PS-10.1",
+  "ComponentType": "PIPE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/AUDIT/B1",
+  "nodeIndex": 1,
+  "NodeNumber": "20",
+  "NodeName": "PS-20.1",
+  "ComponentType": "ATTA",
+  "support": {
+   "CMPSUPGAP_PS": "25MM GAP",
+   "CMPSUPGAP": "25MM GAP",
+   "DTXR_PS": "LINE STOP"
+  },
+  "restraints": [
+   {
+    "Type": "LIM",
+    "Stiffness": "1.751270E+12",
+    "Gap": "25",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "25MM GAP"
+   }
+  ]
+ },
+ {
+  "branch": "/AUDIT/B1",
+  "nodeIndex": 2,
+  "NodeNumber": "30",
+  "NodeName": "PS-30.1",
+  "ComponentType": "PIPE",
+  "support": {},
+  "restraints": []
+ }
+]

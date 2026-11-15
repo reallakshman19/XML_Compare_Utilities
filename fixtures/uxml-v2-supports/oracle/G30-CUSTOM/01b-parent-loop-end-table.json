@@ -1,0 +1,1104 @@
+[
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 0,
+  "NodeNumber": "10",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {
+   "DTXR_POS": "FLAN(NAME==9030/1078)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 1,
+  "NodeNumber": "20",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {
+   "DTXR_POS": "FLAN(NAME==9030/1078)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 2,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 3,
+  "NodeNumber": "30",
+  "NodeName": "VGT-30001",
+  "ComponentType": "VALV",
+  "support": {
+   "DTXR_POS": "VGT-30001(NAME==9030/1079)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 4,
+  "NodeNumber": "40",
+  "NodeName": "",
+  "ComponentType": "VALV",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 5,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {
+   "DTXR_POS": "FLAN(NAME==9030/1080)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 6,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 7,
+  "NodeNumber": "60",
+  "NodeName": "PS-1001",
+  "ComponentType": "ATTA",
+  "support": {
+   "DTXR_POS": "Pipe Rest XRT01(NAME=/PS-1001.1)"
+  },
+  "restraints": [
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 8,
+  "NodeNumber": "70",
+  "NodeName": "PS-1002",
+  "ComponentType": "ATTA",
+  "support": {
+   "DTXR_PS": "Pipe Guide|Base Plate",
+   "DTXR_POS": "Pipe Guide(NAME=/PS-1002)|Base Plate(NAME=/PS-1002)"
+  },
+  "restraints": [
+   {
+    "Type": "GUI",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "0.000000000",
+    "DirectionCosineZ": "-1.000000000"
+   },
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 9,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 10,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 11,
+  "NodeNumber": "80",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {
+   "DTXR_POS": "=9030/1081(NAME==9030/1081)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 12,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 13,
+  "NodeNumber": "90",
+  "NodeName": "PS-1010",
+  "ComponentType": "ATTA",
+  "support": {
+   "DTXR_PS": "Pipe Rest|Pipe Guide",
+   "DTXR_POS": "Pipe Rest(NAME=/PS-1010)|Pipe Guide(NAME=/PS-1010)"
+  },
+  "restraints": [
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   },
+   {
+    "Type": "GUI",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "0"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 14,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "OLET",
+  "support": {
+   "DTXR_POS": "=9030/1082(NAME==9030/1082)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 15,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "OLET",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 16,
+  "NodeNumber": "100",
+  "NodeName": "",
+  "ComponentType": "OLET",
+  "support": {
+   "DTXR_POS": "=9030/1082(NAME==9030/1082)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 17,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "OLET",
+  "support": {
+   "DTXR_POS": "=9030/1082(NAME==9030/1082)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 18,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 19,
+  "NodeNumber": "110",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {
+   "DTXR_POS": "=9030/1083(NAME==9030/1083)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 20,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 21,
+  "NodeNumber": "120",
+  "NodeName": "PS-1003",
+  "ComponentType": "ATTA",
+  "support": {
+   "DTXR_PS": "Riser Guide|Riser Lug",
+   "DTXR_POS": "Riser Guide(NAME=/PS-1003)|Riser Lug(NAME=/PS-1003)"
+  },
+  "restraints": [
+   {
+    "Type": "GUI",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "1.000000000",
+    "DirectionCosineY": "0.000000000",
+    "DirectionCosineZ": "0.000000000"
+   },
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 22,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 23,
+  "NodeNumber": "130",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {
+   "DTXR_POS": "=9030/1084(NAME==9030/1084)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 24,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 25,
+  "NodeNumber": "140",
+  "NodeName": "PS-1004",
+  "ComponentType": "ATTA",
+  "support": {
+   "CMPSUPGAP_PS": "5mm GAP",
+   "CMPSUPGAP": "5mm GAP",
+   "DTXR_PS": "Line Stop|Base Plate|Pipe Guide",
+   "CMPSUPGAP_POS": "5mm GAP",
+   "DTXR_POS": "Line Stop(NAME=/PS-1004)|Base Plate(NAME=/PS-1004)|Pipe Guide(NAME=/PS-1004,CMPSUPGAP=5mm GAP)"
+  },
+  "restraints": [
+   {
+    "Type": "LIM",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   },
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   },
+   {
+    "Type": "GUI",
+    "Stiffness": "1.751270E+12",
+    "Gap": "5",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "5mm GAP",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "0.000000000",
+    "DirectionCosineZ": "1.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 26,
+  "NodeNumber": "150",
+  "NodeName": "PS-1005",
+  "ComponentType": "ATTA",
+  "support": {
+   "DTXR_PS": "PIPE SHOE 100MM",
+   "DTXR_POS": "PIPE SHOE 100MM(NAME=/PS-1005)"
+  },
+  "restraints": [
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 27,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "REDU",
+  "support": {
+   "DTXR_POS": "REDU(NAME==9030/1085)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 28,
+  "NodeNumber": "170",
+  "NodeName": "",
+  "ComponentType": "REDU",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 29,
+  "NodeNumber": "175",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 0,
+  "NodeNumber": "80",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {
+   "DTXR_POS": "=9030/1081(NAME==9030/1081)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 1,
+  "NodeNumber": "210",
+  "NodeName": "PS-2001",
+  "ComponentType": "ATTA",
+  "support": {
+   "DTXR_PS": "Guide GT5|Pipe Rest",
+   "DTXR_POS": "Guide GT5(NAME=/PS-2001)|Pipe Rest(NAME=/PS-2001)"
+  },
+  "restraints": [
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 2,
+  "NodeNumber": "220",
+  "NodeName": "PS-2002",
+  "ComponentType": "ATTA",
+  "support": {
+   "DTXR_PS": "Guide on base|PIPE SHOE 50MM",
+   "DTXR_POS": "Guide on base(NAME=/PS-2002)|PIPE SHOE 50MM(NAME=/PS-2002)"
+  },
+  "restraints": [
+   {
+    "Type": "GUI",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "0"
+   },
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 3,
+  "NodeNumber": "230",
+  "NodeName": "FT-30001",
+  "ComponentType": "INST",
+  "support": {
+   "DTXR_POS": "FT-30001(NAME==9030/1097)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 4,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "INST",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 5,
+  "NodeNumber": "250",
+  "NodeName": "PS-2003",
+  "ComponentType": "ATTA",
+  "support": {
+   "DTXR_PS": "Anchor",
+   "DTXR_POS": "Anchor(NAME=/PS-2003)"
+  },
+  "restraints": [
+   {
+    "Type": "A",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "0"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 6,
+  "NodeNumber": "260",
+  "NodeName": "PS-2004",
+  "ComponentType": "ATTA",
+  "support": {
+   "CMPSUPGAP_PS": "5mm GAP",
+   "CMPSUPGAP": "5mm GAP",
+   "DTXR_PS": "Pipe Guide|Base Plate",
+   "CMPSUPGAP_POS": "5mm GAP",
+   "DTXR_POS": "Pipe Guide(NAME=/PS-2004,CMPSUPGAP=5mm GAP)|Base Plate(NAME=/PS-2004)"
+  },
+  "restraints": [
+   {
+    "Type": "GUI",
+    "Stiffness": "1.751270E+12",
+    "Gap": "5",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "5mm GAP"
+   },
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 7,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 8,
+  "NodeNumber": "270",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {
+   "DTXR_POS": "=9030/1098(NAME==9030/1098)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 9,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 10,
+  "NodeNumber": "280",
+  "NodeName": "PS-2005",
+  "ComponentType": "ATTA",
+  "support": {
+   "DTXR_PS": "Variable Spring",
+   "DTXR_POS": "Variable Spring(NAME=/PS-2005)"
+  },
+  "restraints": [
+   {
+    "Type": "Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 11,
+  "NodeNumber": "290",
+  "NodeName": "PS-2006",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 12,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "REDU",
+  "support": {
+   "DTXR_POS": "REDU(NAME==9030/1099)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 13,
+  "NodeNumber": "300",
+  "NodeName": "",
+  "ComponentType": "REDU",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 14,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {
+   "DTXR_POS": "FLAN(NAME==9030/1100)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 15,
+  "NodeNumber": "310",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 16,
+  "NodeNumber": "315",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 0,
+  "NodeNumber": "100",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {
+   "DTXR_POS": "=9030/1082(NAME==9030/1082)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 1,
+  "NodeNumber": "410",
+  "NodeName": "VGT-30002",
+  "ComponentType": "VALV",
+  "support": {
+   "DTXR_POS": "VGT-30002(NAME==9030/1109)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 2,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "VALV",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 3,
+  "NodeNumber": "430",
+  "NodeName": "",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 4,
+  "NodeNumber": "440",
+  "NodeName": "",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 5,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {
+   "DTXR_POS": "FLAN(NAME==9030/1110)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 6,
+  "NodeNumber": "460",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 7,
+  "NodeNumber": "465",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 0,
+  "NodeNumber": "500",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 1,
+  "NodeNumber": "510",
+  "NodeName": "SP-30001",
+  "ComponentType": "RIGID",
+  "support": {
+   "DTXR_POS": "SP-30001(NAME==9030/1113)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 2,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "RIGID",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 3,
+  "NodeNumber": "530",
+  "NodeName": "PS-4001",
+  "ComponentType": "ATTA",
+  "support": {
+   "CMPSUPGAP_PS": "2mm GAP",
+   "CMPSUPGAP": "2mm GAP",
+   "DTXR_PS": "Line Stop|Pipe Guide|Base Plate",
+   "CMPSUPGAP_POS": "2mm GAP",
+   "DTXR_POS": "Line Stop(NAME=/PS-4001,CMPSUPGAP=2mm GAP)|Pipe Guide(NAME=/PS-4001)|Base Plate(NAME=/PS-4001)"
+  },
+  "restraints": [
+   {
+    "Type": "LIM",
+    "Stiffness": "1.751270E+12",
+    "Gap": "2",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "2mm GAP",
+    "DirectionCosineX": "0.999949999",
+    "DirectionCosineY": "0.000000000",
+    "DirectionCosineZ": "-0.010000000"
+   },
+   {
+    "Type": "GUI",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "0"
+   },
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 4,
+  "NodeNumber": "540",
+  "NodeName": "PS-4002",
+  "ComponentType": "ATTA",
+  "support": {
+   "DTXR_PS": "Limit Stop|Pipe Rest",
+   "DTXR_POS": "Limit Stop(NAME=/PS-4002)|Pipe Rest(NAME=/PS-4002)"
+  },
+  "restraints": [
+   {
+    "Type": "LIM",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.707106781",
+    "DirectionCosineY": "0.000000000",
+    "DirectionCosineZ": "0.707106781"
+   },
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 5,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 6,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 7,
+  "NodeNumber": "545",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {
+   "DTXR_POS": "=9030/1114(NAME==9030/1114)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 8,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 9,
+  "NodeNumber": "550",
+  "NodeName": "PS-4003",
+  "ComponentType": "ATTA",
+  "support": {
+   "DTXR_PS": "DIRECTIONAL ANCHOR|Pipe Rest",
+   "DTXR_POS": "DIRECTIONAL ANCHOR(NAME=/PS-4003)|Pipe Rest(NAME=/PS-4003)"
+  },
+  "restraints": [
+   {
+    "Type": "LIM",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "0"
+   },
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 10,
+  "NodeNumber": "560",
+  "NodeName": "PS-4004",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": [
+   {
+    "Type": "+Y",
+    "Stiffness": "0",
+    "Gap": "0",
+    "Friction": "0.3",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   },
+   {
+    "Type": "X",
+    "Stiffness": "0",
+    "Gap": "0",
+    "Friction": "-1.010100"
+   },
+   {
+    "Type": "Y",
+    "Stiffness": "0",
+    "Gap": "3",
+    "Friction": "-1.010100",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 11,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {
+   "DTXR_POS": "FLAN(NAME==9030/1115)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 12,
+  "NodeNumber": "580",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 13,
+  "NodeNumber": "585",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 0,
+  "NodeNumber": "545",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {
+   "DTXR_POS": "=9030/1114(NAME==9030/1114)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 1,
+  "NodeNumber": "610",
+  "NodeName": "PS-5001",
+  "ComponentType": "ATTA",
+  "support": {
+   "CMPSUPGAP_PS": "3mm GAP",
+   "CMPSUPGAP": "3mm GAP",
+   "DTXR_PS": "Pipe Guide|Base Plate",
+   "CMPSUPGAP_POS": "3mm GAP",
+   "DTXR_POS": "Pipe Guide(NAME=/PS-5001,CMPSUPGAP=3mm GAP)|Base Plate(NAME=/PS-5001)"
+  },
+  "restraints": [
+   {
+    "Type": "GUI",
+    "Stiffness": "1.751270E+12",
+    "Gap": "3",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "3mm GAP"
+   },
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 2,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "REDU",
+  "support": {
+   "DTXR_POS": "REDU(NAME==9030/1124)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 3,
+  "NodeNumber": "620",
+  "NodeName": "",
+  "ComponentType": "REDU",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 4,
+  "NodeNumber": "640",
+  "NodeName": "PS-5002",
+  "ComponentType": "ATTA",
+  "support": {
+   "DTXR_PS": "Pipe Rest",
+   "DTXR_POS": "Pipe Rest(NAME=/PS-5002)"
+  },
+  "restraints": [
+   {
+    "Type": "+Y",
+    "Stiffness": "1.751270E+12",
+    "Gap": "0",
+    "Friction": "0.3",
+    "CMPSUPGAP": "0",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 5,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {
+   "DTXR_POS": "FLAN(NAME==9030/1125)"
+  },
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 6,
+  "NodeNumber": "650",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 7,
+  "NodeNumber": "655",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ }
+]
