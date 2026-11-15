@@ -360,3 +360,11 @@ export function mapPsi116ToUxml(xmlText, {fileSha256} = {}) {
   };
   return doc;
 }
+
+/**
+ * UXML v2 (revamp step 1): the same strict structural parse, exported so the v2
+ * reader keeps exact byte offsets (start/openEnd/closeStart/end) per element.
+ */
+export function parsePsi116Structure(xmlText) {
+  return parseDocument(xmlText);
+}
