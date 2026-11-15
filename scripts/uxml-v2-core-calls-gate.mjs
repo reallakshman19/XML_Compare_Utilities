@@ -6,6 +6,7 @@
 //            "replay" : the replay stub itself.
 // Per call it checks: the result, every argument after the call, and the callback events.
 import fs from 'node:fs';
+import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { loadCalls, plain, revive, canonical } from '../uxml/v2/supports/CoreCallsLib.js';
@@ -19,6 +20,11 @@ const TODAY = opt('--today');
 const JSDOM_HOME = opt('--jsdom');
 // --only a,b: check only the recorded calls of these functions (e.g. one batch's helpers inside the sub-step recordings).
 const ONLY = opt('--only')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
+// --inject-core: functions that call the core (config parser, ledger, closure helpers) get, as their LAST argument
+// after the recorded arguments padded to that function's largest recorded count, a replay of the OTHER groups
+// recorded for the same models (never their own group's answers).
+const INJECT = argv.includes('--inject-core');
+if (INJECT) argv.splice(argv.indexOf('--inject-core'), 1);
 const [impl, ...paths] = argv;
 if (impl === 'today' && (!TODAY || !JSDOM_HOME)) throw new Error('today mode needs --today <3D_Converters checkout> --jsdom <folder>');
 const TODAY_FILES = ['v045/converters/xml-cii2019-core/support-mapping.js', 'v045/converters/xml-cii2019-core/support-mapping-config.js',
@@ -58,13 +64,30 @@ if (impl === 'refuse') {
 }
 
 const calls = loadCalls(paths).filter((c) => !ONLY || ONLY.includes(c.name));
+const arity = {};
+for (const c of calls) arity[c.name] = Math.max(arity[c.name] || 0, c.args.length);
+// One replay per model over the recording files of the other groups (same folder, <BENCH>.<group>-calls.json).
+const injected = new Map();
+const headers = INJECT ? paths.map((p) => { const r = JSON.parse(fs.readFileSync(p, 'utf8')); return { p, bench: r.bench, group: r.group }; }) : [];
+function injectedCoreFor(c) {
+  const head = headers.find((h) => h.bench === c.bench || h.p === c.bench) ?? headers[0];
+  const file = head.p;
+  if (!injected.has(c.bench)) {
+    const own = head.group;
+    const others = ['core', 'ledger', 'config', 'substep'].filter((g) => g !== own)
+      .map((g) => path.join(path.dirname(file), `${c.bench}.${g}-calls.json`)).filter((p) => fs.existsSync(p));
+    injected.set(c.bench, createReplayCore(others));
+  }
+  return injected.get(c.bench);
+}
 const per = {};
 const fails = [];
 for (const c of calls) {
   const s = (per[c.name] ??= { calls: 0, pass: 0, fail: 0 });
   s.calls += 1;
   const events = [];
-  const args = toDom(revive(c.args)).map((a, i) => (c.args[i]?.__fn ? (...x) => { events.push({ arg: i, args: x.map((y) => plain(y)) }); } : a));
+  const recorded = toDom(revive(c.args)).map((a, i) => (c.args[i]?.__fn ? (...x) => { events.push({ arg: i, args: x.map((y) => plain(y)) }); } : a));
+  const args = INJECT ? [...recorded, ...Array(arity[c.name] - recorded.length).fill(undefined), injectedCoreFor(c)] : recorded;
   let result, error;
   try {
     if (typeof core[c.name] !== 'function') throw new Error('MISSING_FUNCTION ' + c.name);
