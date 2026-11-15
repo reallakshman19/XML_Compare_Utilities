@@ -20,6 +20,8 @@ const TODAY = opt('--today');
 const JSDOM_HOME = opt('--jsdom');
 // --only a,b: check only the recorded calls of these functions (e.g. one batch's helpers inside the sub-step recordings).
 const ONLY = opt('--only')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
+// --except a,b: skip these functions' calls (e.g. xmlCiiAncestorBranchName, which reads the DOM parent chain).
+const EXCEPT = opt('--except')?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
 // --inject-core: functions that call the core (config parser, ledger, closure helpers) get, as their LAST argument
 // after the recorded arguments padded to that function's largest recorded count, a replay of the OTHER groups
 // recorded for the same models (never their own group's answers).
@@ -33,7 +35,14 @@ const [impl, ...paths] = argv;
 if (impl === 'today' && (!TODAY || !JSDOM_HOME)) throw new Error('today mode needs --today <3D_Converters checkout> --jsdom <folder>');
 const TODAY_FILES = ['v045/converters/xml-cii2019-core/support-mapping.js', 'v045/converters/xml-cii2019-core/support-mapping-config.js',
   'v045/converters/xml-cii2019-core/support-kind-precedence.js', 'v045/converters/xml-cii2019-core/restraint-type-mutation.js',
-  'support/SupportKindResolver.js'];
+  'support/SupportKindResolver.js',
+  // Step 4 engineering group: the resolvers that today's branch pass calls.
+  'v045/converters/xml-cii2019-core/regex-line-key.js', 'v045/converters/xml-cii2019-core/linelist-mapping.js',
+  'v045/converters/xml-cii2019-core/piping-class-resolver.js', 'v045/converters/xml-cii2019-core/branch-process-resolver.js',
+  'v045/converters/xml-cii2019-core/piping-class-material-code-resolver.js', 'v045/converters/xml-cii2019-core/weight-match-model.js',
+  'v045/converters/xml-cii2019-core/weight-valve-hints.js', 'v045/converters/xml-cii2019-core/piping-class-source-resolver.js',
+  'converters/xml-cii2019-core/line-density-resolver.js', 'converters/xml-cii2019-core/nps-bore-resolver.js',
+  'converters/xml-cii2019-core/dtxr-rating-resolver.js', 'converters/xml-cii2019-core/service-process-fallback.js'];
 
 let core, toDom = (v) => v, fromDom = (v) => plain(v);
 if (impl === 'refuse') {
@@ -67,7 +76,7 @@ if (impl === 'refuse') {
   core = await import(pathToFileURL(impl).href);
 }
 
-const calls = loadCalls(paths).filter((c) => !ONLY || ONLY.includes(c.name));
+const calls = loadCalls(paths).filter((c) => (!ONLY || ONLY.includes(c.name)) && !EXCEPT.includes(c.name));
 const arity = {};
 for (const c of calls) arity[c.name] = Math.max(arity[c.name] || 0, c.args.length);
 // One replay per model over the recording files of the other groups (same folder, <BENCH>.<group>-calls.json).

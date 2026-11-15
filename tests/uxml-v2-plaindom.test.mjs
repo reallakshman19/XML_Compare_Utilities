@@ -24,7 +24,7 @@ test('every stage XML: parse -> serialize gives the same support table as the fi
       files += 1;
     }
   }
-  assert.equal(files, 30);
+  assert.equal(files, 35); // 7 stage XML files per bench (incl. engineering-pass-start)
 });
 
 test('helpers read and write like today\'s xmlText / xmlSetText', () => {
