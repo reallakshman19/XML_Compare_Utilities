@@ -3,7 +3,7 @@
 //   <impl> = an ES module exporting the port, or a control: "recorded" (today's own outputs: must PASS),
 //            "identity" (returns its input XML unchanged: must FAIL), "refuse" (throws: must FAIL).
 // The port gets `core` last: createReplayCore over today's recorded core, ledger, config and sub-step calls.
-//   parent-loop: parentSupportLoop({sourceXmlText, loopStartXmlText, stagedJsonText, config, tolerance}, core) -> {xmlText}
+//   parent-loop: parentSupportLoop({sourceXmlText, loopStartXmlText, stagedJsonText, config, tolerance, diagnostics}, core) -> {xmlText}
 //   dtxr:        enrichStandaloneDtxrAnnotations(xmlText, stagedJsonText, config, core) -> {text, stats, diagnostics}
 //   atta:        closeGovernedAttaDefaultRestraintsXml(xmlText, config, core)          -> {xmlText, changed, stats, diagnostics}
 //   mds:         closeGovernedMdsPositionRestraintsXml(xmlText, stagedJsonText, config, core) -> {xmlText, changed, stats, diagnostics}
@@ -44,8 +44,11 @@ function caseOf(bench) {
   if (substep === 'parent-loop') {
     const [src, staged] = SOURCES[bench];
     const snap = revive(JSON.parse(read(`oracle/${bench}/xml/parent-support-loop-start.json`)));
+    // Today's diagnostics array already holds the master-load entries when buildStagedSupportIndex receives it.
+    const indexCall = loadCalls([files[0]]).find((c) => c.name === 'buildStagedSupportIndex');
     const input = { sourceXmlText: read(src), loopStartXmlText: read(`oracle/${bench}/xml/parent-support-loop-start.xml`),
-      stagedJsonText: staged ? read(staged) : '', config: snap.config, tolerance: snap.tolerance };
+      stagedJsonText: staged ? read(staged) : '', config: snap.config, tolerance: snap.tolerance,
+      diagnostics: revive(indexCall.args[2]) };
     return { core, args: [input], inputXml: input.loopStartXmlText, want: { xmlText: read(`oracle/${bench}/xml/parent-support-loop-end.xml`) } };
   }
   const call = loadCalls([files[3]]).find((c) => c.name === ENTRY[substep]);
