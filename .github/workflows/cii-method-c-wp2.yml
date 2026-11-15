@@ -30,7 +30,7 @@ concurrency:
 jobs:
   physical-geometry:
     name: Original bytes + red controls (Node 22)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout the exact candidate SHA (not PR merge ref)
@@ -83,7 +83,7 @@ jobs:
 
   interactive-svg-chromium:
     name: Served Method C module Chromium interactions (not native WP6)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -117,7 +117,7 @@ jobs:
 
   protected-mainline-methodab-writer2:
     name: Existing Method A/B and Writer2 unchanged safety at candidate SHA
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
@@ -166,7 +166,7 @@ jobs:
 
   protected-pr107-reference-policy:
     name: Pinned PR107 100-mm path & Method A/B reference (unmerged separate SHA)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -198,7 +198,7 @@ jobs:
 
   approved-main-inherited-failure-control:
     name: Inherited baseline red control at approved main SHA (not Method C)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
@@ -240,7 +240,7 @@ jobs:
 
   independent-original-wp8-benchmark:
     name: WP8 independent raw benchmark, frozen 428, separate midcycle
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
       CII_METHOD_C_OWNER_REF_ROOT: test-results/cii-method-c-wp8/pinned-owner-reference
@@ -319,7 +319,7 @@ jobs:
 
   wp9-exact-sha-g2-review-preflight:
     name: WP9 candidate SHA review packet and protected-file evidence (not G2 signoff)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
@@ -347,7 +347,7 @@ jobs:
 
   wp6-real-native-docs-application-chromium:
     name: WP6 ACTUAL served docs/index.html native CII Workspace Chromium
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
