@@ -17,7 +17,7 @@ permissions:
 jobs:
   xml-table-regression:
     name: XML and Table full Node suites
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +51,7 @@ jobs:
 
   iso-browser-regression:
     name: ISO engineering browser regression
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4

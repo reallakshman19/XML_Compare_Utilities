@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   no-loss-anchor-authority:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
@@ -62,7 +62,7 @@ jobs:
 
   browser-anchor-lifecycle:
     name: Real Chromium retained and manual authority mode lifecycle
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 80
     steps:
       - uses: actions/checkout@v4
