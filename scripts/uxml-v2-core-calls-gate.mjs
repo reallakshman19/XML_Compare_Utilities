@@ -23,8 +23,12 @@ const ONLY = opt('--only')?.split(',').map((s) => s.trim()).filter(Boolean) ?? n
 // --inject-core: functions that call the core (config parser, ledger, closure helpers) get, as their LAST argument
 // after the recorded arguments padded to that function's largest recorded count, a replay of the OTHER groups
 // recorded for the same models (never their own group's answers).
-const INJECT = argv.includes('--inject-core');
-if (INJECT) argv.splice(argv.indexOf('--inject-core'), 1);
+// --inject-core=a,b limits it to the functions that take the core (others, such as toFiniteNumber, get none).
+const injectAt = argv.findIndex((x) => x === '--inject-core' || x.startsWith('--inject-core='));
+const INJECT_ARG = injectAt >= 0 ? argv.splice(injectAt, 1)[0] : null;
+const INJECT = INJECT_ARG !== null;
+const INJECT_ONLY = INJECT_ARG?.includes('=') ? INJECT_ARG.split('=')[1].split(',').map((x) => x.trim()).filter(Boolean) : null;
+const injects = (name) => INJECT && (!INJECT_ONLY || INJECT_ONLY.includes(name));
 const [impl, ...paths] = argv;
 if (impl === 'today' && (!TODAY || !JSDOM_HOME)) throw new Error('today mode needs --today <3D_Converters checkout> --jsdom <folder>');
 const TODAY_FILES = ['v045/converters/xml-cii2019-core/support-mapping.js', 'v045/converters/xml-cii2019-core/support-mapping-config.js',
@@ -87,7 +91,7 @@ for (const c of calls) {
   s.calls += 1;
   const events = [];
   const recorded = toDom(revive(c.args)).map((a, i) => (c.args[i]?.__fn ? (...x) => { events.push({ arg: i, args: x.map((y) => plain(y)) }); } : a));
-  const args = INJECT ? [...recorded, ...Array(arity[c.name] - recorded.length).fill(undefined), injectedCoreFor(c)] : recorded;
+  const args = injects(c.name) ? [...recorded, ...Array(arity[c.name] - recorded.length).fill(undefined), injectedCoreFor(c)] : recorded;
   let result, error;
   try {
     if (typeof core[c.name] !== 'function') throw new Error('MISSING_FUNCTION ' + c.name);
