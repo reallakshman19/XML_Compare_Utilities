@@ -33,3 +33,16 @@ PSI116 -> UXML v2 -> PS116 on GOLDEN-30, RMS-BLOW-1 and two private benchmarks (
 - a node split adds exactly 1 node and keeps every other uid.
 
 Three writer mutants are caught by the tests: ignoring changed values, ignoring the template, and keeping removed restraints.
+
+## Step 2: revision diff and the review page (15 Nov 2026)
+| File | What it does |
+|---|---|
+| `UxmlV2Diff.js` | `diffRevisions(before, after)`: every change between two revisions (value set, added or removed; lock and unlock; node added, split or removed) with its layer, stage, rule, source and lock. A `rev` stamp alone is not a change. `groupChanges` groups them by branch and node. |
+| `UxmlV2Stages.js` | adds `runStages` (the registry in order, each result feeding the next) and an optional lock on the edit stage |
+| `UxmlV2ReviewSession.js` | the page's revision list. Actions: repair, edit, split, undo, open a delta. Pure. |
+| `review.html` + `UxmlV2ReviewPage.js` | the review page: open a PSI116 file or the GOLDEN-30 sample, make a change, compare any two revisions, and download the PSI116, the UXML or the delta. It runs in the browser and uploads nothing. |
+
+Check: `node --test tests/uxml-v2-review-diff.test.mjs` (8 tests). Four diff mutants are caught: ignoring locks, ignoring removals, calling a split an add, and dropping the source.
+
+- **Undo is one level.** An undo is not undone again, because that would re-apply the step.
+- **The CII check (run locally).** The edited PSI116 from step 1 was run through today's XML -> CII 2019 converter (3D_Converters `v045/converters/scripts/xml_to_cii2019_runtime_custody.py`). On GOLDEN-30, RMS-BLOW-1 and the two private benchmarks, the CII differs from the original only in the edited T1 tokens: 13, 40, 3 and 30 tokens. Line counts are unchanged.

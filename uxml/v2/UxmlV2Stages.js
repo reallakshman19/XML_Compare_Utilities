@@ -5,7 +5,7 @@
  * Step 1 ships the `repair` placeholder (Lane A; TopoFix is not integrated yet) and two TEST-ONLY
  * stages used by the round-trip checks: set one value, and split one node.
  */
-import {stageUid, makeValue} from './UxmlV2Kernel.js';
+import {stageUid, makeValue, runStage} from './UxmlV2Kernel.js';
 
 /** Lane A placeholder: same document, empty delta, diagnostic TOPOFIX_NOT_INTEGRATED. */
 export const repairPlaceholderStage = Object.freeze({
@@ -17,10 +17,34 @@ export const repairPlaceholderStage = Object.freeze({
 /** Stages in pipeline order (later steps add supports, engineering, transfer). */
 export const STAGE_REGISTRY = Object.freeze([repairPlaceholderStage]);
 
-/** TEST ONLY: set one value. inputs {uid, key, v, src?, layer?}. */
+/**
+ * Run the registered stages in order from `doc`. Returns one step per stage:
+ * [{stage, uxml, delta, diagnostics, refusals}]; each step's uxml is the next step's base.
+ * `inputsFor(stageId)` and `settingsFor(stageId)` give each stage its inputs and settings.
+ */
+export function runStages(doc, {stages = STAGE_REGISTRY, inputsFor = () => ({}), settingsFor = () => ({})} = {}) {
+  const steps = [];
+  let base = doc;
+  for (const stage of stages) {
+    const result = runStage(stage, base, inputsFor(stage.id), settingsFor(stage.id));
+    steps.push({stage: stage.id, ...result});
+    base = result.uxml;
+  }
+  return steps;
+}
+
+/**
+ * TEST ONLY (the review page uses it for Owner edits): set one value, and lock it when
+ * `lock` is true. inputs {uid, key, v, src?, lock?}.
+ */
 export const setValueTestStage = Object.freeze({
   id: 'test-set-value', rulesVersion: 'test/1', reads: [], writes: ['engineering', 'names', 'topology', 'supports', 'other'],
-  run: (doc, {uid, key, v, src = 'owner'}) => ({ops: [{op: 'set', uid, path: 'values.' + key, after: makeValue(v, src, {rule: 'test-set'})}]}),
+  run: (doc, {uid, key, v, src = 'owner', lock = false}) => {
+    const path = 'values.' + key;
+    const ops = [{op: 'set', uid, path, after: makeValue(v, src, {rule: 'test-set'})}];
+    if (lock) ops.push({op: 'lock', uid, path, after: {by: src, reason: 'owner-edit'}});
+    return {ops};
+  },
 });
 
 const positionOf = c => String(c?.values?.Position?.v ?? '').trim().split(/\s+/).map(Number);
