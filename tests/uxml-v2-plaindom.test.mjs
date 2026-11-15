@@ -18,7 +18,7 @@ const table = (text) => supportTableOf(readPsi116V2(text, { fileSha256: createHa
 test('every stage XML: parse -> serialize gives the same support table as the file', () => {
   let files = 0;
   for (const b of BENCHES) {
-    for (const f of fs.readdirSync(path.join(FX, 'oracle', b, 'xml'))) {
+    for (const f of fs.readdirSync(path.join(FX, 'oracle', b, 'xml')).filter((n) => n.endsWith('.xml'))) {
       const text = fs.readFileSync(path.join(FX, 'oracle', b, 'xml', f), 'utf8');
       assert.deepEqual(table(serializePlainXml(parsePlainXml(text))), table(text), `${b}/${f}`);
       files += 1;
