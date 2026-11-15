@@ -1,0 +1,310 @@
+[
+ {
+  "type": "staged-support-index",
+  "supports": 1,
+  "coordinateKeys": 1,
+  "psTagKeys": 1
+ },
+ {
+  "type": "config",
+  "duplicateSupportPolicy": "prefer_datum",
+  "coordinateTolerance": 1,
+  "rating": {
+   "sourceFields": [
+    "RATING",
+    "PRAT",
+    "PSPE",
+    "SPRE",
+    "LSTU"
+   ],
+   "tokenDelimiter": "-",
+   "pipingClassTokenIndex": 5,
+   "pipingClassRegex": "",
+   "pipingClassGroup": 1,
+   "ratingSequence": [
+    [
+     "200",
+     "20000"
+    ],
+    [
+     "150",
+     "15000"
+    ],
+    [
+     "100",
+     "10000"
+    ],
+    [
+     "25",
+     "2500"
+    ],
+    [
+     "15",
+     "1500"
+    ],
+    [
+     "5",
+     "5000"
+    ],
+    [
+     "1",
+     "150"
+    ],
+    [
+     "3",
+     "300"
+    ],
+    [
+     "6",
+     "600"
+    ],
+    [
+     "9",
+     "900"
+    ]
+   ]
+  },
+  "weight": {
+   "sourceFields": [
+    "WEIGHT",
+    "PSIWEIGHT",
+    "CMPWEIGHTDRY"
+   ],
+   "tokenDelimiter": "-",
+   "boreTokenIndex": 3,
+   "boreRegex": "",
+   "boreGroup": 1,
+   "inchToMm": 25.4,
+   "npsToDn": {
+    "1": 25,
+    "2": 50,
+    "3": 80,
+    "4": 100,
+    "6": 150,
+    "8": 200,
+    "10": 250,
+    "12": 300,
+    "14": 350,
+    "16": 400,
+    "18": 450,
+    "20": 500,
+    "24": 600,
+    "0.25": 8,
+    "0.375": 10,
+    "0.5": 15,
+    "0.75": 20,
+    "1.25": 32,
+    "1.5": 40,
+    "2.5": 65
+   },
+   "lengthToleranceMm": 4,
+   "masterLengthUnit": "raw",
+   "convertSmallLengthsInToMm": false,
+   "masterUrl": "",
+   "masterRows": "1595 row(s)",
+   "enabled": false
+  }
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "20",
+  "nodeName": "PS-20.1",
+  "componentType": "ATTA",
+  "tags": "PS-20.1",
+  "count": 1,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-20.1",
+  "finalValue": "LINE STOP",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "20",
+  "nodeName": "PS-20.1",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "100|0|0",
+  "kind": "LINESTOP",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "LIM",
+  "finalValue": "LIM",
+  "stagedName": "/PS-20.1",
+  "tags": [
+   "PS-20.1"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 1,
+  "xmlNodeNumber": "10",
+  "nodeNumber": "10",
+  "xmlNodeName": "PS-10.1",
+  "nodeName": "PS-10.1",
+  "componentType": "PIPE",
+  "componentRefNo": "",
+  "xmlBranch": "/AUDIT/B1",
+  "branchName": "/AUDIT/B1",
+  "xmlPosition": "0 0 0",
+  "xmlPoint": {
+   "x": 0,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "PS10.1",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 2,
+  "xmlNodeNumber": "20",
+  "nodeNumber": "20",
+  "xmlNodeName": "PS-20.1",
+  "nodeName": "PS-20.1",
+  "componentType": "ATTA",
+  "componentRefNo": "",
+  "xmlBranch": "/AUDIT/B1",
+  "branchName": "/AUDIT/B1",
+  "xmlPosition": "100 0 0",
+  "xmlPoint": {
+   "x": 100,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/AUDIT/B1",
+  "stagedBranch": "/AUDIT/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 100,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "2"
+  ],
+  "dtxrPsNodeNumbers": [
+   "2"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "2",
+    "sourcePath": "$[0].children[0]",
+    "branchName": "/AUDIT/B1",
+    "bore": "",
+    "point": {
+     "x": 100,
+     "y": 0,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-20.1",
+    "dtxrPosValue": "LINE STOP(NAME=/PS-20.1)",
+    "dtxrPsValue": "",
+    "cmpSupGap": "25MM GAP"
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[0]"
+  ],
+  "dtxrPosValue": "LINE STOP(NAME=/PS-20.1)",
+  "dtxrPos": "LINE STOP(NAME=/PS-20.1)",
+  "dtxrPosValues": [
+   "LINE STOP(NAME=/PS-20.1)"
+  ],
+  "dtxrPsName": "PS20.1",
+  "dtxrPsValue": "LINE STOP",
+  "dtxrPs": "LINE STOP",
+  "effectiveDtxr": "LINE STOP(NAME=/PS-20.1)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "LINESTOP"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G1"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 3,
+  "xmlNodeNumber": "30",
+  "nodeNumber": "30",
+  "xmlNodeName": "PS-30.1",
+  "nodeName": "PS-30.1",
+  "componentType": "PIPE",
+  "componentRefNo": "",
+  "xmlBranch": "/AUDIT/B1",
+  "branchName": "/AUDIT/B1",
+  "xmlPosition": "200 0 0",
+  "xmlPoint": {
+   "x": 200,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "PS30.1",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ }
+]

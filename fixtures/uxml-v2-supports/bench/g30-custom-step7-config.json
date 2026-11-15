@@ -1,0 +1,8 @@
+{
+  "supportMapping": {
+    "version": 2,
+    "rules": [
+      { "id": "owner-gt-as-rest", "enabled": true, "source": "staged-json", "field": "MDSSUPPTYPE", "match": "startsWith", "pattern": "GT", "kind": "REST", "priority": 1 }
+    ]
+  }
+}

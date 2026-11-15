@@ -159,12 +159,12 @@ test('restraints: changed in place, removed, and added from modelled values (fra
   const r0 = host.restraints[0];
   let r = runStage(setValueTestStage, doc, {uid: r0.uid, key: 'Gap', v: 7});
   assert.equal(read(write(r.uxml)).pipelines.flatMap(p => p.components).find(c => c.sourceKey === host.sourceKey).restraints[0].values.Gap.v, 7);
-  const remove = {id: 'rm', rulesVersion: 't', writes: ['topology'], run: () => ({ops: [{op: 'remove', uid: r0.uid}]})};
+  const remove = {id: 'rm', rulesVersion: 't', writes: ['supports'], run: () => ({ops: [{op: 'remove', uid: r0.uid}]})};
   r = runStage(remove, doc);
   assert.equal(read(write(r.uxml)).readCounts.restraints, doc.readCounts.restraints - 1);
   const entity = {kind: 'restraint', lineage: {op: 'insert', from: [host.uid], stage: 'add', rule: 't'}, frame: 'CII_XYZ',
     fieldOrder: ['Type', 'Gap', 'DirectionCosineX'], values: {Type: makeValue('GUI', 'staged'), Gap: makeValue(3, 'staged'), DirectionCosineX: makeValue(1, 'staged')}};
-  const add = e => ({id: 'add', rulesVersion: 't', writes: ['topology'], run: () => ({ops: [{op: 'add', uid: 'u:newrestraint0001', parent: host.uid, after: r0.uid, kind: 'restraint', entity: e}]})});
+  const add = e => ({id: 'add', rulesVersion: 't', writes: ['supports'], run: () => ({ops: [{op: 'add', uid: 'u:newrestraint0001', parent: host.uid, after: r0.uid, kind: 'restraint', entity: e}]})});
   r = runStage(add(entity), doc);
   const host2 = read(write(r.uxml)).pipelines.flatMap(p => p.components).find(c => c.sourceKey === host.sourceKey);
   assert.equal(host2.restraints.length, host.restraints.length + 1);
