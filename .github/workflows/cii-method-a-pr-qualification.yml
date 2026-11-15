@@ -17,7 +17,7 @@ concurrency:
 jobs:
   focused-node:
     name: Method A focused Node tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
 
   retained-forensics:
     name: Genuine S1-S3 / T grade and weight matrix
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -74,7 +74,7 @@ jobs:
 
   writer2-byte-closure:
     name: Writer2 retained physical output byte closure
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -116,7 +116,7 @@ jobs:
 
   chromium-ui:
     name: Chromium retained Inspect / Compare / Review
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -142,7 +142,7 @@ jobs:
 
   cross-route-compatibility:
     name: Writer1C and generic REVIEW_ONLY/export compatibility
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4

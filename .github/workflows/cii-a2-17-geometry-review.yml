@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   native-original-geometry:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
       - name: A2-16 retained original whole-source benchmark
         run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
   chromium-review-only:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4

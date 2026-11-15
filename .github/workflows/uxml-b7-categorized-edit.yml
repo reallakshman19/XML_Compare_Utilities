@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   b7-controller-regressions:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -68,7 +68,7 @@ jobs:
       - name: Existing enrichment
         run: node tests/xml-compare-enrichment-apply-preview.test.js
   b7-real-browser-public-samples:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:

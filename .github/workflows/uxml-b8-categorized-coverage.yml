@@ -28,7 +28,7 @@ permissions:
   contents: read
 jobs:
   b8-coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -68,7 +68,7 @@ jobs:
         run: node --test tests/uxml-b8-editability-public.test.mjs
 
   b8-browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:

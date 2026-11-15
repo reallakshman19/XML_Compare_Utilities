@@ -28,7 +28,7 @@ concurrency:
 jobs:
   psnm-node-regressions:
     name: PSNM source, master, anchor, candidate and coverage tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout exact revision
@@ -50,7 +50,7 @@ jobs:
   psnm-browser-smoke:
     name: Chromium PSNM Source-to-Coverage browser walkthrough
     needs: psnm-node-regressions
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout exact revision

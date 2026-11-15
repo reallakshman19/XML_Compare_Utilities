@@ -26,7 +26,7 @@ concurrency:
 jobs:
   csv-node:
     name: CSV parser, mock fixtures and resolver integration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
   csv-browser:
     name: Chromium CSV and mock buttons → Run Mapping
     needs: csv-node
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
