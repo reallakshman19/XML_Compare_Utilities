@@ -17,6 +17,8 @@ const reportPath = jsonAt >= 0 ? argv.splice(jsonAt, 2)[1] : null;
 const opt = (flag) => { const i = argv.indexOf(flag); return i >= 0 ? argv.splice(i, 2)[1] : null; };
 const TODAY = opt('--today');
 const JSDOM_HOME = opt('--jsdom');
+// --only a,b: check only the recorded calls of these functions (e.g. one batch's helpers inside the sub-step recordings).
+const ONLY = opt('--only')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
 const [impl, ...paths] = argv;
 if (impl === 'today' && (!TODAY || !JSDOM_HOME)) throw new Error('today mode needs --today <3D_Converters checkout> --jsdom <folder>');
 const TODAY_FILES = ['v045/converters/xml-cii2019-core/support-mapping.js', 'v045/converters/xml-cii2019-core/support-mapping-config.js',
@@ -55,7 +57,7 @@ if (impl === 'refuse') {
   core = await import(pathToFileURL(impl).href);
 }
 
-const calls = loadCalls(paths);
+const calls = loadCalls(paths).filter((c) => !ONLY || ONLY.includes(c.name));
 const per = {};
 const fails = [];
 for (const c of calls) {
