@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UXML Review</title>
+<style>
+  :root { --bg:#fbfbfa; --fg:#1d1d1b; --muted:#6b6b66; --line:#dcdcd6; --panel:#ffffff; --accent:#2f5d8a;
+    --add:#e7f3ea; --rem:#f8e7e5; --set:#eef3fa; --warn:#fff5dc; --warnline:#e2c26a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#171716; --fg:#ececea; --muted:#a3a39d;
+    --line:#3a3a37; --panel:#20201f; --accent:#8db6e0; --add:#1f3326; --rem:#3a2422; --set:#1f2a38; --warn:#3a321c; --warnline:#8a7434; } }
+  :root[data-theme="dark"] { --bg:#171716; --fg:#ececea; --muted:#a3a39d; --line:#3a3a37; --panel:#20201f; --accent:#8db6e0;
+    --add:#1f3326; --rem:#3a2422; --set:#1f2a38; --warn:#3a321c; --warnline:#8a7434; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width:1100px; margin:0 auto; padding:20px 16px 60px; }
+  h1 { font-size:22px; margin:0 0 4px; } h2 { font-size:16px; margin:0 0 10px; }
+  p.lead { color:var(--muted); margin:0 0 18px; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:14px; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; }
+  label { color:var(--muted); font-size:13px; }
+  select, input[type=text], button { font:inherit; color:inherit; background:var(--bg); border:1px solid var(--line);
+    border-radius:6px; padding:5px 8px; max-width:100%; }
+  button { cursor:pointer; } button.primary { background:var(--accent); color:var(--bg); border-color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  .notice { background:var(--warn); border:1px solid var(--warnline); border-radius:6px; padding:8px 10px; margin:8px 0; }
+  .muted { color:var(--muted); } .mono { font-family:ui-monospace, Consolas, monospace; font-size:12px; }
+  table { border-collapse:collapse; width:100%; } th, td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-weight:600; font-size:12px; color:var(--muted); }
+  .scroll { overflow-x:auto; }
+  tr.t-set td, tr.t-add-value td, tr.t-lock td, tr.t-unlock td { background:var(--set); }
+  tr.t-add td, tr.t-split td { background:var(--add); } tr.t-remove td, tr.t-remove-value td { background:var(--rem); }
+  .branch { font-weight:600; margin:12px 0 4px; } .node { margin:6px 0 2px 12px; font-weight:600; font-size:13px; }
+  .counts span { margin-right:12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>UXML review</h1>
+  <p class="lead">Open a PSI116 file, make changes, and see every change between two revisions with the stage, rule and source that made it.</p>
+
+  <section>
+    <h2>1. Open a model</h2>
+    <div class="row">
+      <input type="file" id="file" accept=".xml">
+      <button id="sample">Use the GOLDEN-30 sample</button>
+    </div>
+    <div id="model" class="muted">No model open.</div>
+  </section>
+
+  <section id="actions" hidden>
+    <h2>2. Make a change</h2>
+    <div class="row">
+      <label for="branch">Branch</label><select id="branch"></select>
+      <label for="node">Node</label><select id="node"></select>
+    </div>
+    <div class="row">
+      <label for="field">Field</label><select id="field"></select>
+      <label for="value">New value</label><input type="text" id="value" size="14">
+      <label><input type="checkbox" id="lock"> lock it</label>
+      <button class="primary" id="apply">Apply edit</button>
+    </div>
+    <div class="row">
+      <button id="split">Split the selected node</button>
+      <button id="repair">Run repair</button>
+      <button id="undo">Undo the last change</button>
+      <label for="delta">Open a delta file</label><input type="file" id="delta" accept=".json">
+    </div>
+    <div id="message"></div>
+  </section>
+
+  <section id="compare" hidden>
+    <h2>3. Compare revisions</h2>
+    <div class="row">
+      <label for="from">From</label><select id="from"></select>
+      <label for="to">To</label><select id="to"></select>
+    </div>
+    <div id="notes"></div>
+    <div id="counts" class="counts"></div>
+    <div id="diff"></div>
+    <div class="row" style="margin-top:12px">
+      <button id="dlPs">Download PSI116 of "To"</button>
+      <button id="dlUxml">Download UXML of "To"</button>
+      <button id="dlDelta">Download the delta that made "To"</button>
+    </div>
+  </section>
+</main>
+<script type="module" src="./UxmlV2ReviewPage.js"></script>
+</body>
+</html>
