@@ -1,5 +1,4 @@
-import { childText, childrenByName, createElement, elementsByName, parsePlainXml, serializePlainXml } from '../PlainDom.js';
-import { PLAIN_DOCUMENT } from '../CoreCallsLib.js';
+import { PLAIN_DOCUMENT, childText, childrenByName, createElement, elementsByName, parsePlainXml, serializePlainXml } from '../PlainDom.js';
 
 const CARRIER_TYPES = new Set(['ANCI', 'ATTA']);
 const GOVERNED_KINDS = Object.freeze(['REST', 'GUIDE', 'LINESTOP']);

@@ -84,7 +84,42 @@
       <button id="dlDelta">Download the delta that made "To"</button>
     </div>
   </section>
+
+  <section id="supports">
+    <h2>4. Supports: where each value came from</h2>
+    <p class="muted">Run the supports stage on the XML it receives (after the topology stage, e.g. gasket drop), with the staged JSON
+      and the job's support config. Every support value and restraint is listed with the step that set it, where it came from and
+      the staged item it matched.</p>
+    <div class="row">
+      <label for="supXml">Model XML</label><input type="file" id="supXml" accept=".xml">
+      <label for="supStaged">Staged JSON (optional)</label><input type="file" id="supStaged" accept=".json">
+    </div>
+    <div class="row">
+      <label for="supConfig">Support config JSON (optional)</label><input type="file" id="supConfig" accept=".json">
+      <label for="supRows">Material map rows JSON (optional; default: today's built-in rows)</label><input type="file" id="supRows" accept=".json">
+    </div>
+    <div class="row">
+      <button class="primary" id="supRun">Run the supports stage</button>
+      <button id="supSample">Use the GOLDEN-30 sample</button>
+    </div>
+    <div id="supMessage"></div>
+    <div id="supResult" hidden>
+      <div id="supSummary" class="counts"></div>
+      <div id="supWarnings"></div>
+      <div class="row" style="margin-top:10px">
+        <label for="supBranch">Branch</label><select id="supBranch"></select>
+        <label for="supFrom">Came from</label><select id="supFrom">
+          <option value="">anywhere</option><option>staged JSON</option><option>configured default profile</option>
+          <option>input XML</option><option>unexplained</option></select>
+        <label for="supFind">Find</label><input type="text" id="supFind" size="16" placeholder="node, name or tag">
+        <button id="supCsv">Download as CSV</button>
+      </div>
+      <div id="supShown" class="muted"></div>
+      <div class="scroll"><table id="supTable"></table></div>
+    </div>
+  </section>
 </main>
 <script type="module" src="./UxmlV2ReviewPage.js"></script>
+<script type="module" src="./UxmlV2SupportsReview.js"></script>
 </body>
 </html>

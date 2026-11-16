@@ -1,5 +1,4 @@
-import { childText, childrenByName, elementsByName, parsePlainXml, serializePlainXml } from '../PlainDom.js';
-import { PLAIN_DOCUMENT } from '../CoreCallsLib.js';
+import { PLAIN_DOCUMENT, childText, childrenByName, elementsByName, parsePlainXml, serializePlainXml } from '../PlainDom.js';
 
 const PLACEHOLDER_TYPES = new Set(['LIM', 'LIMIT', 'LINESTOP']);
 

@@ -1,5 +1,4 @@
-import { childText, childrenByName, setChildText, elementsByName, parsePlainXml, serializePlainXml } from '../PlainDom.js';
-import { PLAIN_DOCUMENT } from '../CoreCallsLib.js';
+import { PLAIN_DOCUMENT, childText, childrenByName, setChildText, elementsByName, parsePlainXml, serializePlainXml } from '../PlainDom.js';
 import { decideMissingStagedRestRestraint } from './StagedRestraintFallbackPolicy.js';
 import { buildStandaloneDtxrPositionGroups, buildStandaloneDtxrResolutionLedger, canonicalStandaloneDtxrBranch, standaloneDtxrBranchRelationship } from '../ledger/index.js';
 

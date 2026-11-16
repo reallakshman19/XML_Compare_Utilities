@@ -7,6 +7,8 @@
  *   - comments, processing instructions and DOCTYPE inside the root are dropped;
  *   - prefixed element names are refused (PLAIN_XML_PREFIX_UNSUPPORTED); PSI116 files use none.
  */
+/** The Document as it crosses the restraint-core boundary (core-calls/1 format; CoreCallsLib re-exports it). */
+export const PLAIN_DOCUMENT = Object.freeze({ __doc: true });
 export const PLAIN_XML_ERRORS = Object.freeze({
   MALFORMED: 'PLAIN_XML_MALFORMED',
   PREFIX: 'PLAIN_XML_PREFIX_UNSUPPORTED',

@@ -41,6 +41,7 @@ Three writer mutants are caught by the tests: ignoring changed values, ignoring 
 | `UxmlV2Stages.js` | adds `runStages` (the registry in order, each result feeding the next) and an optional lock on the edit stage |
 | `UxmlV2ReviewSession.js` | the page's revision list. Actions: repair, edit, split, undo, open a delta. Pure. |
 | `review.html` + `UxmlV2ReviewPage.js` | the review page: open a PSI116 file or the GOLDEN-30 sample, make a change, compare any two revisions, and download the PSI116, the UXML or the delta. It runs in the browser and uploads nothing. |
+| `UxmlV2SupportsReview.js` + `supports/SupportProvenanceRows.js` | section 4 of the review page: run the supports stage on a model (or the GOLDEN-30 sample) and list every support value and restraint with the step that set it, where it came from and the staged item it matched; staged supports that became no restraint and duplicate supports removed are shown; download as CSV. |
 
 Check: `node --test tests/uxml-v2-review-diff.test.mjs` (8 tests). Four diff mutants are caught: ignoring locks, ignoring removals, calling a split an add, and dropping the source.
 

@@ -3,8 +3,9 @@
 // A Document crosses as PLAIN_DOCUMENT ({__doc: true}).
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
+import { PLAIN_DOCUMENT } from './PlainDom.js';
 
-export const PLAIN_DOCUMENT = Object.freeze({ __doc: true });
+export { PLAIN_DOCUMENT };
 
 /** Resolve {__blob} references (deep). */
 export function unblob(v, blobs) {
