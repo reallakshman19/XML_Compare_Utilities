@@ -18,6 +18,7 @@ import { supportTableOf } from '../uxml/v2/supports/SupportTable.js';
 import { loadCalls, revive } from '../uxml/v2/supports/CoreCallsLib.js';
 import { runSupportsStage } from '../uxml/v2/supports/SupportsStage.js';
 import { plainSupportTable, supportProvenance } from '../uxml/v2/supports/SupportProvenance.js';
+import { elementKids, parsePlainXml, textContent } from '../uxml/v2/supports/PlainDom.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const argv = process.argv.slice(2);
@@ -44,8 +45,39 @@ const todayLengths = argv[0] === 'today-lengths';
 // Controls (must FAIL): flat-provenance (every record says input), no-evidence (provenance without the diagnostics).
 const provenance = argv.includes('--provenance');
 const flatProvenance = argv[0] === 'flat-provenance', noEvidence = argv[0] === 'no-evidence';
-const CONTROL_OF = { 'today-lengths': 'today-lengths', identity: 'identity', 'flat-provenance': 'flat-provenance', 'no-evidence': 'no-evidence' };
-const stageOptions = { lengthsFromFinalNumbering: !todayLengths };
+// Owner 16 Nov (CII check, 'port both'). --fields: every value in today's XML after 01 and 02 (every leaf: process block,
+// node facts, supports) equals the stage's, except ElementLengthMm (measured from the final numbering on purpose).
+// Control (must FAIL): no-preview-parity, the stage without today's preview run parity rows.
+const fields = argv.includes('--fields'), noPreviewParity = argv[0] === 'no-preview-parity';
+const FIELD_SUBS = ['01-parent-enrichment', '02-dtxr-enrichment'];
+const CONTROL_OF = { 'today-lengths': 'today-lengths', identity: 'identity', 'flat-provenance': 'flat-provenance', 'no-evidence': 'no-evidence',
+  'no-preview-parity': 'no-preview-parity' };
+const stageOptions = { lengthsFromFinalNumbering: !todayLengths, previewRunParity: !noPreviewParity };
+function leafValues(xml) {
+  const out = new Map();
+  const walk = (el, at) => {
+    const kids = elementKids(el);
+    if (!kids.length) { let key = at, n = 1; while (out.has(key)) key = `${at}#${(n += 1)}`; out.set(key, textContent(el).trim()); return; }
+    const seen = {};
+    for (const k of kids) { seen[k.__el] = (seen[k.__el] || 0) + 1; walk(k, `${at}/${k.__el}[${seen[k.__el]}]`); }
+  };
+  walk(parsePlainXml(xml).root, '');
+  return out;
+}
+function fieldProblems(bench, out) {
+  const problems = [];
+  for (const sub of FIELD_SUBS) {
+    const today = leafValues(fs.readFileSync(path.join(xmlDir(bench), `${sub}.xml`), 'utf8')), mine = leafValues(out.stages[sub]);
+    const tags = {};
+    for (const key of new Set([...today.keys(), ...mine.keys()])) {
+      if (/\/ElementLengthMm\[\d+\](#\d+)?$/.test(key) || today.get(key) === mine.get(key)) continue;
+      const tag = key.replace(/\[\d+\]/g, '').replace(/#\d+$/, '');
+      tags[tag] = (tags[tag] || 0) + 1;
+    }
+    if (Object.keys(tags).length) problems.push({ sub, what: "values differ from today's XML", tags });
+  }
+  return problems;
+}
 const tagOf = (block, name) => (block.match(new RegExp(`<${name}>([^<]*)</${name}>`)) || [])[1];
 const pointOf = (p) => { const v = (p || '').match(/-?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?/g)?.map(Number); return v && v.length >= 3 ? v : null; };
 function lengthProblems(xmlText) {
@@ -98,7 +130,8 @@ function provenanceProblems(bench, dir, out) {
   return problems;
 }
 const nodeValues = (text) => [...text.matchAll(/<Node>[\s\S]*?<\/Node>/g)].map((m) => m[0].split('\n').map((l) => l.trim()).filter(Boolean).sort().join('\n'));
-const benches = fs.readdirSync(oracle).filter((b) => fs.existsSync(path.join(xmlDir(b), 'engineering-pass-start.xml')));
+const benches = fs.readdirSync(oracle).filter((b) => fs.existsSync(path.join(xmlDir(b), 'engineering-pass-start.xml'))
+  && (!fields || FIELD_SUBS.every((s) => fs.existsSync(path.join(xmlDir(b), `${s}.xml`)))));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'uxml-v2-stage-'));
 
 function run(script, args) {
@@ -119,6 +152,7 @@ function check(bench) {
   catch (e) { return [{ what: 'threw', message: String(e?.stack || e).slice(0, 400) }]; }
   const problems = [];
   if (lengths) return lengthProblems(out.xmlText);
+  if (fields) return fieldProblems(bench, out);
   if (provenance) return provenanceProblems(bench, dir, out);
   if (rerun) {
     const second = runSupportsStage({ xmlText: out.xmlText, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows }, ...stageOptions });
@@ -143,7 +177,7 @@ const report = { counts: {} };
 for (const bench of benches) perBench[bench] = check(bench);
 fs.rmSync(tmp, { recursive: true, force: true });
 const failing = Object.entries(perBench).filter(([, p]) => p.length).map(([b]) => b);
-Object.assign(report, { impl: CONTROL_OF[argv[0]] || 'uxml/v2/supports/SupportsStage.js', mode: provenance ? 'provenance' : lengths ? 'lengths' : rerun ? 'rerun' : 'stages',
+Object.assign(report, { impl: CONTROL_OF[argv[0]] || 'uxml/v2/supports/SupportsStage.js', mode: provenance ? 'provenance' : fields ? 'fields' : lengths ? 'lengths' : rerun ? 'rerun' : 'stages',
   verdict: failing.length || !benches.length ? 'FAIL' : 'PASS', benches: benches.length, failing, perBench });
 if (!provenance) delete report.counts;
 if (reportPath) fs.writeFileSync(reportPath, JSON.stringify(report, null, 1));

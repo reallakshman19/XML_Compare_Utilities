@@ -2,11 +2,13 @@
 //   branch pass (step 4) -> 01 parent support loop -> 02 DTXR enrichment -> 03 ATTA default closure -> 04 MDS closure.
 // Input is the XML the supports stage receives today (after the topology stage, e.g. gasket drop; that stage is not here).
 // Masters arrive as rows: today's async loaders are not ported. Only the material map differs from the parsed config.
-// Not here (engineering values, not support results): today's preview process data after 01 and process parity between 02 and 03.
+// After the parent loop: today's preview run parity rows (process block and node facts, PreviewRunParity.js), then the finish.
+// Not here yet: today's process parity between 02 and 03 (second preview, bore from OD, source walls, transfer protection).
 import { childText, elementsByName, parsePlainXml, serializePlainXml } from './PlainDom.js';
 import { toFiniteNumber } from './config/EnrichmentConfig.js';
 import { branchEngineeringPass, measureElementLengthsFromFinalNumbering } from '../engineering/BranchPass.js';
 import { finishParentEnrichment } from './parent/ParentEnrichmentFinish.js';
+import { applyPreviewRunParityRows, previewParityConfig } from './parent/PreviewRunParity.js';
 import { supportProvenance } from './SupportProvenance.js';
 import {
   closeGovernedAttaDefaultRestraintsXml, closeGovernedMdsPositionRestraintsXml, createRealCore, enrichStandaloneDtxrAnnotations,
@@ -36,11 +38,13 @@ function restraintsLast(xmlText) {
 
 /**
  * @param {{xmlText: string, stagedJsonText?: string, supportConfig?: object, masters?: {materialMapRows?: object[]},
- *          diagnostics?: object[], lengthsFromFinalNumbering?: boolean}} input
+ *          diagnostics?: object[], lengthsFromFinalNumbering?: boolean,
+ *          previewRunParity?: boolean}} input
  * @returns {{xmlText: string, stages: Record<string, string>, config: object, stats: object, diagnostics: object[],
  *            provenance: {rows: object[], counts: object}}} provenance: where each support value came from (SupportProvenance.js).
  */
-export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig = {}, masters = {}, diagnostics = [], lengthsFromFinalNumbering = true }) {
+export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig = {}, masters = {}, diagnostics = [], lengthsFromFinalNumbering = true,
+  previewRunParity = true }) {
   const core = createRealCore();
   const config = core.parseXmlCiiEnrichmentConfig(JSON.stringify(supportConfig));
   if (Array.isArray(masters.materialMapRows) && masters.materialMapRows.length) config.material.mapRows = masters.materialMapRows;
@@ -56,6 +60,10 @@ export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig =
   const loopEnd = parsePlainXml(parentSupportLoop({ sourceXmlText: xmlText, loopStartXmlText, stagedJsonText, config, tolerance, diagnostics }).xmlText);
   const parentDiagnostics = diagnostics.slice(parentFrom);
   const parentNumbers = elementsByName(loopEnd.root, 'Node').map((n) => childText(n, 'NodeNumber'));
+  // Today's preview rows come from the XML the stage received, with the job config merged over the enrichment config.
+  const parityConfig = previewParityConfig(config, core.parseXmlCiiEnrichmentConfig(JSON.stringify(supportConfig)), supportConfig);
+  // previewRunParity false: without today's preview rows (gate control only).
+  if (previewRunParity) applyPreviewRunParityRows(loopEnd.root, { sourceXmlText: xmlText, config: parityConfig, stagedJsonText, stats, diagnostics });
   finishParentEnrichment(loopEnd.root, config, stats, diagnostics);
   // Owner 16 Nov: lengths from the final numbering (= CII element lengths). false = today's labels (gate control only).
   if (lengthsFromFinalNumbering) measureElementLengthsFromFinalNumbering(loopEnd.root, stats);

@@ -79,3 +79,17 @@ test('provenance gate: a record that calls everything input, and provenance with
     assert.equal(report.failing.length, 5, impl);
   }
 });
+
+test("supports stage writes today's process block and node facts: every value after 01 and 02 equals today's (Owner 16 Nov)", () => {
+  const { status, report, out } = gate('--fields');
+  assert.equal(status, 0, out);
+  assert.equal(report.mode, 'fields');
+  assert.equal(report.verdict, 'PASS');
+  assert.equal(report.benches, 5);
+});
+
+test("fields gate: the stage without today's preview run parity rows fails on every model", () => {
+  const { report } = gate('no-preview-parity', '--fields');
+  assert.equal(report.verdict, 'FAIL');
+  assert.equal(report.failing.length, 5);
+});
