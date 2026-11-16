@@ -1,15 +1,17 @@
 // UXML supports stage on plain data (steps 3 + 4): today's order, real ports, no replay, no DOM, no XML page.
-//   branch pass (step 4) -> 01 parent support loop -> 02 DTXR enrichment -> 03 ATTA default closure -> 04 MDS closure.
+//   branch pass (step 4) -> 01 parent support loop -> 02 DTXR enrichment -> 02b process parity -> 03 ATTA default closure
+//   -> 04 MDS closure.
 // Input is the XML the supports stage receives today (after the topology stage, e.g. gasket drop; that stage is not here).
 // Masters arrive as rows: today's async loaders are not ported. Only the material map differs from the parsed config.
 // After the parent loop: today's preview run parity rows (process block and node facts, PreviewRunParity.js), then the finish.
-// Not here yet: today's process parity between 02 and 03 (second preview, bore from OD, source walls, transfer protection).
+// After DTXR: today's process parity (second preview, bore from OD, source walls, transfer protection; process/).
 import { childText, elementsByName, parsePlainXml, serializePlainXml } from './PlainDom.js';
 import { toFiniteNumber } from './config/EnrichmentConfig.js';
 import { branchEngineeringPass, measureElementLengthsFromFinalNumbering } from '../engineering/BranchPass.js';
 import { finishParentEnrichment } from './parent/ParentEnrichmentFinish.js';
 import { applyPreviewRunParityRows, previewParityConfig } from './parent/PreviewRunParity.js';
 import { supportProvenance } from './SupportProvenance.js';
+import { runProcessParityStep } from './process/ProcessParityStep.js';
 import {
   closeGovernedAttaDefaultRestraintsXml, closeGovernedMdsPositionRestraintsXml, createRealCore, enrichStandaloneDtxrAnnotations,
   parentSupportLoop,
@@ -39,12 +41,12 @@ function restraintsLast(xmlText) {
 /**
  * @param {{xmlText: string, stagedJsonText?: string, supportConfig?: object, masters?: {materialMapRows?: object[]},
  *          diagnostics?: object[], lengthsFromFinalNumbering?: boolean,
- *          previewRunParity?: boolean}} input
+ *          previewRunParity?: boolean, processParity?: boolean}} input
  * @returns {{xmlText: string, stages: Record<string, string>, config: object, stats: object, diagnostics: object[],
  *            provenance: {rows: object[], counts: object}}} provenance: where each support value came from (SupportProvenance.js).
  */
 export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig = {}, masters = {}, diagnostics = [], lengthsFromFinalNumbering = true,
-  previewRunParity = true }) {
+  previewRunParity = true, processParity = true }) {
   const core = createRealCore();
   const config = core.parseXmlCiiEnrichmentConfig(JSON.stringify(supportConfig));
   if (Array.isArray(masters.materialMapRows) && masters.materialMapRows.length) config.material.mapRows = masters.materialMapRows;
@@ -70,8 +72,13 @@ export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig =
   stages['01-parent-enrichment'] = serializePlainXml(loopEnd);
   const dtxr = enrichStandaloneDtxrAnnotations(stages['01-parent-enrichment'], stagedJsonText, supportConfig);
   stages['02-dtxr-enrichment'] = dtxr.text || stages['01-parent-enrichment'];
-  const atta = closeGovernedAttaDefaultRestraintsXml(stages['02-dtxr-enrichment'], supportConfig);
-  stages['03-atta-default'] = atta.xmlText || stages['02-dtxr-enrichment'];
+  // Today's process parity (ProcessParityStep.js); false: without it (gate control only).
+  stages['02b-process-parity'] = processParity
+    ? runProcessParityStep({ xmlText: stages['02-dtxr-enrichment'], sourceXmlText: xmlText, supportConfig, stagedJsonText,
+      defaultMaterialMapRows: masters.materialMapRows || [], diagnostics, stats: (stats.processParity = {}) }).xmlText
+    : stages['02-dtxr-enrichment'];
+  const atta = closeGovernedAttaDefaultRestraintsXml(stages['02b-process-parity'], supportConfig);
+  stages['03-atta-default'] = atta.xmlText || stages['02b-process-parity'];
   const mds = closeGovernedMdsPositionRestraintsXml(stages['03-atta-default'], stagedJsonText, supportConfig);
   stages['04-mds-closure'] = restraintsLast(mds.xmlText || stages['03-atta-default']);
 

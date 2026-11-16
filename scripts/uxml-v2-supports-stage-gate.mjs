@@ -45,14 +45,17 @@ const todayLengths = argv[0] === 'today-lengths';
 // Controls (must FAIL): flat-provenance (every record says input), no-evidence (provenance without the diagnostics).
 const provenance = argv.includes('--provenance');
 const flatProvenance = argv[0] === 'flat-provenance', noEvidence = argv[0] === 'no-evidence';
-// Owner 16 Nov (CII check, 'port both'). --fields: every value in today's XML after 01 and 02 (every leaf: process block,
-// node facts, supports) equals the stage's, except ElementLengthMm (measured from the final numbering on purpose).
-// Control (must FAIL): no-preview-parity, the stage without today's preview run parity rows.
-const fields = argv.includes('--fields'), noPreviewParity = argv[0] === 'no-preview-parity';
-const FIELD_SUBS = ['01-parent-enrichment', '02-dtxr-enrichment'];
+// Owner 16 Nov (CII check, 'port both', 'port all'). --fields: every value in today's XML after each sub-stage (every leaf:
+// process block, node facts, supports, restraints) equals the stage's, except ElementLengthMm (measured from the final
+// numbering on purpose). Today's XML per sub-stage where recorded (xml/<sub>.xml), and today's final XML where given
+// (<oracle>/<B>/final-enriched.xml, compared with 04). Controls (must FAIL): no-preview-parity (without today's preview run
+// parity rows after the parent loop), no-process-parity (without today's process parity after DTXR).
+const fields = argv.includes('--fields'), noPreviewParity = argv[0] === 'no-preview-parity', noProcessParity = argv[0] === 'no-process-parity';
+const fieldRefs = (b) => [...SUB.map((s) => [s, path.join(xmlDir(b), `${s}.xml`)]), ['04-mds-closure', path.join(oracle, b, 'final-enriched.xml')]]
+  .filter(([, file]) => fs.existsSync(file));
 const CONTROL_OF = { 'today-lengths': 'today-lengths', identity: 'identity', 'flat-provenance': 'flat-provenance', 'no-evidence': 'no-evidence',
-  'no-preview-parity': 'no-preview-parity' };
-const stageOptions = { lengthsFromFinalNumbering: !todayLengths, previewRunParity: !noPreviewParity };
+  'no-preview-parity': 'no-preview-parity', 'no-process-parity': 'no-process-parity' };
+const stageOptions = { lengthsFromFinalNumbering: !todayLengths, previewRunParity: !noPreviewParity, processParity: !noProcessParity };
 function leafValues(xml) {
   const out = new Map();
   const walk = (el, at) => {
@@ -66,15 +69,15 @@ function leafValues(xml) {
 }
 function fieldProblems(bench, out) {
   const problems = [];
-  for (const sub of FIELD_SUBS) {
-    const today = leafValues(fs.readFileSync(path.join(xmlDir(bench), `${sub}.xml`), 'utf8')), mine = leafValues(out.stages[sub]);
+  for (const [sub, file] of fieldRefs(bench)) {
+    const today = leafValues(fs.readFileSync(file, 'utf8')), mine = leafValues(out.stages[sub]);
     const tags = {};
     for (const key of new Set([...today.keys(), ...mine.keys()])) {
       if (/\/ElementLengthMm\[\d+\](#\d+)?$/.test(key) || today.get(key) === mine.get(key)) continue;
       const tag = key.replace(/\[\d+\]/g, '').replace(/#\d+$/, '');
       tags[tag] = (tags[tag] || 0) + 1;
     }
-    if (Object.keys(tags).length) problems.push({ sub, what: "values differ from today's XML", tags });
+    if (Object.keys(tags).length) problems.push({ sub, today: path.basename(file), what: "values differ from today's XML", tags });
   }
   return problems;
 }
@@ -131,7 +134,7 @@ function provenanceProblems(bench, dir, out) {
 }
 const nodeValues = (text) => [...text.matchAll(/<Node>[\s\S]*?<\/Node>/g)].map((m) => m[0].split('\n').map((l) => l.trim()).filter(Boolean).sort().join('\n'));
 const benches = fs.readdirSync(oracle).filter((b) => fs.existsSync(path.join(xmlDir(b), 'engineering-pass-start.xml'))
-  && (!fields || FIELD_SUBS.every((s) => fs.existsSync(path.join(xmlDir(b), `${s}.xml`)))));
+  && (!fields || fieldRefs(b).length > 0));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'uxml-v2-stage-'));
 
 function run(script, args) {

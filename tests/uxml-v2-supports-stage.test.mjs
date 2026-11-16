@@ -80,7 +80,7 @@ test('provenance gate: a record that calls everything input, and provenance with
   }
 });
 
-test("supports stage writes today's process block and node facts: every value after 01 and 02 equals today's (Owner 16 Nov)", () => {
+test("supports stage writes today's process block and node facts: every value after every sub-stage equals today's (Owner 16 Nov)", () => {
   const { status, report, out } = gate('--fields');
   assert.equal(status, 0, out);
   assert.equal(report.mode, 'fields');
@@ -92,4 +92,34 @@ test("fields gate: the stage without today's preview run parity rows fails on ev
   const { report } = gate('no-preview-parity', '--fields');
   assert.equal(report.verdict, 'FAIL');
   assert.equal(report.failing.length, 5);
+});
+
+test("fields gate: the stage without today's process parity after DTXR fails on every model, from 03 on", () => {
+  const { report } = gate('no-process-parity', '--fields');
+  assert.equal(report.verdict, 'FAIL');
+  assert.equal(report.failing.length, 5);
+  for (const problems of Object.values(report.perBench)) assert.deepEqual(problems.map((p) => p.sub), ['03-atta-default', '04-mds-closure']);
+});
+
+// The CII gate needs today's CII writer (a 3D_Converters checkout): UXML_CII_WRITER=<path to xml_to_cii2019_runtime_custody.py>.
+const writer = process.env.UXML_CII_WRITER;
+function ciiGate(...args) {
+  const dir = mkdtempSync(join(tmpdir(), 'uxml-v2-cii-'));
+  const reportPath = join(dir, 'gate.json');
+  try {
+    const r = spawnSync(process.execPath, ['scripts/uxml-v2-supports-cii-gate.mjs', ...args, '--writer', writer, '--json', reportPath], { cwd: ROOT, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+    return { status: r.status, report: JSON.parse(readFileSync(reportPath, 'utf8')), out: `${r.stdout}${r.stderr}` };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+test("CII gate: today's CII writer gives the same CII from the stage as from today's XML on all 5 models", { skip: !writer && 'UXML_CII_WRITER not set' }, () => {
+  const { status, report, out } = ciiGate();
+  assert.equal(status, 0, out);
+  assert.equal(report.benches, 5);
+});
+test("CII gate: the stage without today's process parity fails", { skip: !writer && 'UXML_CII_WRITER not set' }, () => {
+  const { report } = ciiGate('no-process-parity');
+  assert.equal(report.verdict, 'FAIL');
+  assert.ok(report.failing.length >= 4);
 });
