@@ -101,6 +101,20 @@ test("fields gate: the stage without today's process parity after DTXR fails on 
   for (const problems of Object.values(report.perBench)) assert.deepEqual(problems.map((p) => p.sub), ['03-atta-default', '04-mds-closure']);
 });
 
+test("supports stage warns about staged supports that became no restraint, and records duplicate removals, as today (Owner 14 Nov)", () => {
+  const { status, report, out } = gate('--warnings');
+  assert.equal(status, 0, out);
+  assert.equal(report.mode, 'warnings');
+  assert.equal(report.verdict, 'PASS');
+  assert.equal(report.benches, 5);
+});
+
+test('warnings gate: the stage without the unmatched-support warnings fails on both GOLDEN-30 models with the orphan support', () => {
+  const { report } = gate('no-unmatched-warnings', '--warnings');
+  assert.equal(report.verdict, 'FAIL');
+  assert.deepEqual(report.failing, ['G30', 'G30-CUSTOM']);
+});
+
 // The CII gate needs today's CII writer (a 3D_Converters checkout): UXML_CII_WRITER=<path to xml_to_cii2019_runtime_custody.py>.
 const writer = process.env.UXML_CII_WRITER;
 function ciiGate(...args) {

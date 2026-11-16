@@ -53,9 +53,27 @@ const flatProvenance = argv[0] === 'flat-provenance', noEvidence = argv[0] === '
 const fields = argv.includes('--fields'), noPreviewParity = argv[0] === 'no-preview-parity', noProcessParity = argv[0] === 'no-process-parity';
 const fieldRefs = (b) => [...SUB.map((s) => [s, path.join(xmlDir(b), `${s}.xml`)]), ['04-mds-closure', path.join(oracle, b, 'final-enriched.xml')]]
   .filter(([, file]) => fs.existsSync(file));
+// Owner 14 Nov (GOLDEN-30 H). --warnings: the stage's warnings for staged supports that did not become restraints, and its
+// duplicate-support removals, equal today's recorded diagnostics (<oracle>/<B>/diagnostics.json) field for field, and the
+// removal count equals today's stats.json. Control (must FAIL where today warns): no-unmatched-warnings.
+const warnings = argv.includes('--warnings'), noUnmatched = argv[0] === 'no-unmatched-warnings';
+const WARNING_TYPES = ['staged-support-unmatched', 'duplicate-support-removed'];
 const CONTROL_OF = { 'today-lengths': 'today-lengths', identity: 'identity', 'flat-provenance': 'flat-provenance', 'no-evidence': 'no-evidence',
-  'no-preview-parity': 'no-preview-parity', 'no-process-parity': 'no-process-parity' };
-const stageOptions = { lengthsFromFinalNumbering: !todayLengths, previewRunParity: !noPreviewParity, processParity: !noProcessParity };
+  'no-preview-parity': 'no-preview-parity', 'no-process-parity': 'no-process-parity', 'no-unmatched-warnings': 'no-unmatched-warnings' };
+const stageOptions = { lengthsFromFinalNumbering: !todayLengths, previewRunParity: !noPreviewParity, processParity: !noProcessParity,
+  unmatchedSupportWarnings: !noUnmatched };
+function warningProblems(dir, out) {
+  const today = JSON.parse(fs.readFileSync(path.join(dir, 'diagnostics.json'), 'utf8'));
+  const of = (list, type) => list.filter((d) => d?.type === type).map(({ supportsSubStep, ...d }) => JSON.stringify(d));
+  const problems = WARNING_TYPES.flatMap((type) => {
+    const a = of(today, type), b = of(out.diagnostics || [], type);
+    const differ = b.filter((d, i) => d !== a[i]).length + Math.max(0, a.length - b.length);
+    return differ ? [{ what: `${type} differs from today`, today: a.length, stage: b.length, differ }] : [];
+  });
+  const todayRemoved = JSON.parse(fs.readFileSync(path.join(dir, 'stats.json'), 'utf8')).removedDuplicateSupports ?? 0;
+  if ((out.stats?.removedDuplicateSupports ?? 0) !== todayRemoved) problems.push({ what: 'duplicate removal count differs', today: todayRemoved, stage: out.stats?.removedDuplicateSupports });
+  return problems;
+}
 function leafValues(xml) {
   const out = new Map();
   const walk = (el, at) => {
@@ -157,6 +175,7 @@ function check(bench) {
   if (lengths) return lengthProblems(out.xmlText);
   if (fields) return fieldProblems(bench, out);
   if (provenance) return provenanceProblems(bench, dir, out);
+  if (warnings) return warningProblems(dir, out);
   if (rerun) {
     const second = runSupportsStage({ xmlText: out.xmlText, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows }, ...stageOptions });
     const a = nodeValues(out.xmlText), b = nodeValues(second.xmlText);
@@ -180,7 +199,7 @@ const report = { counts: {} };
 for (const bench of benches) perBench[bench] = check(bench);
 fs.rmSync(tmp, { recursive: true, force: true });
 const failing = Object.entries(perBench).filter(([, p]) => p.length).map(([b]) => b);
-Object.assign(report, { impl: CONTROL_OF[argv[0]] || 'uxml/v2/supports/SupportsStage.js', mode: provenance ? 'provenance' : fields ? 'fields' : lengths ? 'lengths' : rerun ? 'rerun' : 'stages',
+Object.assign(report, { impl: CONTROL_OF[argv[0]] || 'uxml/v2/supports/SupportsStage.js', mode: warnings ? 'warnings' : provenance ? 'provenance' : fields ? 'fields' : lengths ? 'lengths' : rerun ? 'rerun' : 'stages',
   verdict: failing.length || !benches.length ? 'FAIL' : 'PASS', benches: benches.length, failing, perBench });
 if (!provenance) delete report.counts;
 if (reportPath) fs.writeFileSync(reportPath, JSON.stringify(report, null, 1));

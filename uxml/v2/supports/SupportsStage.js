@@ -5,6 +5,7 @@
 // Masters arrive as rows: today's async loaders are not ported. Only the material map differs from the parsed config.
 // After the parent loop: today's preview run parity rows (process block and node facts, PreviewRunParity.js), then the finish.
 // After DTXR: today's process parity (second preview, bore from OD, source walls, transfer protection; process/).
+// At the end: warnings for staged supports that did not become restraints (UnmatchedSupports.js).
 import { childText, elementsByName, parsePlainXml, serializePlainXml } from './PlainDom.js';
 import { toFiniteNumber } from './config/EnrichmentConfig.js';
 import { branchEngineeringPass, measureElementLengthsFromFinalNumbering } from '../engineering/BranchPass.js';
@@ -12,6 +13,7 @@ import { finishParentEnrichment } from './parent/ParentEnrichmentFinish.js';
 import { applyPreviewRunParityRows, previewParityConfig } from './parent/PreviewRunParity.js';
 import { supportProvenance } from './SupportProvenance.js';
 import { runProcessParityStep } from './process/ProcessParityStep.js';
+import { unmatchedStagedSupportWarnings } from './UnmatchedSupports.js';
 import {
   closeGovernedAttaDefaultRestraintsXml, closeGovernedMdsPositionRestraintsXml, createRealCore, enrichStandaloneDtxrAnnotations,
   parentSupportLoop,
@@ -41,12 +43,12 @@ function restraintsLast(xmlText) {
 /**
  * @param {{xmlText: string, stagedJsonText?: string, supportConfig?: object, masters?: {materialMapRows?: object[]},
  *          diagnostics?: object[], lengthsFromFinalNumbering?: boolean,
- *          previewRunParity?: boolean, processParity?: boolean}} input
+ *          previewRunParity?: boolean, processParity?: boolean, unmatchedSupportWarnings?: boolean}} input
  * @returns {{xmlText: string, stages: Record<string, string>, config: object, stats: object, diagnostics: object[],
  *            provenance: {rows: object[], counts: object}}} provenance: where each support value came from (SupportProvenance.js).
  */
 export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig = {}, masters = {}, diagnostics = [], lengthsFromFinalNumbering = true,
-  previewRunParity = true, processParity = true }) {
+  previewRunParity = true, processParity = true, unmatchedSupportWarnings = true }) {
   const core = createRealCore();
   const config = core.parseXmlCiiEnrichmentConfig(JSON.stringify(supportConfig));
   if (Array.isArray(masters.materialMapRows) && masters.materialMapRows.length) config.material.mapRows = masters.materialMapRows;
@@ -86,6 +88,11 @@ export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig =
     stats[name] = step.stats || {};
     for (const d of step.diagnostics || []) diagnostics.push({ ...d, supportsSubStep: name });
   }
+  // Staged supports that did not become restraints, judged on the final XML (UnmatchedSupports.js); false: gate control only.
+  const unmatched = unmatchedSupportWarnings
+    ? unmatchedStagedSupportWarnings(dtxr.ledgerResult, Number(config?.coordinateTolerance ?? 1), stages['04-mds-closure']) : [];
+  stats.unmatchedSupports = unmatched.length;
+  diagnostics.push(...unmatched);
   const provenance = supportProvenance({ stages, parentNumbers,
     diagnosticsByStep: { parent: parentDiagnostics, dtxr: dtxr.diagnostics, atta: atta.diagnostics, mds: mds.diagnostics } });
   return { xmlText: stages['04-mds-closure'], stages, config, stats, diagnostics, provenance };
