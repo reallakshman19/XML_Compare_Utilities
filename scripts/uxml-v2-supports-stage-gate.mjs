@@ -30,8 +30,8 @@ const STAGED = { G30: 'bench/golden-30_staged.json', 'G30-CUSTOM': 'bench/golden
 const tableOf = (text) => supportTableOf(readPsi116V2(text, { fileSha256: createHash('sha256').update(text).digest('hex') }));
 const xmlDir = (b) => path.join(xmlRoot || oracle, b, 'xml');
 const control = argv[0] === 'identity';
-// --rerun (Owner 16 Nov): the stage run again on its own output must keep every node's values (lengths included) and the
-// support table; child order inside a node may differ. Control 'recompute' drops the lengths before run 2 (today's behaviour).
+// --rerun (Owner 16 Nov): the stage run again on its own output must give the same XML, byte for byte (so every length,
+// value and child order) and the same support table. Control 'recompute' drops the lengths before run 2 (today's behaviour).
 const rerun = argv.includes('--rerun') || argv[0] === 'recompute';
 const recompute = argv[0] === 'recompute';
 const nodeValues = (text) => [...text.matchAll(/<Node>[\s\S]*?<\/Node>/g)].map((m) => m[0].split('\n').map((l) => l.trim()).filter(Boolean).sort().join('\n'));
@@ -61,6 +61,7 @@ function check(bench) {
     const a = nodeValues(out.xmlText), b = nodeValues(second.xmlText);
     const changed = a.filter((n, i) => n !== b[i]).length + Math.abs(a.length - b.length);
     if (changed) problems.push({ what: 'second run changed node values', nodes: changed });
+    else if (out.xmlText !== second.xmlText) problems.push({ what: 'second run changed the XML (order only)' });
     if (JSON.stringify(tableOf(out.xmlText)) !== JSON.stringify(tableOf(second.xmlText))) problems.push({ what: 'second run changed the support table' });
     return problems;
   }

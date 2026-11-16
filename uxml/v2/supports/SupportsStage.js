@@ -3,7 +3,7 @@
 // Input is the XML the supports stage receives today (after the topology stage, e.g. gasket drop; that stage is not here).
 // Masters arrive as rows: today's async loaders are not ported. Only the material map differs from the parsed config.
 // Not here (engineering values, not support results): today's preview process data after 01 and process parity between 02 and 03.
-import { parsePlainXml, serializePlainXml } from './PlainDom.js';
+import { elementsByName, parsePlainXml, serializePlainXml } from './PlainDom.js';
 import { toFiniteNumber } from './config/EnrichmentConfig.js';
 import { branchEngineeringPass } from '../engineering/BranchPass.js';
 import { finishParentEnrichment } from './parent/ParentEnrichmentFinish.js';
@@ -11,6 +11,27 @@ import {
   closeGovernedAttaDefaultRestraintsXml, closeGovernedMdsPositionRestraintsXml, createRealCore, enrichStandaloneDtxrAnnotations,
   parentSupportLoop,
 } from './SupportsChain.js';
+
+/**
+ * Owner 16 Nov (a re-run must give the same XML): today's restraint writer takes a node's restraints out and adds them back
+ * at the end, so on a second run they land after tags a first run put after them (DTXR_POS, DTXR_SOURCE). The stage ends
+ * with every node's restraints last, in their own order, which is where a re-run puts them. Values are not touched.
+ */
+function restraintsLast(xmlText) {
+  const doc = parsePlainXml(xmlText);
+  let moved = 0;
+  for (const node of elementsByName(doc.root, 'Node')) {
+    const kids = node.kids || [];
+    const firstAt = kids.findIndex((k) => k.__el === 'Restraint');
+    if (firstAt < 0 || kids.slice(firstAt).every((k) => k.__el === 'Restraint' || (k.__text !== undefined && !k.__text.trim()))) continue;
+    const blank = (i) => i >= 0 && kids[i].__text !== undefined && !kids[i].__text.trim();
+    const block = [];
+    for (let i = kids.length - 1; i >= 0; i -= 1) if (kids[i].__el === 'Restraint') block.unshift(...kids.splice(blank(i - 1) ? i - 1 : i, blank(i - 1) ? 2 : 1));
+    kids.push(...block);
+    moved += 1;
+  }
+  return moved ? serializePlainXml(doc) : xmlText;
+}
 
 /**
  * @param {{xmlText: string, stagedJsonText?: string, supportConfig?: object, masters?: {materialMapRows?: object[]},
@@ -37,7 +58,7 @@ export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig =
   const atta = closeGovernedAttaDefaultRestraintsXml(stages['02-dtxr-enrichment'], supportConfig);
   stages['03-atta-default'] = atta.xmlText || stages['02-dtxr-enrichment'];
   const mds = closeGovernedMdsPositionRestraintsXml(stages['03-atta-default'], stagedJsonText, supportConfig);
-  stages['04-mds-closure'] = mds.xmlText || stages['03-atta-default'];
+  stages['04-mds-closure'] = restraintsLast(mds.xmlText || stages['03-atta-default']);
 
   for (const [name, step] of [['dtxr', dtxr], ['atta', atta], ['mds', mds]]) {
     stats[name] = step.stats || {};

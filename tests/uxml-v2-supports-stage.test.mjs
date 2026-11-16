@@ -35,7 +35,7 @@ test('supports stage gate: the no-change control fails on every model', () => {
   assert.equal(report.failing.length, 5);
 });
 
-test('supports stage run again on its own output keeps every node value and the support table (Owner 16 Nov)', () => {
+test('supports stage run again on its own output gives the same XML and support table (Owner 16 Nov)', () => {
   const { status, report, out } = gate('--rerun');
   assert.equal(status, 0, out);
   assert.equal(report.mode, 'rerun');
@@ -46,5 +46,6 @@ test('supports stage run again on its own output keeps every node value and the 
 test('rerun gate: re-measuring lengths on the second run (today\'s behaviour) fails', () => {
   const { report } = gate('recompute');
   assert.equal(report.verdict, 'FAIL');
-  assert.deepEqual(report.failing, ['G30', 'G30-CUSTOM', 'G30-NOJSON', 'RMS-BLOW-1']);
+  // Lengths re-measured on the four models with renumbered valve/flange nodes (ACTIVE-AUDIT fails on order only).
+  for (const b of ['G30', 'G30-CUSTOM', 'G30-NOJSON', 'RMS-BLOW-1']) assert.ok(report.perBench[b].some((p) => p.what === 'second run changed node values'), b);
 });
