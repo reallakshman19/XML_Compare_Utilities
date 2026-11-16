@@ -61,7 +61,7 @@ function annotateNode(ctx, node, nodeIdx, lengthMm) {
     diagnostics.push({ type: 'node-bore-unqualified-od', branchName, nodeNumber: childText(node, 'NodeNumber'), outsideDiameterMm: nodeOd,
       reason: 'Unknown OD-to-DN mapping; branch regex must not overwrite BoreMm' });
   }
-  if (lengthMm !== null) setChildText(node, 'ElementLengthMm', lengthMm.toFixed(3));
+  if (lengthMm !== null && !ctx.alreadyMeasured) setChildText(node, 'ElementLengthMm', lengthMm.toFixed(3));
   if (resolved.wallThicknessMm) setChildText(node, 'WallThickness', Number(resolved.wallThicknessMm.toPrecision(6)).toString());
   if (resolved.corrosionAllowanceMm != null) setChildText(node, 'CorrosionAllowance', String(resolved.corrosionAllowanceMm));
   if (resolved.material) setChildText(node, 'MaterialName', resolved.material);
@@ -110,6 +110,11 @@ export function branchEngineeringPass({ root, config, tolerance, stats = {}, dia
   for (const k of ['removedDuplicateSupports', 'branchLineKeys', 'lineListMatches', 'processAnnotations', 'ratingAnnotations', 'weightAnnotations']) stats[k] ??= 0;
   const pipingClassIndex = buildPipingClassIndex(config.pipingClass?.masterRows || []);
   const materialMap = config.material?.mapRows || [];
+  // Owner 16 Nov: a second stage run must keep the lengths. Lengths are measured once, on fresh input; an input that
+  // already carries lengths keeps them all as they are (no stage input does today, 7/7, so a first run is unchanged).
+  // Otherwise nodes the first run renumbered act as new neighbours and lengths are re-measured or added on a re-run.
+  const alreadyMeasured = elementsByName(root, 'ElementLengthMm').length > 0;
+  stats.lengthsKeptFromInput = alreadyMeasured;
   for (const branch of elementsByName(root, 'Branch')) {
     const branchName = childText(branch, 'Branchname');
     const { lineKey, lineListMatch } = lineListStep(branch, branchName, config, stats, diagnostics);
@@ -134,7 +139,7 @@ export function branchEngineeringPass({ root, config, tolerance, stats = {}, dia
       processParameters: { temperature: elementTextMap(firstChild(branch, 'Temperature')), pressure: elementTextMap(firstChild(branch, 'Pressure')) } });
     const nodes = childrenByName(branch, 'Node');
     const forwardLengths = xmlCiiForwardElementLengths(nodes);
-    const ctx = { branch, branchName, pipingClass, branchRating, branchBore, resolved, pcMaster, config, stats, diagnostics };
+    const ctx = { branch, branchName, pipingClass, branchRating, branchBore, resolved, pcMaster, config, stats, diagnostics, alreadyMeasured };
     nodes.forEach((node, nodeIdx) => annotateNode(ctx, node, nodeIdx, forwardLengths[nodeIdx]));
   }
   return { stats, diagnostics };

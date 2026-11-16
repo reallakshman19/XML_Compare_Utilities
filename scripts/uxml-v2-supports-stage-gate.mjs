@@ -4,6 +4,7 @@
 // step-3 GATES.json, which allowed the split-renumbering topology gap that the stage now closes.
 //   node scripts/uxml-v2-supports-stage-gate.mjs [identity] [--oracle <dir>] [--xml <dir>] [--calls <dir>] [--json report.json]
 //   identity: control that returns its input at every sub-stage (must FAIL). --xml: folder of <B>/xml/ (default --oracle).
+//   --rerun: run the stage again on its own output (see below); recompute: its control (must FAIL).
 // Inputs per model: oracle/<B>/xml/engineering-pass-start.xml (the XML today's stage receives), the raw job config
 // (as today's sub-steps receive it, from the recorded DTXR call) and the material map rows (from the snapshot).
 import fs from 'node:fs';
@@ -29,6 +30,11 @@ const STAGED = { G30: 'bench/golden-30_staged.json', 'G30-CUSTOM': 'bench/golden
 const tableOf = (text) => supportTableOf(readPsi116V2(text, { fileSha256: createHash('sha256').update(text).digest('hex') }));
 const xmlDir = (b) => path.join(xmlRoot || oracle, b, 'xml');
 const control = argv[0] === 'identity';
+// --rerun (Owner 16 Nov): the stage run again on its own output must keep every node's values (lengths included) and the
+// support table; child order inside a node may differ. Control 'recompute' drops the lengths before run 2 (today's behaviour).
+const rerun = argv.includes('--rerun') || argv[0] === 'recompute';
+const recompute = argv[0] === 'recompute';
+const nodeValues = (text) => [...text.matchAll(/<Node>[\s\S]*?<\/Node>/g)].map((m) => m[0].split('\n').map((l) => l.trim()).filter(Boolean).sort().join('\n'));
 const benches = fs.readdirSync(oracle).filter((b) => fs.existsSync(path.join(xmlDir(b), 'engineering-pass-start.xml')));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'uxml-v2-stage-'));
 
@@ -49,6 +55,15 @@ function check(bench) {
   try { out = control ? { stages: Object.fromEntries(SUB.map((s) => [s, xmlText])) } : runSupportsStage({ xmlText, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows } }); }
   catch (e) { return [{ what: 'threw', message: String(e?.stack || e).slice(0, 400) }]; }
   const problems = [];
+  if (rerun) {
+    const again = recompute ? out.xmlText.replace(/\s*<ElementLengthMm>[^<]*<\/ElementLengthMm>/g, '') : out.xmlText;
+    const second = runSupportsStage({ xmlText: again, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows } });
+    const a = nodeValues(out.xmlText), b = nodeValues(second.xmlText);
+    const changed = a.filter((n, i) => n !== b[i]).length + Math.abs(a.length - b.length);
+    if (changed) problems.push({ what: 'second run changed node values', nodes: changed });
+    if (JSON.stringify(tableOf(out.xmlText)) !== JSON.stringify(tableOf(second.xmlText))) problems.push({ what: 'second run changed the support table' });
+    return problems;
+  }
   for (const sub of SUB) {
     const actual = path.join(tmp, `${bench}.${sub}.json`), cmp = path.join(tmp, `${bench}.${sub}.cmp.json`);
     fs.writeFileSync(actual, JSON.stringify(tableOf(out.stages[sub])));
@@ -62,7 +77,7 @@ const perBench = {};
 for (const bench of benches) perBench[bench] = check(bench);
 fs.rmSync(tmp, { recursive: true, force: true });
 const failing = Object.entries(perBench).filter(([, p]) => p.length).map(([b]) => b);
-const report = { impl: control ? 'identity' : 'uxml/v2/supports/SupportsStage.js', verdict: failing.length || !benches.length ? 'FAIL' : 'PASS', benches: benches.length, failing, perBench };
+const report = { impl: recompute ? 'recompute' : control ? 'identity' : 'uxml/v2/supports/SupportsStage.js', mode: rerun ? 'rerun' : 'stages', verdict: failing.length || !benches.length ? 'FAIL' : 'PASS', benches: benches.length, failing, perBench };
 if (reportPath) fs.writeFileSync(reportPath, JSON.stringify(report, null, 1));
 console.log(JSON.stringify(report, null, 1).slice(0, 4000));
 process.exitCode = report.verdict === 'PASS' ? 0 : 1;
