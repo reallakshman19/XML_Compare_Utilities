@@ -61,7 +61,7 @@ function annotateNode(ctx, node, nodeIdx, lengthMm) {
     diagnostics.push({ type: 'node-bore-unqualified-od', branchName, nodeNumber: childText(node, 'NodeNumber'), outsideDiameterMm: nodeOd,
       reason: 'Unknown OD-to-DN mapping; branch regex must not overwrite BoreMm' });
   }
-  if (lengthMm !== null && !ctx.alreadyMeasured) setChildText(node, 'ElementLengthMm', lengthMm.toFixed(3));
+  if (lengthMm !== null) setChildText(node, 'ElementLengthMm', lengthMm.toFixed(3));
   if (resolved.wallThicknessMm) setChildText(node, 'WallThickness', Number(resolved.wallThicknessMm.toPrecision(6)).toString());
   if (resolved.corrosionAllowanceMm != null) setChildText(node, 'CorrosionAllowance', String(resolved.corrosionAllowanceMm));
   if (resolved.material) setChildText(node, 'MaterialName', resolved.material);
@@ -110,11 +110,6 @@ export function branchEngineeringPass({ root, config, tolerance, stats = {}, dia
   for (const k of ['removedDuplicateSupports', 'branchLineKeys', 'lineListMatches', 'processAnnotations', 'ratingAnnotations', 'weightAnnotations']) stats[k] ??= 0;
   const pipingClassIndex = buildPipingClassIndex(config.pipingClass?.masterRows || []);
   const materialMap = config.material?.mapRows || [];
-  // Owner 16 Nov: a second stage run must keep the lengths. Lengths are measured once, on fresh input; an input that
-  // already carries lengths keeps them all as they are (no stage input does today, 7/7, so a first run is unchanged).
-  // Otherwise nodes the first run renumbered act as new neighbours and lengths are re-measured or added on a re-run.
-  const alreadyMeasured = elementsByName(root, 'ElementLengthMm').length > 0;
-  stats.lengthsKeptFromInput = alreadyMeasured;
   for (const branch of elementsByName(root, 'Branch')) {
     const branchName = childText(branch, 'Branchname');
     const { lineKey, lineListMatch } = lineListStep(branch, branchName, config, stats, diagnostics);
@@ -139,8 +134,32 @@ export function branchEngineeringPass({ root, config, tolerance, stats = {}, dia
       processParameters: { temperature: elementTextMap(firstChild(branch, 'Temperature')), pressure: elementTextMap(firstChild(branch, 'Pressure')) } });
     const nodes = childrenByName(branch, 'Node');
     const forwardLengths = xmlCiiForwardElementLengths(nodes);
-    const ctx = { branch, branchName, pipingClass, branchRating, branchBore, resolved, pcMaster, config, stats, diagnostics, alreadyMeasured };
+    const ctx = { branch, branchName, pipingClass, branchRating, branchBore, resolved, pcMaster, config, stats, diagnostics };
     nodes.forEach((node, nodeIdx) => annotateNode(ctx, node, nodeIdx, forwardLengths[nodeIdx]));
   }
   return { stats, diagnostics };
+}
+
+/**
+ * Owner 16 Nov ("measure after renumbering"): the branch pass measures lengths before the split-condensed renumbering, so a
+ * node right after a renumbered valve/flange block is measured across the whole block, and a second run measures again.
+ * The stage calls this once, after renumbering: every numbered node's ElementLengthMm becomes the straight distance from
+ * the previous numbered node in its branch, which is the CII element length (today's CII writer takes DX/DY/DZ from the
+ * two end positions and never reads ElementLengthMm). Negative (not written to CII) nodes keep their in-line lengths.
+ * Same rule as today's branch pass, so a second run finds nothing to change. Returns the number of lengths changed.
+ */
+export function measureElementLengthsFromFinalNumbering(root, stats = {}) {
+  let changed = 0;
+  for (const branch of elementsByName(root, 'Branch')) {
+    const nodes = childrenByName(branch, 'Node');
+    xmlCiiForwardElementLengths(nodes).forEach((lengthMm, i) => {
+      if (lengthMm === null) return;
+      const value = lengthMm.toFixed(3);
+      if (childText(nodes[i], 'ElementLengthMm') === value) return;
+      setChildText(nodes[i], 'ElementLengthMm', value);
+      changed += 1;
+    });
+  }
+  stats.lengthsMeasuredAfterRenumbering = changed;
+  return changed;
 }

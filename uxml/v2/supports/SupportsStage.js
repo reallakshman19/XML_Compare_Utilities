@@ -5,7 +5,7 @@
 // Not here (engineering values, not support results): today's preview process data after 01 and process parity between 02 and 03.
 import { elementsByName, parsePlainXml, serializePlainXml } from './PlainDom.js';
 import { toFiniteNumber } from './config/EnrichmentConfig.js';
-import { branchEngineeringPass } from '../engineering/BranchPass.js';
+import { branchEngineeringPass, measureElementLengthsFromFinalNumbering } from '../engineering/BranchPass.js';
 import { finishParentEnrichment } from './parent/ParentEnrichmentFinish.js';
 import {
   closeGovernedAttaDefaultRestraintsXml, closeGovernedMdsPositionRestraintsXml, createRealCore, enrichStandaloneDtxrAnnotations,
@@ -35,10 +35,10 @@ function restraintsLast(xmlText) {
 
 /**
  * @param {{xmlText: string, stagedJsonText?: string, supportConfig?: object, masters?: {materialMapRows?: object[]},
- *          diagnostics?: object[]}} input
+ *          diagnostics?: object[], lengthsFromFinalNumbering?: boolean}} input
  * @returns {{xmlText: string, stages: Record<string, string>, config: object, stats: object, diagnostics: object[]}}
  */
-export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig = {}, masters = {}, diagnostics = [] }) {
+export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig = {}, masters = {}, diagnostics = [], lengthsFromFinalNumbering = true }) {
   const core = createRealCore();
   const config = core.parseXmlCiiEnrichmentConfig(JSON.stringify(supportConfig));
   if (Array.isArray(masters.materialMapRows) && masters.materialMapRows.length) config.material.mapRows = masters.materialMapRows;
@@ -52,6 +52,8 @@ export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig =
 
   const loopEnd = parsePlainXml(parentSupportLoop({ sourceXmlText: xmlText, loopStartXmlText, stagedJsonText, config, tolerance, diagnostics }).xmlText);
   finishParentEnrichment(loopEnd.root, config, stats, diagnostics);
+  // Owner 16 Nov: lengths from the final numbering (= CII element lengths). false = today's labels (gate control only).
+  if (lengthsFromFinalNumbering) measureElementLengthsFromFinalNumbering(loopEnd.root, stats);
   stages['01-parent-enrichment'] = serializePlainXml(loopEnd);
   const dtxr = enrichStandaloneDtxrAnnotations(stages['01-parent-enrichment'], stagedJsonText, supportConfig);
   stages['02-dtxr-enrichment'] = dtxr.text || stages['01-parent-enrichment'];

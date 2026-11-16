@@ -10,11 +10,11 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-function gate(impl) {
+function gate(impl, ...more) {
   const dir = mkdtempSync(join(tmpdir(), 'uxml-v2-stage-'));
   const reportPath = join(dir, 'gate.json');
   try {
-    const r = spawnSync(process.execPath, ['scripts/uxml-v2-supports-stage-gate.mjs', ...(impl === 'stage' ? [] : [impl]), '--json', reportPath],
+    const r = spawnSync(process.execPath, ['scripts/uxml-v2-supports-stage-gate.mjs', ...(impl === 'stage' ? [] : [impl]), ...more, '--json', reportPath],
       { cwd: ROOT, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
     return { status: r.status, report: JSON.parse(readFileSync(reportPath, 'utf8')), out: `${r.stdout}${r.stderr}` };
   } finally {
@@ -43,9 +43,20 @@ test('supports stage run again on its own output gives the same XML and support 
   assert.equal(report.benches, 5);
 });
 
-test('rerun gate: re-measuring lengths on the second run (today\'s behaviour) fails', () => {
-  const { report } = gate('recompute');
-  assert.equal(report.verdict, 'FAIL');
-  // Lengths re-measured on the four models with renumbered valve/flange nodes (ACTIVE-AUDIT fails on order only).
-  for (const b of ['G30', 'G30-CUSTOM', 'G30-NOJSON', 'RMS-BLOW-1']) assert.ok(report.perBench[b].some((p) => p.what === 'second run changed node values'), b);
+test('supports stage: every numbered node length equals its CII element length (Owner 16 Nov)', () => {
+  const { status, report, out } = gate('--lengths');
+  assert.equal(status, 0, out);
+  assert.equal(report.mode, 'lengths');
+  assert.equal(report.verdict, 'PASS');
+  assert.equal(report.benches, 5);
+});
+
+test("lengths and rerun gates: the stage with today's length labels fail both on the four models with renumbered valve/flange nodes", () => {
+  const RENUMBERED = ['G30', 'G30-CUSTOM', 'G30-NOJSON', 'RMS-BLOW-1'];
+  for (const mode of ['--lengths', '--rerun']) {
+    const { report } = gate('today-lengths', mode);
+    assert.equal(report.verdict, 'FAIL', mode);
+    assert.deepEqual(report.failing, RENUMBERED, mode);
+  }
+  assert.equal(gate('identity', '--lengths').report.verdict, 'FAIL');
 });

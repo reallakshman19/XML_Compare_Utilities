@@ -4,7 +4,7 @@
 // step-3 GATES.json, which allowed the split-renumbering topology gap that the stage now closes.
 //   node scripts/uxml-v2-supports-stage-gate.mjs [identity] [--oracle <dir>] [--xml <dir>] [--calls <dir>] [--json report.json]
 //   identity: control that returns its input at every sub-stage (must FAIL). --xml: folder of <B>/xml/ (default --oracle).
-//   --rerun: run the stage again on its own output (see below); recompute: its control (must FAIL).
+//   --rerun / --lengths: the checks below; today-lengths: their control, the stage with today's length labels (must FAIL).
 // Inputs per model: oracle/<B>/xml/engineering-pass-start.xml (the XML today's stage receives), the raw job config
 // (as today's sub-steps receive it, from the recorded DTXR call) and the material map rows (from the snapshot).
 import fs from 'node:fs';
@@ -30,10 +30,33 @@ const STAGED = { G30: 'bench/golden-30_staged.json', 'G30-CUSTOM': 'bench/golden
 const tableOf = (text) => supportTableOf(readPsi116V2(text, { fileSha256: createHash('sha256').update(text).digest('hex') }));
 const xmlDir = (b) => path.join(xmlRoot || oracle, b, 'xml');
 const control = argv[0] === 'identity';
-// --rerun (Owner 16 Nov): the stage run again on its own output must give the same XML, byte for byte (so every length,
-// value and child order) and the same support table. Control 'recompute' drops the lengths before run 2 (today's behaviour).
-const rerun = argv.includes('--rerun') || argv[0] === 'recompute';
-const recompute = argv[0] === 'recompute';
+// Owner 16 Nov. --rerun: the stage run again on its own output must give the same XML, byte for byte, and the same support
+// table. --lengths: every numbered node's ElementLengthMm must equal its CII element length, the straight distance from
+// the previous numbered node in its branch (today's CII writer takes DX/DY/DZ from those two positions). Physical check,
+// not today's output: today's labels fail it after split-condensed renumbering (control today-lengths).
+const rerun = argv.includes('--rerun');
+const lengths = argv.includes('--lengths');
+const todayLengths = argv[0] === 'today-lengths';
+const stageOptions = { lengthsFromFinalNumbering: !todayLengths };
+const tagOf = (block, name) => (block.match(new RegExp(`<${name}>([^<]*)</${name}>`)) || [])[1];
+const pointOf = (p) => { const v = (p || '').match(/-?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?/g)?.map(Number); return v && v.length >= 3 ? v : null; };
+function lengthProblems(xmlText) {
+  let spans = 0, wrong = 0, missing = 0;
+  for (const branch of xmlText.matchAll(/<Branch>[\s\S]*?<\/Branch>/g)) {
+    let previous = null;
+    for (const m of branch[0].matchAll(/<Node>[\s\S]*?<\/Node>/g)) {
+      const at = Number(tagOf(m[0], 'NodeNumber')) > 0 ? pointOf(tagOf(m[0], 'Position')) : null;
+      if (!at) continue;
+      if (previous) {
+        spans += 1;
+        const want = Math.hypot(at[0] - previous[0], at[1] - previous[1], at[2] - previous[2]), have = tagOf(m[0], 'ElementLengthMm');
+        if (have === undefined) missing += 1; else if (!(Math.abs(Number(have) - want) <= 0.0006)) wrong += 1;
+      }
+      previous = at;
+    }
+  }
+  return wrong || missing || !spans ? [{ what: 'ElementLengthMm differs from the CII element length', spans, wrong, missing }] : [];
+}
 const nodeValues = (text) => [...text.matchAll(/<Node>[\s\S]*?<\/Node>/g)].map((m) => m[0].split('\n').map((l) => l.trim()).filter(Boolean).sort().join('\n'));
 const benches = fs.readdirSync(oracle).filter((b) => fs.existsSync(path.join(xmlDir(b), 'engineering-pass-start.xml')));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'uxml-v2-stage-'));
@@ -52,12 +75,12 @@ function check(bench) {
   const stagedPath = STAGED[bench] && path.join(ROOT, 'fixtures/uxml-v2-supports', STAGED[bench]);
   if (stagedPath && fs.existsSync(stagedPath) && fs.readFileSync(stagedPath, 'utf8') !== stagedJsonText) return [{ what: 'staged JSON differs from the recording' }];
   let out;
-  try { out = control ? { stages: Object.fromEntries(SUB.map((s) => [s, xmlText])) } : runSupportsStage({ xmlText, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows } }); }
+  try { out = control ? { xmlText, stages: Object.fromEntries(SUB.map((s) => [s, xmlText])) } : runSupportsStage({ xmlText, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows }, ...stageOptions }); }
   catch (e) { return [{ what: 'threw', message: String(e?.stack || e).slice(0, 400) }]; }
   const problems = [];
+  if (lengths) return lengthProblems(out.xmlText);
   if (rerun) {
-    const again = recompute ? out.xmlText.replace(/\s*<ElementLengthMm>[^<]*<\/ElementLengthMm>/g, '') : out.xmlText;
-    const second = runSupportsStage({ xmlText: again, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows } });
+    const second = runSupportsStage({ xmlText: out.xmlText, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows }, ...stageOptions });
     const a = nodeValues(out.xmlText), b = nodeValues(second.xmlText);
     const changed = a.filter((n, i) => n !== b[i]).length + Math.abs(a.length - b.length);
     if (changed) problems.push({ what: 'second run changed node values', nodes: changed });
@@ -78,7 +101,7 @@ const perBench = {};
 for (const bench of benches) perBench[bench] = check(bench);
 fs.rmSync(tmp, { recursive: true, force: true });
 const failing = Object.entries(perBench).filter(([, p]) => p.length).map(([b]) => b);
-const report = { impl: recompute ? 'recompute' : control ? 'identity' : 'uxml/v2/supports/SupportsStage.js', mode: rerun ? 'rerun' : 'stages', verdict: failing.length || !benches.length ? 'FAIL' : 'PASS', benches: benches.length, failing, perBench };
+const report = { impl: todayLengths ? 'today-lengths' : control ? 'identity' : 'uxml/v2/supports/SupportsStage.js', mode: lengths ? 'lengths' : rerun ? 'rerun' : 'stages', verdict: failing.length || !benches.length ? 'FAIL' : 'PASS', benches: benches.length, failing, perBench };
 if (reportPath) fs.writeFileSync(reportPath, JSON.stringify(report, null, 1));
 console.log(JSON.stringify(report, null, 1).slice(0, 4000));
 process.exitCode = report.verdict === 'PASS' ? 0 : 1;
