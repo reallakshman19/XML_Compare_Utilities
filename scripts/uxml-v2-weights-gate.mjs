@@ -8,7 +8,9 @@
 //   expected-weights.json leaf path -> Weight in today's final XML with those choices, where it differs from the base;
 //   start.xml/start.json  the stage input (else <oracle>/<B>/xml/engineering-pass-start.xml/.json);
 //   base.xml              today's final XML without choices (else <oracle>/<B>/xml/04-mds-closure.xml).
-// Pass: every leaf of the stage's final XML equals base + expected weights (ElementLengthMm aside, as in the stage gate).
+// Pass: every leaf of the stage's final XML equals base + expected weights (ElementLengthMm aside, as in the stage gate),
+// and the stage's engineering provenance names a source for every changed value (unexplained 0), with src popup on exactly
+// the expected weights.
 // Control no-choices (must FAIL): the same run without overrides.rigidWeight.
 // --names-hidden: models reported as model-1, model-2, ... (private benchmarks); counts only, never values.
 import fs from 'node:fs';
@@ -73,15 +75,19 @@ const results = models.map((b, i) => {
     const tag = key.replace(/\[\d+\]/g, '').replace(/#\d+$/, '').split('/').pop();
     tags[tag] = (tags[tag] || 0) + 1;
   }
+  const eng = out.engineeringProvenance.counts;
+  const popup = eng.bySrc.popup || 0;
+  if (eng.unexplained) tags['provenance:unexplained'] = eng.unexplained;
+  if (popup !== Object.keys(expected).length) tags['provenance:popup'] = popup;
   const problems = Object.values(tags).reduce((n, v) => n + v, 0);
   return { model: hide ? `model-${i + 1}` : b, choices, expectedWeights: Object.keys(expected).length, weightsRight,
-    verdict: problems ? 'FAIL' : 'PASS', differences: tags };
+    provenance: { values: eng.values, unexplained: eng.unexplained, popup, bySrc: eng.bySrc }, verdict: problems ? 'FAIL' : 'PASS', differences: tags };
 });
 
 const verdict = results.every((r) => r.verdict === 'PASS') ? 'PASS' : 'FAIL';
 const report = { gate: 'uxml-v2-weights', control, verdict, models: results.length, results };
 for (const r of results) {
-  console.log(`${r.model}: ${r.verdict} choices ${r.choices}, weights ${r.weightsRight}/${r.expectedWeights}`
+  console.log(`${r.model}: ${r.verdict} choices ${r.choices}, weights ${r.weightsRight}/${r.expectedWeights}, sources ${r.provenance.values - r.provenance.unexplained}/${r.provenance.values} (popup ${r.provenance.popup})`
     + (r.verdict === 'FAIL' ? ` differences ${JSON.stringify(r.differences)}` : ''));
 }
 console.log(`weights gate${control ? ` (control ${control})` : ''}: ${verdict} ${results.filter((r) => r.verdict === 'PASS').length}/${results.length}`);

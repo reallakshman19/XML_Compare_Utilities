@@ -26,7 +26,8 @@ test('weights gate: popup weights equal today on GOLDEN-30 and RMS-BLOW-1', () =
   const { status, report, out } = gate();
   assert.equal(status, 0, out);
   assert.equal(report.verdict, 'PASS');
-  assert.deepEqual(report.results.map((r) => [r.model, r.weightsRight, r.expectedWeights]), [['G30', 5, 5], ['RMS-BLOW-1', 20, 20]]);
+  assert.deepEqual(report.results.map((r) => [r.model, r.weightsRight, r.expectedWeights, r.provenance.popup, r.provenance.unexplained]),
+    [['G30', 5, 5, 5, 0], ['RMS-BLOW-1', 20, 20, 20, 0]]);
 });
 
 test('weights gate control: without the popup choices it fails on every model', () => {

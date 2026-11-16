@@ -14,7 +14,8 @@ import {
  *   xmlText: the XML after the DTXR step; sourceXmlText: the XML the stage received (today's job source);
  *   supportConfig: the raw job config (today parses the job's JSON afresh; a copy is used, since the weight ranker fills defaults in it);
  *   defaultMaterialMapRows: today's default material map rows (used when the job config has none).
- * @returns {{xmlText: string, branchRows: object[], nodeRows: object[]}}
+ * @returns {{xmlText: string, branchRows: object[], nodeRows: object[], nodeWallBySize: object[], snapshots: Record<string,string>}}
+ *   snapshots: the XML after the preview process parity (process), bore from OD (boreFromOd) and source walls (sourceWall).
  */
 export function runProcessParityStep({ xmlText, sourceXmlText, supportConfig = {}, stagedJsonText = '', defaultMaterialMapRows = [], diagnostics = [], stats = {} }) {
   const config = JSON.parse(JSON.stringify(supportConfig || {}));
@@ -26,5 +27,6 @@ export function runProcessParityStep({ xmlText, sourceXmlText, supportConfig = {
   const kept = restoreTransferProtection(walls.xmlText, protection);
   Object.assign(stats, bore.stats, { transferProtected: kept.restored, sourceWallsKept: walls.kept.length, processParityFields: processed.appliedFields });
   diagnostics.push(...bore.diagnostics, ...walls.diagnostics, ...kept.diagnostics);
-  return { xmlText: kept.xmlText, branchRows: processed.branchRows, nodeRows: processed.nodeRows };
+  return { xmlText: kept.xmlText, branchRows: processed.branchRows, nodeRows: processed.nodeRows, nodeWallBySize: processed.nodeWallBySize,
+    snapshots: { process: processed.xmlText, boreFromOd: bore.xmlText, sourceWall: walls.xmlText } };
 }

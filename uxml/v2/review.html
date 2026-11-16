@@ -101,6 +101,7 @@
     <div class="row">
       <button class="primary" id="supRun">Run the supports stage</button>
       <button id="supSample">Use the GOLDEN-30 sample</button>
+      <button id="supSampleWeights">GOLDEN-30 with the Run popup's 5 weights</button>
     </div>
     <div id="supMessage"></div>
     <div id="supResult" hidden>
@@ -116,6 +117,19 @@
       </div>
       <div id="supShown" class="muted"></div>
       <div class="scroll"><table id="supTable"></table></div>
+      <h3>Engineering values: where each came from</h3>
+      <p class="muted">Process block, class, rating, material, wall, corrosion, insulation, bore and rigid weight: every value the
+        stage changed, with the step that set it and its source (Run popup, line list, piping class, branch name, override,
+        default, input XML).</p>
+      <div id="engSummary" class="counts"></div>
+      <div id="engWarnings"></div>
+      <div class="row" style="margin-top:10px">
+        <label for="engFrom">Came from</label><select id="engFrom"></select>
+        <label for="engFind">Find</label><input type="text" id="engFind" size="16" placeholder="branch, node or tag">
+        <button id="engCsv">Download as CSV</button>
+      </div>
+      <div id="engShown" class="muted"></div>
+      <div class="scroll"><table id="engTable"></table></div>
     </div>
   </section>
 </main>

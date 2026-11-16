@@ -2,14 +2,18 @@
  * Review page section 4 (Owner 16 Nov): run the supports stage in the browser and show where each support value and
  * restraint came from (step, source, rule, staged item), the warnings for staged supports that became no restraint, and
  * the duplicate supports removed. Download as CSV (same columns as the GOLDEN-30 provenance CSV). Nothing is uploaded.
+ * Then the engineering values (UxmlV2EngineeringReview.js).
  */
 import {runSupportsStage} from './supports/SupportsStage.js';
 import {provenanceTableRows, provenanceCsv, PROVENANCE_COLUMNS} from './supports/SupportProvenanceRows.js';
+import {showEngineering} from './UxmlV2EngineeringReview.js';
 
 const $ = id => document.getElementById(id);
 const SHOW_AT_MOST = 400;
 const BENCH = '../../fixtures/uxml-v2-supports/';
 const SAMPLE = {xml: 'oracle/G30/xml/engineering-pass-start.xml', staged: 'bench/golden-30_staged.json', config: 'bench/golden-30-job-config.json'};
+// The same job with the 5 rigid weights today's Run popup suggests (Use All Best), as in the weight gate.
+const SAMPLE_WEIGHTS = 'weights/G30/choices.json';
 const DEFAULT_ROWS = 'bench/default-material-map-rows.json';
 let result = null, rows = [], name = 'model', hadStaged = false;
 
@@ -43,6 +47,7 @@ function run({xmlText, stagedJsonText, configText, rowsText}) {
   $('supResult').hidden = false;
   say('');
   render();
+  showEngineering(result, name);
 }
 
 function renderSummary() {
@@ -91,6 +96,11 @@ function wire() {
   $('supSample').addEventListener('click', () => guarded(async () => {
     name = 'GOLDEN-30';
     run({xmlText: await fetchText(SAMPLE.xml), stagedJsonText: await fetchText(SAMPLE.staged), configText: await fetchText(SAMPLE.config),
+      rowsText: await fetchText(DEFAULT_ROWS)});
+  }));
+  $('supSampleWeights').addEventListener('click', () => guarded(async () => {
+    name = 'GOLDEN-30-popup-weights';
+    run({xmlText: await fetchText(SAMPLE.xml), stagedJsonText: await fetchText(SAMPLE.staged), configText: await fetchText(SAMPLE_WEIGHTS),
       rowsText: await fetchText(DEFAULT_ROWS)});
   }));
   for (const id of ['supBranch', 'supFrom']) $(id).addEventListener('change', render);
