@@ -3,10 +3,11 @@
 // Input is the XML the supports stage receives today (after the topology stage, e.g. gasket drop; that stage is not here).
 // Masters arrive as rows: today's async loaders are not ported. Only the material map differs from the parsed config.
 // Not here (engineering values, not support results): today's preview process data after 01 and process parity between 02 and 03.
-import { elementsByName, parsePlainXml, serializePlainXml } from './PlainDom.js';
+import { childText, elementsByName, parsePlainXml, serializePlainXml } from './PlainDom.js';
 import { toFiniteNumber } from './config/EnrichmentConfig.js';
 import { branchEngineeringPass, measureElementLengthsFromFinalNumbering } from '../engineering/BranchPass.js';
 import { finishParentEnrichment } from './parent/ParentEnrichmentFinish.js';
+import { supportProvenance } from './SupportProvenance.js';
 import {
   closeGovernedAttaDefaultRestraintsXml, closeGovernedMdsPositionRestraintsXml, createRealCore, enrichStandaloneDtxrAnnotations,
   parentSupportLoop,
@@ -36,7 +37,8 @@ function restraintsLast(xmlText) {
 /**
  * @param {{xmlText: string, stagedJsonText?: string, supportConfig?: object, masters?: {materialMapRows?: object[]},
  *          diagnostics?: object[], lengthsFromFinalNumbering?: boolean}} input
- * @returns {{xmlText: string, stages: Record<string, string>, config: object, stats: object, diagnostics: object[]}}
+ * @returns {{xmlText: string, stages: Record<string, string>, config: object, stats: object, diagnostics: object[],
+ *            provenance: {rows: object[], counts: object}}} provenance: where each support value came from (SupportProvenance.js).
  */
 export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig = {}, masters = {}, diagnostics = [], lengthsFromFinalNumbering = true }) {
   const core = createRealCore();
@@ -50,7 +52,10 @@ export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig =
   const loopStartXmlText = serializePlainXml(doc);
   const stages = { 'branch-pass': loopStartXmlText };
 
+  const parentFrom = diagnostics.length;
   const loopEnd = parsePlainXml(parentSupportLoop({ sourceXmlText: xmlText, loopStartXmlText, stagedJsonText, config, tolerance, diagnostics }).xmlText);
+  const parentDiagnostics = diagnostics.slice(parentFrom);
+  const parentNumbers = elementsByName(loopEnd.root, 'Node').map((n) => childText(n, 'NodeNumber'));
   finishParentEnrichment(loopEnd.root, config, stats, diagnostics);
   // Owner 16 Nov: lengths from the final numbering (= CII element lengths). false = today's labels (gate control only).
   if (lengthsFromFinalNumbering) measureElementLengthsFromFinalNumbering(loopEnd.root, stats);
@@ -66,5 +71,7 @@ export function runSupportsStage({ xmlText, stagedJsonText = '', supportConfig =
     stats[name] = step.stats || {};
     for (const d of step.diagnostics || []) diagnostics.push({ ...d, supportsSubStep: name });
   }
-  return { xmlText: stages['04-mds-closure'], stages, config, stats, diagnostics };
+  const provenance = supportProvenance({ stages, parentNumbers,
+    diagnosticsByStep: { parent: parentDiagnostics, dtxr: dtxr.diagnostics, atta: atta.diagnostics, mds: mds.diagnostics } });
+  return { xmlText: stages['04-mds-closure'], stages, config, stats, diagnostics, provenance };
 }

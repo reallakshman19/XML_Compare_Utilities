@@ -17,6 +17,7 @@ import { readPsi116V2 } from '../uxml/v2/UxmlV2Psi116Reader.js';
 import { supportTableOf } from '../uxml/v2/supports/SupportTable.js';
 import { loadCalls, revive } from '../uxml/v2/supports/CoreCallsLib.js';
 import { runSupportsStage } from '../uxml/v2/supports/SupportsStage.js';
+import { plainSupportTable, supportProvenance } from '../uxml/v2/supports/SupportProvenance.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const argv = process.argv.slice(2);
@@ -37,6 +38,13 @@ const control = argv[0] === 'identity';
 const rerun = argv.includes('--rerun');
 const lengths = argv.includes('--lengths');
 const todayLengths = argv[0] === 'today-lengths';
+// Owner 16 Nov. --provenance: where each support value came from (SupportProvenance.js). Per model: the stage's final
+// table is today's 04 table; every support value and restraint has a record; none is unexplained; and every value or
+// restraint that today's branch-pass output (parent-support-loop-start.xml) does not hold at that node is not called input.
+// Controls (must FAIL): flat-provenance (every record says input), no-evidence (provenance without the diagnostics).
+const provenance = argv.includes('--provenance');
+const flatProvenance = argv[0] === 'flat-provenance', noEvidence = argv[0] === 'no-evidence';
+const CONTROL_OF = { 'today-lengths': 'today-lengths', identity: 'identity', 'flat-provenance': 'flat-provenance', 'no-evidence': 'no-evidence' };
 const stageOptions = { lengthsFromFinalNumbering: !todayLengths };
 const tagOf = (block, name) => (block.match(new RegExp(`<${name}>([^<]*)</${name}>`)) || [])[1];
 const pointOf = (p) => { const v = (p || '').match(/-?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?/g)?.map(Number); return v && v.length >= 3 ? v : null; };
@@ -57,6 +65,38 @@ function lengthProblems(xmlText) {
   }
   return wrong || missing || !spans ? [{ what: 'ElementLengthMm differs from the CII element length', spans, wrong, missing }] : [];
 }
+function provenanceProblems(bench, dir, out) {
+  const problems = [];
+  const today04 = fs.readFileSync(path.join(dir, '04-mds-closure-table.json'), 'utf8');
+  if (JSON.stringify(tableOf(out.xmlText)) !== JSON.stringify(JSON.parse(today04))) problems.push({ what: "final table differs from today's 04 table" });
+  const plain = plainSupportTable(out.xmlText).map(({ position, ...row }) => row);
+  if (JSON.stringify(plain) !== JSON.stringify(tableOf(out.xmlText))) problems.push({ what: 'PlainDom support table differs from the reader table' });
+  let prov = out.provenance || supportProvenance({ stages: out.stages, diagnosticsByStep: {}, parentNumbers: [] });
+  if (noEvidence) prov = supportProvenance({ stages: out.stages, diagnosticsByStep: {}, parentNumbers: [] });
+  if (flatProvenance) prov = { ...prov, rows: prov.rows.map((r) => ({ ...r, values: Object.fromEntries(Object.keys(r.values).map((t) => [t, { step: 'input', src: 'psi116', rule: 'input' }])),
+    restraints: r.restraints.map((x) => ({ type: x.type, step: 'input', src: 'psi116', rule: 'input' })) })) };
+  const final = plainSupportTable(out.xmlText), byRow = new Map(prov.rows.map((r) => [r.row, r]));
+  const start = plainSupportTable(fs.readFileSync(path.join(xmlDir(bench), 'parent-support-loop-start.xml'), 'utf8'));
+  let missing = 0, unexplained = 0, wrongInput = 0;
+  final.forEach((row, i) => {
+    const rec = byRow.get(i);
+    for (const [tag, text] of Object.entries(row.support)) {
+      const v = rec?.values[tag];
+      if (!v) { missing += 1; continue; }
+      if (v.src === 'stage') unexplained += 1;
+      if (v.step === 'input' && start[i]?.support[tag] !== text) wrongInput += 1;
+    }
+    row.restraints.forEach((fields, j) => {
+      const x = rec?.restraints[j];
+      if (!x) { missing += 1; return; }
+      if (x.src === 'stage') unexplained += 1;
+      if (x.step === 'input' && !(start[i]?.restraints || []).some((r) => JSON.stringify(r) === JSON.stringify(fields))) wrongInput += 1;
+    });
+  });
+  if (missing || unexplained || wrongInput) problems.push({ what: 'provenance', missing, unexplained, wrongInput });
+  report.counts[bench] = { ...prov.counts };
+  return problems;
+}
 const nodeValues = (text) => [...text.matchAll(/<Node>[\s\S]*?<\/Node>/g)].map((m) => m[0].split('\n').map((l) => l.trim()).filter(Boolean).sort().join('\n'));
 const benches = fs.readdirSync(oracle).filter((b) => fs.existsSync(path.join(xmlDir(b), 'engineering-pass-start.xml')));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'uxml-v2-stage-'));
@@ -75,10 +115,11 @@ function check(bench) {
   const stagedPath = STAGED[bench] && path.join(ROOT, 'fixtures/uxml-v2-supports', STAGED[bench]);
   if (stagedPath && fs.existsSync(stagedPath) && fs.readFileSync(stagedPath, 'utf8') !== stagedJsonText) return [{ what: 'staged JSON differs from the recording' }];
   let out;
-  try { out = control ? { xmlText, stages: Object.fromEntries(SUB.map((s) => [s, xmlText])) } : runSupportsStage({ xmlText, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows }, ...stageOptions }); }
+  try { out = control ? { xmlText, stages: Object.fromEntries(['branch-pass', ...SUB].map((s) => [s, xmlText])) } : runSupportsStage({ xmlText, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows }, ...stageOptions }); }
   catch (e) { return [{ what: 'threw', message: String(e?.stack || e).slice(0, 400) }]; }
   const problems = [];
   if (lengths) return lengthProblems(out.xmlText);
+  if (provenance) return provenanceProblems(bench, dir, out);
   if (rerun) {
     const second = runSupportsStage({ xmlText: out.xmlText, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows }, ...stageOptions });
     const a = nodeValues(out.xmlText), b = nodeValues(second.xmlText);
@@ -98,10 +139,13 @@ function check(bench) {
 }
 
 const perBench = {};
+const report = { counts: {} };
 for (const bench of benches) perBench[bench] = check(bench);
 fs.rmSync(tmp, { recursive: true, force: true });
 const failing = Object.entries(perBench).filter(([, p]) => p.length).map(([b]) => b);
-const report = { impl: todayLengths ? 'today-lengths' : control ? 'identity' : 'uxml/v2/supports/SupportsStage.js', mode: lengths ? 'lengths' : rerun ? 'rerun' : 'stages', verdict: failing.length || !benches.length ? 'FAIL' : 'PASS', benches: benches.length, failing, perBench };
+Object.assign(report, { impl: CONTROL_OF[argv[0]] || 'uxml/v2/supports/SupportsStage.js', mode: provenance ? 'provenance' : lengths ? 'lengths' : rerun ? 'rerun' : 'stages',
+  verdict: failing.length || !benches.length ? 'FAIL' : 'PASS', benches: benches.length, failing, perBench });
+if (!provenance) delete report.counts;
 if (reportPath) fs.writeFileSync(reportPath, JSON.stringify(report, null, 1));
 console.log(JSON.stringify(report, null, 1).slice(0, 4000));
 process.exitCode = report.verdict === 'PASS' ? 0 : 1;

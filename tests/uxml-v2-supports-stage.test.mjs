@@ -60,3 +60,22 @@ test("lengths and rerun gates: the stage with today's length labels fail both on
   }
   assert.equal(gate('identity', '--lengths').report.verdict, 'FAIL');
 });
+
+test('supports stage records where each support value came from, with none unexplained (Owner 16 Nov)', () => {
+  const { status, report, out } = gate('--provenance');
+  assert.equal(status, 0, out);
+  assert.equal(report.mode, 'provenance');
+  assert.equal(report.verdict, 'PASS');
+  assert.equal(report.benches, 5);
+  // GOLDEN-30: 114 support values + 36 restraints; node 560's XML Z restraint is rewritten in place to CAESAR Y.
+  assert.deepEqual(report.counts.G30.bySrc, { staged: 145, supportMapper: 2, psi116: 3 });
+  assert.equal(report.counts.G30.rewritten, 1);
+});
+
+test('provenance gate: a record that calls everything input, and provenance without the diagnostics, both fail', () => {
+  for (const impl of ['flat-provenance', 'no-evidence']) {
+    const { report } = gate(impl, '--provenance');
+    assert.equal(report.verdict, 'FAIL', impl);
+    assert.equal(report.failing.length, 5, impl);
+  }
+});
