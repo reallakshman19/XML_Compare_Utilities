@@ -1,0 +1,423 @@
+{
+ "linelist": {
+  "masterRows": [
+   {
+    "Line No": "P0001",
+    "Piping Class": "A1A",
+    "Rating": "300",
+    "Material": "A106-B",
+    "Design Pressure": "1500",
+    "T1 (C)": "340",
+    "T2 (C)": "60",
+    "Density": "1000",
+    "Insulation Thickness": "50"
+   },
+   {
+    "Line No": "P0002",
+    "Piping Class": "A1A",
+    "Rating": "300",
+    "Material": "A106-B",
+    "Design Pressure": "1500",
+    "T1 (C)": "340",
+    "T2 (C)": "60",
+    "Density": "1000",
+    "Insulation Thickness": "40"
+   },
+   {
+    "Line No": "P0003",
+    "Piping Class": "B2B",
+    "Rating": "150",
+    "Material": "A106-B",
+    "Design Pressure": "600",
+    "T1 (C)": "340",
+    "T2 (C)": "",
+    "Density": "850",
+    "Insulation Thickness": "0"
+   },
+   {
+    "Line No": "P0004",
+    "Piping Class": "A1A",
+    "Rating": "300",
+    "Material": "A106-B",
+    "Design Pressure": "1500",
+    "T1 (C)": "340",
+    "T2 (C)": "60",
+    "Density": "1000",
+    "Insulation Thickness": "40"
+   },
+   {
+    "Line No": "P0005",
+    "Piping Class": "A1A",
+    "Rating": "300",
+    "Material": "A106-B",
+    "Design Pressure": "1500",
+    "T1 (C)": "340",
+    "T2 (C)": "60",
+    "Density": "1000",
+    "Insulation Thickness": "40"
+   }
+  ],
+  "fieldMap": {
+   "lineSeqNo": "Line No",
+   "pipingClass": "Piping Class",
+   "rating": "Rating",
+   "material": "Material",
+   "p1": "Design Pressure",
+   "t1": "T1 (C)",
+   "t2": "T2 (C)",
+   "density": "Density",
+   "insThk": "Insulation Thickness"
+  }
+ },
+ "pipingClass": {
+  "masterRows": [
+   {
+    "Piping Class": "A1A",
+    "Size": "8",
+    "DN": "200",
+    "Wall Thickness": "8.18",
+    "Corrosion Allowance": "3"
+   },
+   {
+    "Piping Class": "A1A",
+    "Size": "6",
+    "DN": "150",
+    "Wall Thickness": "7.11",
+    "Corrosion Allowance": "3"
+   },
+   {
+    "Piping Class": "A1A",
+    "Size": "4",
+    "DN": "100",
+    "Wall Thickness": "6.02",
+    "Corrosion Allowance": "3"
+   },
+   {
+    "Piping Class": "A1A",
+    "Size": "3",
+    "DN": "80",
+    "Wall Thickness": "5.49",
+    "Corrosion Allowance": "3"
+   },
+   {
+    "Piping Class": "A1A",
+    "Size": "2",
+    "DN": "50",
+    "Wall Thickness": "3.91",
+    "Corrosion Allowance": "3"
+   },
+   {
+    "Piping Class": "B2B",
+    "Size": "2",
+    "DN": "50",
+    "Wall Thickness": "3.91",
+    "Corrosion Allowance": "1.5"
+   }
+  ]
+ },
+ "weight": {
+  "valveHintMapping": [
+   {
+    "on": true,
+    "priority": 10,
+    "code": "VGT",
+    "label": "Gate Valve",
+    "family": "VALVE",
+    "subtype": "GATE",
+    "nodeNameRegex": "(?:^|[-_/\\s])VGT(?=$|[-_/\\s]|\\d)",
+    "masterRegex": "\\bGATE\\b.*\\bVALVE\\b|\\bVALVE\\b.*\\bGATE\\b|\\bGATE\\b",
+    "notes": "Gate valve tag"
+   },
+   {
+    "on": true,
+    "priority": 20,
+    "code": "VCH",
+    "label": "Check Valve",
+    "family": "VALVE",
+    "subtype": "CHECK",
+    "nodeNameRegex": "(?:^|[-_/\\s])VCH(?=$|[-_/\\s]|\\d)",
+    "masterRegex": "\\b(CHECK|SWING|NRV|NON[- ]?RETURN)\\b",
+    "notes": "Check / swing / NRV tag"
+   },
+   {
+    "on": true,
+    "priority": 30,
+    "code": "VBL",
+    "label": "Ball Valve",
+    "family": "VALVE",
+    "subtype": "BALL",
+    "nodeNameRegex": "(?:^|[-_/\\s])VBL(?=$|[-_/\\s]|\\d)",
+    "masterRegex": "\\bBALL\\b.*\\bVALVE\\b|\\bVALVE\\b.*\\bBALL\\b|\\bBALL\\b",
+    "notes": "Ball valve tag"
+   },
+   {
+    "on": true,
+    "priority": 40,
+    "code": "VCV",
+    "label": "Control Valve",
+    "family": "VALVE",
+    "subtype": "CONTROL",
+    "nodeNameRegex": "(?:^|[-_/\\s])VCV(?=$|[-_/\\s]|\\d)",
+    "masterRegex": "\\bCONTROL\\b.*\\bVALVE\\b|\\bVALVE\\b.*\\bCONTROL\\b|\\bCONTROL\\b",
+    "notes": "Control valve tag"
+   },
+   {
+    "on": true,
+    "priority": 50,
+    "code": "VGL",
+    "label": "Globe Valve",
+    "family": "VALVE",
+    "subtype": "GLOBE",
+    "nodeNameRegex": "(?:^|[-_/\\s])VGL(?=$|[-_/\\s]|\\d)",
+    "masterRegex": "\\bGLOBE\\b.*\\bVALVE\\b|\\bVALVE\\b.*\\bGLOBE\\b|\\bGLOBE\\b",
+    "notes": "Globe valve tag"
+   },
+   {
+    "on": true,
+    "priority": 60,
+    "code": "VBF",
+    "label": "Butterfly Valve",
+    "family": "VALVE",
+    "subtype": "BUTTERFLY",
+    "nodeNameRegex": "(?:^|[-_/\\s])VBF(?=$|[-_/\\s]|\\d)",
+    "masterRegex": "\\bBUTTERFLY\\b.*\\bVALVE\\b|\\bVALVE\\b.*\\bBUTTERFLY\\b|\\bBUTTERFLY\\b",
+    "notes": "Butterfly valve tag"
+   },
+   {
+    "on": true,
+    "priority": 70,
+    "code": "VBV",
+    "label": "Ball Valve",
+    "family": "VALVE",
+    "subtype": "BALL",
+    "nodeNameRegex": "(?:^|[-_/\\s])VBV(?=$|[-_/\\s]|\\d)",
+    "masterRegex": "\\bBALL\\b.*\\bVALVE\\b|\\bVALVE\\b.*\\bBALL\\b|\\bBALL\\b",
+    "notes": "Alternate ball valve tag"
+   }
+  ],
+  "semanticKeywordRules": [
+   {
+    "on": true,
+    "priority": 10,
+    "code": "FULL_BORE",
+    "label": "Full bore",
+    "patterns": [
+     "\\bFULL\\s*BORE\\b",
+     "\\bFB\\b",
+     "\\bFULL\\s*PORT\\b",
+     "\\bFULL\\b"
+    ]
+   },
+   {
+    "on": true,
+    "priority": 20,
+    "code": "REDUCED_BORE",
+    "label": "Reduced bore",
+    "patterns": [
+     "\\bRED(?:UCED|UCING)?\\s*BORE\\b",
+     "\\bRB\\b",
+     "\\bRED(?:UCED)?\\s*PORT\\b"
+    ]
+   },
+   {
+    "on": true,
+    "priority": 30,
+    "code": "BALL",
+    "label": "Ball",
+    "patterns": [
+     "\\bBALL\\b",
+     "\\bVBL\\b",
+     "\\bVBV\\b",
+     "\\bBV\\b"
+    ]
+   },
+   {
+    "on": true,
+    "priority": 40,
+    "code": "GATE",
+    "label": "Gate",
+    "patterns": [
+     "\\bGATE\\b",
+     "\\bVGT\\b",
+     "\\bGV\\b"
+    ]
+   },
+   {
+    "on": true,
+    "priority": 50,
+    "code": "GLOBE",
+    "label": "Globe",
+    "patterns": [
+     "\\bGLOBE\\b",
+     "\\bVGL\\b",
+     "\\bGlV\\b"
+    ]
+   },
+   {
+    "on": true,
+    "priority": 60,
+    "code": "SWING",
+    "label": "Swing check",
+    "patterns": [
+     "\\bSWING\\b",
+     "\\bSWING\\s*CHECK\\b"
+    ]
+   },
+   {
+    "on": true,
+    "priority": 70,
+    "code": "NON_SLAM",
+    "label": "Non-slam check",
+    "patterns": [
+     "\\bNON[-\\s]?SLAM\\b",
+     "\\bNOZZLE\\s*CHECK\\b"
+    ]
+   },
+   {
+    "on": true,
+    "priority": 80,
+    "code": "WAFER_BUTTERFLY",
+    "label": "Wafer butterfly",
+    "patterns": [
+     "\\bWAFER\\b.*\\bBUTTERFLY\\b",
+     "\\bBUTTERFLY\\b.*\\bWAFER\\b"
+    ]
+   },
+   {
+    "on": true,
+    "priority": 90,
+    "code": "BUTTERFLY",
+    "label": "Butterfly",
+    "patterns": [
+     "\\bBUTTERFLY\\b",
+     "\\bVBF\\b",
+     "\\bBFV\\b"
+    ]
+   },
+   {
+    "on": true,
+    "priority": 100,
+    "code": "CHECK",
+    "label": "Check",
+    "patterns": [
+     "\\bCHECK\\b",
+     "\\bNRV\\b",
+     "\\bNON[-\\s]?RETURN\\b",
+     "\\bVCH\\b"
+    ]
+   },
+   {
+    "on": true,
+    "priority": 110,
+    "code": "CONTROL",
+    "label": "Control",
+    "patterns": [
+     "\\bCONTROL\\b",
+     "\\bVCV\\b",
+     "\\bCV\\b",
+     "\\bFCV\\b",
+     "\\bTCV\\b"
+    ]
+   },
+   {
+    "on": true,
+    "priority": 120,
+    "code": "RELIEF",
+    "label": "Relief",
+    "patterns": [
+     "\\bRELIEF\\b",
+     "\\bSAFETY\\b",
+     "\\bPSV\\b",
+     "\\bPRV\\b",
+     "\\bRV\\b"
+    ]
+   }
+  ],
+  "specialValveFactorRules": [
+   {
+    "on": true,
+    "priority": 10,
+    "code": "UZV_EMERGENCY",
+    "label": "UZV / Emergency",
+    "patterns": [
+     "\\bUZV\\b",
+     "\\bEMERGENCY\\b",
+     "\\bESD\\b",
+     "\\bSHUT[-\\s]?DOWN\\b"
+    ],
+    "targets": [
+     {
+      "code": "CONTROL",
+      "label": "Control valve",
+      "factor": 2
+     },
+     {
+      "code": "BALL",
+      "label": "Ball valve",
+      "factor": 2
+     }
+    ]
+   },
+   {
+    "on": true,
+    "priority": 20,
+    "code": "INST_PCV_FCV",
+    "label": "INST / PCV / FCV",
+    "patterns": [
+     "\\bINST\\b",
+     "\\bPCV\\b",
+     "\\bFCV\\b",
+     "\\bCONTROL\\s*VALVE\\b"
+    ],
+    "targets": [
+     {
+      "code": "CONTROL",
+      "label": "Control valve",
+      "factor": 1.3
+     },
+     {
+      "code": "BALL",
+      "label": "Ball valve",
+      "factor": 1.5
+     }
+    ]
+   },
+   {
+    "on": true,
+    "priority": 30,
+    "code": "RELIEF_RV",
+    "label": "Relief / RV",
+    "patterns": [
+     "\\bRELIEF\\b",
+     "\\bRV\\b",
+     "\\bPSV\\b",
+     "\\bPRV\\b",
+     "\\bSAFETY\\s*VALVE\\b"
+    ],
+    "targets": [
+     {
+      "code": "BALL",
+      "label": "Ball valve",
+      "factor": 1
+     }
+    ]
+   }
+  ],
+  "valveHintLengthToleranceMm": 6,
+  "useNodeNameValveHints": true,
+  "showLengthRejectedSemanticMatches": true,
+  "useWeightExtrapolation": true,
+  "extrapolationMinRatio": 0.65,
+  "extrapolationMaxRatio": 1.6,
+  "fullBoreFallbackFactor": 1.3
+ },
+ "overrides": {
+  "rigidWeight": {
+   "/GF30-01-8\"-P0001-A1A/B1::40": 166,
+   "/GF30-01-4\"-P0002-A1A/B1::310": 29.05,
+   "/GF30-01-2\"-P0003-B2B/B1::460": 30.784,
+   "/GF30-01-6\"-P0004-A1A/B1::580": 921.966,
+   "/GF30-01-3\"-P0005-A1A/B1::650": 86.517
+  }
+ }
+}
