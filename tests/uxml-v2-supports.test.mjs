@@ -14,14 +14,12 @@ import {runStage, undoDelta, makeValue, CODES} from '../uxml/v2/UxmlV2Kernel.js'
 import {diffRevisions} from '../uxml/v2/UxmlV2Diff.js';
 import {supportTableOf} from '../uxml/v2/supports/SupportTable.js';
 import {viewOf, tableOfView, opsFromView} from '../uxml/v2/supports/SupportView.js';
+import {BENCH_SOURCES} from '../scripts/uxml-v2-benches.mjs';
 
 const here = p => fileURLToPath(new URL(p, import.meta.url));
 const FIX = here('../fixtures/uxml-v2-supports/');
 const G30 = here('../fixtures/uxml-v2/golden-30.xml');
-export const BENCH = {
-  'G30': G30, 'G30-NOJSON': G30, 'G30-CUSTOM': G30,
-  'RMS-BLOW-1': join(FIX, 'bench/RMS-BLOW-1.xml'), 'ACTIVE-AUDIT': join(FIX, 'bench/active-audit-ns.xml'),
-};
+export const BENCH = Object.fromEntries(Object.entries(BENCH_SOURCES).map(([b, [xml]]) => [b, here('../' + xml)]));
 const readFile = path => {
   const bytes = readFileSync(path);
   return readPsi116V2(bytes.toString('utf8'), {fileSha256: createHash('sha256').update(bytes).digest('hex')});
@@ -40,7 +38,7 @@ const editable = view => JSON.parse(JSON.stringify(view));
 const nodeOf = (view, number) => view.nodes.find(n => n.values.NodeNumber === number);
 const reread = doc => readPsi116V2(writePsi116FromUxmlV2(doc).text ?? writePsi116FromUxmlV2(doc), {fileSha256: 'a'.repeat(64)});
 
-test('S1 gate: the support table read from UXML equals today\'s input table on all 5 benchmarks', () => {
+test('S1 gate: the support table read from UXML equals today\'s input table on all 7 benchmarks', () => {
   for (const [bench, path] of Object.entries(BENCH)) {
     const r = compareTables(join(FIX, 'oracle', bench, '00-input-table.json'), supportTableOf(readFile(path)));
     assert.equal(r.code, 0, `${bench}: ${r.line}`);
@@ -145,7 +143,7 @@ function viewWithOracle(doc, oracleRows) {
   return view;
 }
 
-test('S2: today\'s whole final result fits through view -> ops -> kernel -> writer -> reader on all 5 benchmarks', () => {
+test('S2: today\'s whole final result fits through view -> ops -> kernel -> writer -> reader on all 7 benchmarks', () => {
   for (const [bench, path] of Object.entries(BENCH)) {
     const doc = readFile(path);
     const oraclePath = join(FIX, 'oracle', bench, '99-final-table.json');

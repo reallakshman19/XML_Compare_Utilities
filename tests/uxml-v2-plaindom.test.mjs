@@ -10,9 +10,9 @@ import { readPsi116V2 } from '../uxml/v2/UxmlV2Psi116Reader.js';
 import { supportTableOf } from '../uxml/v2/supports/SupportTable.js';
 import { createReplayCore } from '../uxml/v2/supports/CoreReplay.js';
 import { loadCalls } from '../uxml/v2/supports/CoreCallsLib.js';
+import { BENCHES } from '../scripts/uxml-v2-benches.mjs';
 
 const FX = fileURLToPath(new URL('../fixtures/uxml-v2-supports/', import.meta.url));
-const BENCHES = ['G30', 'G30-NOJSON', 'G30-CUSTOM', 'RMS-BLOW-1', 'ACTIVE-AUDIT'];
 const table = (text) => supportTableOf(readPsi116V2(text, { fileSha256: createHash('sha256').update(text).digest('hex') }));
 
 test('every stage XML: parse -> serialize gives the same support table as the file', () => {
@@ -24,7 +24,7 @@ test('every stage XML: parse -> serialize gives the same support table as the fi
       files += 1;
     }
   }
-  assert.equal(files, 35); // 7 stage XML files per bench (incl. engineering-pass-start)
+  assert.equal(files, 49); // 7 stage XML files per bench (incl. engineering-pass-start)
 });
 
 test('helpers read and write like today\'s xmlText / xmlSetText', () => {

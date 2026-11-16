@@ -1,4 +1,4 @@
-// The four sub-steps on the real ports (no replay) give today's oracle tables on all 5 public models.
+// The four sub-steps on the real ports (no replay) give today's oracle tables on all 7 models.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';

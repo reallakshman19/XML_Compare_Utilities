@@ -5,10 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { BENCHES } from '../scripts/uxml-v2-benches.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const impl = 'uxml/v2/supports/closures/index.js';
-const recordings = ['G30', 'G30-NOJSON', 'G30-CUSTOM', 'RMS-BLOW-1', 'ACTIVE-AUDIT']
+const recordings = BENCHES
   .map((bench) => `fixtures/uxml-v2-supports/core-calls/${bench}.substep-calls.json`);
 
 function runGate(args, reportPath) {

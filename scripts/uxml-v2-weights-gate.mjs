@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Weight gate (UXML step 4, Owner 16 Nov "close step 4"): the supports stage, given the rigid weights chosen in today's
 // Run popup ("Rigid Weights Need Review"), writes exactly the weights today's Run writes, and changes nothing else.
-//   node scripts/uxml-v2-weights-gate.mjs [no-choices] [--root <dir>] [--oracle <dir>] [--names-hidden] [--json <report>]
+//   node scripts/uxml-v2-weights-gate.mjs [no-choices] [--root <dir>] [--oracle <dir>] [--json <report>]
 // Data per model, <root>/<B>/ (default fixtures/uxml-v2-supports/weights):
 //   choices.json          today's job config with overrides.rigidWeight as the popup saved it (GOLDEN-30: Use All Best;
-//                         RMS-BLOW-1: 10 kg typed in each row, the model has no rating so the popup suggests none);
+//                         RMS-BLOW-1, BM2, EF05: 10 kg typed in each row, these models have no rating so the popup
+//                         suggests none);
 //   expected-weights.json leaf path -> Weight in today's final XML with those choices, where it differs from the base;
 //   start.xml/start.json  the stage input (else <oracle>/<B>/xml/engineering-pass-start.xml/.json);
 //   base.xml              today's final XML without choices (else <oracle>/<B>/xml/04-mds-closure.xml).
@@ -12,24 +13,21 @@
 // and the stage's engineering provenance names a source for every changed value (unexplained 0), with src popup on exactly
 // the expected weights.
 // Control no-choices (must FAIL): the same run without overrides.rigidWeight.
-// --names-hidden: models reported as model-1, model-2, ... (private benchmarks); counts only, never values.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { revive } from '../uxml/v2/supports/CoreCallsLib.js';
 import { elementKids, parsePlainXml, textContent } from '../uxml/v2/supports/PlainDom.js';
 import { runSupportsStage } from '../uxml/v2/supports/SupportsStage.js';
+import { BENCH_SOURCES } from './uxml-v2-benches.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const argv = process.argv.slice(2);
 const opt = (name) => { const at = argv.indexOf(name); return at >= 0 ? argv.splice(at, 2)[1] : null; };
 const root = opt('--root') || path.join(ROOT, 'fixtures/uxml-v2-supports/weights');
 const oracle = opt('--oracle') || path.join(ROOT, 'fixtures/uxml-v2-supports/oracle');
-const bench = path.join(ROOT, 'fixtures/uxml-v2-supports/bench');
 const reportPath = opt('--json');
-const hide = argv.includes('--names-hidden');
 const control = argv[0] === 'no-choices' ? 'no-choices' : null;
-const STAGED = { G30: 'golden-30_staged.json' };
 const LENGTH = /\/ElementLengthMm\[\d+\](#\d+)?$/;
 
 /** Every leaf by path (repeated tags numbered), as in the stage gate. */
@@ -49,17 +47,17 @@ const pick = (...files) => files.find((f) => fs.existsSync(f));
 const models = fs.readdirSync(root).filter((b) => fs.existsSync(path.join(root, b, 'choices.json'))).sort();
 if (!models.length) throw new Error(`UXML_WEIGHTS_GATE_NO_DATA: no <model>/choices.json under ${root}`);
 
-const results = models.map((b, i) => {
+const results = models.map((b) => {
   const dir = path.join(root, b);
   const startXml = pick(path.join(dir, 'start.xml'), path.join(oracle, b, 'xml/engineering-pass-start.xml'));
   const startJson = pick(path.join(dir, 'start.json'), path.join(oracle, b, 'xml/engineering-pass-start.json'));
   const baseXml = pick(path.join(dir, 'base.xml'), path.join(oracle, b, 'xml/04-mds-closure.xml'));
-  if (!startXml || !startJson || !baseXml) throw new Error(`UXML_WEIGHTS_GATE_INPUT_MISSING: ${hide ? `model-${i + 1}` : b}`);
+  if (!startXml || !startJson || !baseXml) throw new Error(`UXML_WEIGHTS_GATE_INPUT_MISSING: ${b}`);
   const supportConfig = JSON.parse(fs.readFileSync(path.join(dir, 'choices.json'), 'utf8'));
   const choices = Object.keys(supportConfig.overrides?.rigidWeight || {}).length;
   if (control) delete supportConfig.overrides.rigidWeight;
   const snap = revive(JSON.parse(fs.readFileSync(startJson, 'utf8')));
-  const stagedFile = STAGED[b] && path.join(bench, STAGED[b]);
+  const stagedFile = BENCH_SOURCES[b]?.[1] && path.join(ROOT, BENCH_SOURCES[b][1]);
   const stagedJsonText = stagedFile ? fs.readFileSync(stagedFile, 'utf8') : '';
   const out = runSupportsStage({ xmlText: fs.readFileSync(startXml, 'utf8'), stagedJsonText, supportConfig,
     masters: { materialMapRows: snap.config.material?.mapRows } });
@@ -80,7 +78,7 @@ const results = models.map((b, i) => {
   if (eng.unexplained) tags['provenance:unexplained'] = eng.unexplained;
   if (popup !== Object.keys(expected).length) tags['provenance:popup'] = popup;
   const problems = Object.values(tags).reduce((n, v) => n + v, 0);
-  return { model: hide ? `model-${i + 1}` : b, choices, expectedWeights: Object.keys(expected).length, weightsRight,
+  return { model: b, choices, expectedWeights: Object.keys(expected).length, weightsRight,
     provenance: { values: eng.values, unexplained: eng.unexplained, popup, bySrc: eng.bySrc }, verdict: problems ? 'FAIL' : 'PASS', differences: tags };
 });
 

@@ -2,12 +2,11 @@
 // CII writer (3D_Converters xml_to_cii2019_runtime_custody.py, called with the app's own arguments) runs on today's XML
 // after the supports stage and on the stage's output; the two CII files must be equal line for line.
 //   node scripts/uxml-v2-supports-cii-gate.mjs [control] --writer <xml_to_cii2019_runtime_custody.py> [--python <exe>]
-//        [--oracle <dir>] [--xml <dir>] [--calls <dir>] [--names-hidden] [--json report.json]
+//        [--oracle <dir>] [--xml <dir>] [--calls <dir>] [--json report.json]
 // --xml: folder of <B>/xml/ (default --oracle), as in the stage gate.
 // Today's XML: <oracle>/<B>/final-enriched.xml where given, else <oracle>/<B>/xml/04-mds-closure.xml.
 // Stage input: <oracle>/<B>/xml/engineering-pass-start.xml with the recorded job config (as in the stage gate).
 // Controls (must FAIL): no-process-parity, no-preview-parity (the stage without today's process parity / preview rows).
-// --names-hidden: models reported as model-1, model-2, ... (private benchmarks); counts only, never values.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -25,7 +24,6 @@ const oracle = opt('--oracle') || path.join(ROOT, 'fixtures/uxml-v2-supports/ora
 const calls = opt('--calls') || path.join(ROOT, 'fixtures/uxml-v2-supports/core-calls');
 const xmlRoot = opt('--xml');
 const reportPath = opt('--json');
-const hide = argv.includes('--names-hidden');
 const CONTROLS = { 'no-process-parity': { processParity: false }, 'no-preview-parity': { previewRunParity: false } };
 const control = CONTROLS[argv[0]] ? argv[0] : null;
 if (!writer || !fs.existsSync(writer)) throw new Error('UXML_CII_GATE_WRITER_MISSING: pass --writer <path to xml_to_cii2019_runtime_custody.py>');
@@ -78,8 +76,7 @@ function check(bench, dir) {
 const perBench = {};
 try {
   benches.forEach((bench, i) => {
-    const key = hide ? `model-${i + 1}` : bench;
-    try { perBench[key] = check(bench, path.join(tmp, `m${i + 1}`)); } catch (e) { perBench[key] = { equal: false, error: String(e?.message || e).slice(0, 400) }; }
+    try { perBench[bench] = check(bench, path.join(tmp, `m${i + 1}`)); } catch (e) { perBench[bench] = { equal: false, error: String(e?.message || e).slice(0, 400) }; }
   });
 } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 const failing = Object.entries(perBench).filter(([, r]) => !r.equal).map(([b]) => b);

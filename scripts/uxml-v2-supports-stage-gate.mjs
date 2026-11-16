@@ -19,6 +19,7 @@ import { loadCalls, revive } from '../uxml/v2/supports/CoreCallsLib.js';
 import { runSupportsStage } from '../uxml/v2/supports/SupportsStage.js';
 import { plainSupportTable, supportProvenance } from '../uxml/v2/supports/SupportProvenance.js';
 import { elementKids, parsePlainXml, textContent } from '../uxml/v2/supports/PlainDom.js';
+import { BENCH_SOURCES } from './uxml-v2-benches.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const argv = process.argv.slice(2);
@@ -28,7 +29,6 @@ const oracle = opt('--oracle') || path.join(ROOT, 'fixtures/uxml-v2-supports/ora
 const xmlRoot = opt('--xml');
 const calls = opt('--calls') || path.join(ROOT, 'fixtures/uxml-v2-supports/core-calls');
 const SUB = ['01-parent-enrichment', '02-dtxr-enrichment', '03-atta-default', '04-mds-closure'];
-const STAGED = { G30: 'bench/golden-30_staged.json', 'G30-CUSTOM': 'bench/golden-30_staged.json', 'ACTIVE-AUDIT': 'bench/active-audit.json' };
 const tableOf = (text) => supportTableOf(readPsi116V2(text, { fileSha256: createHash('sha256').update(text).digest('hex') }));
 const xmlDir = (b) => path.join(xmlRoot || oracle, b, 'xml');
 const control = argv[0] === 'identity';
@@ -166,7 +166,7 @@ function check(bench) {
   const snap = revive(JSON.parse(fs.readFileSync(path.join(xmlDir(bench), 'engineering-pass-start.json'), 'utf8')));
   const dtxrCall = loadCalls([path.join(calls, `${bench}.substep-calls.json`)]).find((c) => c.name === 'enrichStandaloneDtxrAnnotations');
   const [, stagedJsonText, supportConfig] = revive(dtxrCall.args);
-  const stagedPath = STAGED[bench] && path.join(ROOT, 'fixtures/uxml-v2-supports', STAGED[bench]);
+  const stagedPath = BENCH_SOURCES[bench]?.[1] && path.join(ROOT, BENCH_SOURCES[bench][1]);
   if (stagedPath && fs.existsSync(stagedPath) && fs.readFileSync(stagedPath, 'utf8') !== stagedJsonText) return [{ what: 'staged JSON differs from the recording' }];
   let out;
   try { out = control ? { xmlText, stages: Object.fromEntries(['branch-pass', ...SUB].map((s) => [s, xmlText])) } : runSupportsStage({ xmlText, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows }, ...stageOptions }); }

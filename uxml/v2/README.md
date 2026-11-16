@@ -26,7 +26,7 @@ Benchmarks (counts only): `node scripts/uxml-v2-roundtrip.mjs <label>=<file.xml>
 - **Writer placement:** a new value goes just before the record's close tag, and new restraints are appended after the existing ones. The CII route reads by tag name, so order inside a record does not change it.
 
 ## Step 1 results (15 Nov 2026)
-PSI116 -> UXML v2 -> PS116 on GOLDEN-30, RMS-BLOW-1 and two private benchmarks (run locally, counts only):
+PSI116 -> UXML v2 -> PS116 on GOLDEN-30, RMS-BLOW-1, BM2 and EF05 (BM2 and EF05 run locally then; public since 16 Nov):
 - byte-identical output;
 - the same revision id when the file is read twice;
 - a T1 edit changes exactly 1 field after re-reading;
@@ -46,10 +46,10 @@ Three writer mutants are caught by the tests: ignoring changed values, ignoring 
 Check: `node --test tests/uxml-v2-review-diff.test.mjs` (8 tests). Four diff mutants are caught: ignoring locks, ignoring removals, calling a split an add, and dropping the source.
 
 - **Undo is one level.** An undo is not undone again, because that would re-apply the step.
-- **The CII check (run locally).** The edited PSI116 from step 1 was run through today's XML -> CII 2019 converter (3D_Converters `v045/converters/scripts/xml_to_cii2019_runtime_custody.py`). On GOLDEN-30, RMS-BLOW-1 and the two private benchmarks, the CII differs from the original only in the edited T1 tokens: 13, 40, 3 and 30 tokens. Line counts are unchanged.
+- **The CII check (run locally).** The edited PSI116 from step 1 was run through today's XML -> CII 2019 converter (3D_Converters `v045/converters/scripts/xml_to_cii2019_runtime_custody.py`). On GOLDEN-30, RMS-BLOW-1, BM2 and EF05, the CII differs from the original only in the edited T1 tokens: 13, 40, 3 and 30 tokens. Line counts are unchanged.
 
 ## Step 3: the supports stage (in progress, 15 Nov 2026)
-Goal: today's support rules (3D_Converters main f8622395, the live step-10 chain) as a pure UXML stage with no XML page. Oracle: `fixtures/uxml-v2-supports/` holds today's support table after each of its four sub-stages, on five public benchmarks.
+Goal: today's support rules (3D_Converters main f8622395, the live step-10 chain) as a pure UXML stage with no XML page. Oracle: `fixtures/uxml-v2-supports/` holds today's support table after each of its four sub-stages, on seven benchmarks (BM2 and EF05 added 16 Nov).
 
 | File | What it does |
 |---|---|
@@ -59,9 +59,8 @@ Goal: today's support rules (3D_Converters main f8622395, the live step-10 chain
 | `scripts/uxml-v2-supports-compare-tables.mjs`, `scripts/uxml-v2-supports-check-gate.mjs` | the gate: compare two tables node by node, then check the counts against `GATES.json` |
 
 Check: `node --test tests/uxml-v2-supports.test.mjs`.
-- The input tables equal today's on all 5 benchmarks.
-- Today's whole final result goes through view -> ops -> kernel -> writer -> reader and passes the gate on all 5.
-- The same holds on the two private benchmarks, run locally (counts only).
+- The input tables equal today's on all 7 benchmarks.
+- Today's whole final result goes through view -> ops -> kernel -> writer -> reader and passes the gate on all 7.
 
 Decisions taken in step 3:
 - **A restraint add or remove is on the `supports` layer** (step 1 counted it as topology). Node keys `DTXR_*` and `CMPSUPGAP*` are `supports` too. A supports stage still may not add, split or remove a node.

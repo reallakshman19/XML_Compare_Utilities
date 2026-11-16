@@ -15,14 +15,14 @@ const gate = (impl, substep) => {
 };
 
 for (const substep of ['parent-loop', 'dtxr', 'atta', 'mds']) {
-  test(`${substep}: today's recorded output passes on all 5 models`, () => {
+  test(`${substep}: today's recorded output passes on all 7 models`, () => {
     const r = gate('recorded', substep);
     assert.equal(r.verdict, 'PASS');
-    assert.equal(Object.keys(r.perBench).length, 5);
+    assert.equal(Object.keys(r.perBench).length, 7);
   });
 }
 
 test('an unchanged input fails where today changes supports; a refusal fails everywhere', () => {
-  assert.deepEqual(gate('identity', 'parent-loop').failing, ['G30', 'G30-NOJSON', 'G30-CUSTOM', 'ACTIVE-AUDIT']);
-  assert.equal(gate('refuse', 'mds').failing.length, 5);
+  assert.deepEqual(gate('identity', 'parent-loop').failing, ['G30', 'G30-NOJSON', 'G30-CUSTOM', 'ACTIVE-AUDIT', 'EF05']);
+  assert.equal(gate('refuse', 'mds').failing.length, 7);
 });

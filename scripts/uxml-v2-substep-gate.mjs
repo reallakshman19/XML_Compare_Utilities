@@ -17,14 +17,10 @@ import { readPsi116V2 } from '../uxml/v2/UxmlV2Psi116Reader.js';
 import { supportTableOf } from '../uxml/v2/supports/SupportTable.js';
 import { createReplayCore } from '../uxml/v2/supports/CoreReplay.js';
 import { loadCalls, revive, canonical } from '../uxml/v2/supports/CoreCallsLib.js';
+import { BENCH_SOURCES, BENCHES } from './uxml-v2-benches.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const FX = path.join(ROOT, 'fixtures/uxml-v2-supports');
-const SOURCES = {
-  G30: ['fixtures/uxml-v2/golden-30.xml', 'bench/golden-30_staged.json'], 'G30-NOJSON': ['fixtures/uxml-v2/golden-30.xml', null],
-  'G30-CUSTOM': ['fixtures/uxml-v2/golden-30.xml', 'bench/golden-30_staged.json'], 'RMS-BLOW-1': ['bench/RMS-BLOW-1.xml', null],
-  'ACTIVE-AUDIT': ['bench/active-audit-ns.xml', 'bench/active-audit.json'],
-};
 const ENTRY = { dtxr: 'enrichStandaloneDtxrAnnotations', atta: 'closeGovernedAttaDefaultRestraintsXml', mds: 'closeGovernedMdsPositionRestraintsXml' };
 const read = (p) => fs.readFileSync(p.startsWith('fixtures/') ? path.join(ROOT, p) : path.join(FX, p), 'utf8');
 const table = (text) => supportTableOf(readPsi116V2(text, { fileSha256: createHash('sha256').update(text).digest('hex') }));
@@ -42,7 +38,7 @@ function caseOf(bench) {
   const files = ['core', 'ledger', 'config', 'substep'].map((g) => path.join(FX, 'core-calls', `${bench}.${g}-calls.json`));
   const core = createReplayCore(files);
   if (substep === 'parent-loop') {
-    const [src, staged] = SOURCES[bench];
+    const [src, staged] = BENCH_SOURCES[bench];
     const snap = revive(JSON.parse(read(`oracle/${bench}/xml/parent-support-loop-start.json`)));
     // Today's diagnostics array already holds the master-load entries when buildStagedSupportIndex receives it.
     const indexCall = loadCalls([files[0]]).find((c) => c.name === 'buildStagedSupportIndex');
@@ -87,7 +83,7 @@ function check(bench) {
 }
 
 const perBench = {};
-for (const bench of Object.keys(SOURCES)) perBench[bench] = check(bench);
+for (const bench of BENCHES) perBench[bench] = check(bench);
 const failing = Object.entries(perBench).filter(([, p]) => p.length).map(([b]) => b);
 const report = { impl, substep, verdict: failing.length ? 'FAIL' : 'PASS', failing, perBench };
 if (reportPath) fs.writeFileSync(reportPath, JSON.stringify(report, null, 1));

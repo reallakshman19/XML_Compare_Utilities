@@ -1,4 +1,4 @@
-// The step-4 branch pass port gives today's XML at the parent-loop start on all 5 public models; the no-change control fails.
+// The step-4 branch pass port gives today's XML at the parent-loop start on all 7 models; the no-change control fails.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
@@ -21,16 +21,16 @@ function gate(impl) {
   }
 }
 
-test('branch pass port: PASS on all 5 models, each changed by today', () => {
+test('branch pass port: PASS on all 7 models, each changed by today', () => {
   const { status, report, out } = gate('uxml/v2/engineering/BranchPass.js');
   assert.equal(status, 0, out);
   assert.equal(report.verdict, 'PASS');
-  assert.equal(report.benches, 5);
+  assert.equal(report.benches, 7);
   assert.ok(Object.values(report.perBench).every((b) => b.changedByToday));
 });
 
 test('branch pass gate: the no-change control fails on every model', () => {
   const { report } = gate('identity');
   assert.equal(report.verdict, 'FAIL');
-  assert.equal(report.failing.length, 5);
+  assert.equal(report.failing.length, 7);
 });

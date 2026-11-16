@@ -5,9 +5,9 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BENCHES } from '../scripts/uxml-v2-benches.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const BENCHES = ['G30', 'G30-NOJSON', 'G30-CUSTOM', 'RMS-BLOW-1', 'ACTIVE-AUDIT'];
 const recordings = (group) => BENCHES.map((bench) => `fixtures/uxml-v2-supports/core-calls/${bench}.${group}-calls.json`);
 const GATES = [
   ['config', 'scripts/uxml-v2-core-calls-gate.mjs', 'uxml/v2/supports/config/EnrichmentConfig.js', ...recordings('config'), '--inject-core=parseXmlCiiEnrichmentConfig'],

@@ -9,10 +9,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { createReplayCore } from '../uxml/v2/supports/CoreReplay.js';
 import { loadCalls, PLAIN_DOCUMENT } from '../uxml/v2/supports/CoreCallsLib.js';
+import { BENCHES } from '../scripts/uxml-v2-benches.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DIR = path.join(ROOT, 'fixtures/uxml-v2-supports/core-calls');
-const FILES = ['G30', 'G30-NOJSON', 'G30-CUSTOM', 'RMS-BLOW-1', 'ACTIVE-AUDIT'].map((b) => path.join(DIR, b + '.core-calls.json'));
+const FILES = BENCHES.map((b) => path.join(DIR, b + '.core-calls.json'));
 const GATE = path.join(ROOT, 'scripts/uxml-v2-core-calls-gate.mjs');
 const gate = (impl) => {
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'core-gate-')), 'r.json');
@@ -22,7 +23,7 @@ const gate = (impl) => {
 
 test('recordings cover the 12 boundary functions on 5 public models', () => {
   const calls = loadCalls(FILES);
-  assert.equal(calls.length, 1248);
+  assert.equal(calls.length, 3922);
   assert.equal(new Set(calls.map((c) => c.name)).size, 12);
 });
 

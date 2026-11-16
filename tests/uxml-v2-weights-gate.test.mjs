@@ -1,5 +1,5 @@
 // The supports stage writes exactly the rigid weights today's Run writes from the popup choices (GOLDEN-30: 5 suggested,
-// RMS-BLOW-1: 20 typed), and nothing else changes; without the choices the gate fails.
+// RMS-BLOW-1, BM2, EF05: 20, 100 and 189 typed), and nothing else changes; without the choices the gate fails.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
@@ -22,12 +22,12 @@ function gate(...args) {
   }
 }
 
-test('weights gate: popup weights equal today on GOLDEN-30 and RMS-BLOW-1', () => {
+test('weights gate: popup weights equal today on GOLDEN-30, RMS-BLOW-1, BM2 and EF05', () => {
   const { status, report, out } = gate();
   assert.equal(status, 0, out);
   assert.equal(report.verdict, 'PASS');
   assert.deepEqual(report.results.map((r) => [r.model, r.weightsRight, r.expectedWeights, r.provenance.popup, r.provenance.unexplained]),
-    [['G30', 5, 5, 5, 0], ['RMS-BLOW-1', 20, 20, 20, 0]]);
+    [['BM2', 100, 100, 100, 0], ['EF05', 189, 189, 189, 0], ['G30', 5, 5, 5, 0], ['RMS-BLOW-1', 20, 20, 20, 0]]);
 });
 
 test('weights gate control: without the popup choices it fails on every model', () => {
