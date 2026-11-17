@@ -72,6 +72,40 @@ def control_elements(text: str) -> int | None:
     return None
 
 
+def check_inputs(target: bytes, cii_bytes: bytes, v14: bytes, match: dict) -> None:
+    """The match must be match-psi116 output (frame cii2019) for this PSI116 and this v14 copy of this CII."""
+    if "nodePairs" not in match or not match.get("ok", True):
+        raise ValueError("U2D_MATCH_INVALID: expected match-psi116 output")
+    inputs = match.get("inputs") or {}
+    if (inputs.get("xml") or {}).get("sha256") != sha256(target):
+        raise ValueError("U2D_MATCH_FILE_MISMATCH: match was made for another PSI116")
+    if (inputs.get("cii") or {}).get("sha256") != sha256(v14):
+        raise ValueError("U2D_MATCH_FILE_MISMATCH: match was made from another CII")
+    if control_elements(v14.decode("latin-1")) != control_elements(cii_bytes.decode("utf-8")):
+        raise ValueError("U2D_CII_PAIR_MISMATCH: --cii and --cii-v14 hold different element counts")
+    if (match.get("summary") or {}).get("frame") != "cii2019":
+        raise ValueError("U2D_MATCH_FRAME: run match-psi116 with --frame cii2019")
+
+
+def u1_envelope(target: bytes, result: dict) -> dict:
+    """The edits U1 applies, in its {fileSha256, edits} envelope."""
+    return {"fileSha256": sha256(target),
+            "edits": [{k: e[k] for k in ("ref", "field", "before", "after")} for e in result["edits"]]}
+
+
+def build_receipt(*, names, cii_bytes, target, revised, u1, items, weight_scale, result, created_at=None) -> dict:
+    """The u2.transfer-receipt; names = (CII file, target file, revised file)."""
+    cii_name, target_name, out_name = names
+    return {"ok": True, "format": "u2.transfer-receipt", "version": 1, "kind": "cii-source",
+            "createdAt": created_at or datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "source": {"fileName": cii_name, "sha256": sha256(cii_bytes)},
+            "base": {"fileName": target_name, "sha256": sha256(target)},
+            "revised": {"fileName": out_name, "sha256": sha256(revised), "u1Sha256": u1["sha256After"]},
+            "options": {"items": items, "weightScale": weight_scale, "densityFactor": 1e-6},
+            "changes": [{**c, "lineNo": "[TBA]"} for c in u1["changes"]],
+            "refused": result["refused"], "summary": result["summary"]}
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="U2d: transfer CII 2019 values into a PSI116")
     for a in ("--target", "--cii", "--match", "--out", "--changes"):
@@ -88,24 +122,11 @@ def main(argv=None) -> int:
                 raise ValueError(f"U2D_OUTPUT_EXISTS: {f}")
         target, cii_bytes = a.target.read_bytes(), a.cii.read_bytes()
         match = json.loads(a.match.read_text(encoding="utf-8"))
-        if "nodePairs" not in match or not match.get("ok", True):
-            raise ValueError("U2D_MATCH_INVALID: expected match-psi116 output")
-        inputs = match.get("inputs") or {}
-        if (inputs.get("xml") or {}).get("sha256") != sha256(target):
-            raise ValueError("U2D_MATCH_FILE_MISMATCH: match was made for another PSI116")
-        v14 = a.cii_v14.read_bytes()
-        if (inputs.get("cii") or {}).get("sha256") != sha256(v14):
-            raise ValueError("U2D_MATCH_FILE_MISMATCH: match was made from another CII")
-        if control_elements(v14.decode("latin-1")) != control_elements(cii_bytes.decode("utf-8")):
-            raise ValueError("U2D_CII_PAIR_MISMATCH: --cii and --cii-v14 hold different element counts")
-        if (match.get("summary") or {}).get("frame") != "cii2019":
-            raise ValueError("U2D_MATCH_FRAME: run match-psi116 with --frame cii2019")
+        check_inputs(target, cii_bytes, a.cii_v14.read_bytes(), match)
         result = plan(target, cii_bytes.decode("utf-8"), match, a.weight_scale, a.items.split(","))
         with tempfile.TemporaryDirectory() as tmp:
             edits = Path(tmp) / "edits.json"
-            edits.write_text(json.dumps({"fileSha256": sha256(target),
-                                         "edits": [{k: e[k] for k in ("ref", "field", "before", "after")} for e in result["edits"]]}),
-                             encoding="utf-8")
+            edits.write_text(json.dumps(u1_envelope(target, result)), encoding="utf-8")
             r = subprocess.run(["node", str(U1), "apply", str(a.target), str(edits), str(a.out)], capture_output=True, text=True)
         if r.returncode != 0:
             raise ValueError(r.stderr.strip() or "U1 refused")
@@ -117,14 +138,8 @@ def main(argv=None) -> int:
         if u1["changes"]:
             revised = protect(revised, u1["changes"])
             a.out.write_bytes(revised)
-        receipt = {"ok": True, "format": "u2.transfer-receipt", "version": 1, "kind": "cii-source",
-                   "createdAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                   "source": {"fileName": a.cii.name, "sha256": sha256(cii_bytes)},
-                   "base": {"fileName": a.target.name, "sha256": sha256(target)},
-                   "revised": {"fileName": a.out.name, "sha256": sha256(revised), "u1Sha256": u1["sha256After"]},
-                   "options": {"items": a.items.split(","), "weightScale": a.weight_scale, "densityFactor": 1e-6},
-                   "changes": [{**c, "lineNo": "[TBA]"} for c in u1["changes"]],
-                   "refused": result["refused"], "summary": result["summary"]}
+        receipt = build_receipt(names=(a.cii.name, a.target.name, a.out.name), cii_bytes=cii_bytes, target=target,
+                                revised=revised, u1=u1, items=a.items.split(","), weight_scale=a.weight_scale, result=result)
         with open(a.changes, "x", encoding="utf-8") as f:
             json.dump(receipt, f, indent=1)
         print(json.dumps(result["summary"]))

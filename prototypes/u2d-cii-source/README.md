@@ -47,3 +47,8 @@ Standalone CII vs the CII converted from the PSI116, elements matched by node nu
 | U3b | PASS (459 carried, 2 not) | PASS (1,171 carried, 12 not) |
 
 Open: BM2 rigid weights (44 transferred) cannot be compared yet — the tab renumbers component nodes, so most weighted elements have no number match (2 of 144). Ends at points with several PSI116 records are refused (BM2 140, EF-05 92 distinct CII nodes).
+
+## In the browser
+`u2d_browser.py` exposes the same steps without files or subprocesses for the UXML review page (section 5, see
+`uxml/v2/README.md`); `u2d.py` and the page share `check_inputs`, `u1_envelope` and `build_receipt`. Refusals that were
+de-duplicated are listed in sorted order (17 Nov 2026), so the same inputs give the same receipt on every run.

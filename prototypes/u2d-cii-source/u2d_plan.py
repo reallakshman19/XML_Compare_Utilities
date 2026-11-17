@@ -171,7 +171,7 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
     items = set(items)
     edits, refused = [], []
     nv, refused_nodes = node_values(cii, pairs, nodes, items, weight_scale)
-    refused += [dict(t) for t in {tuple(sorted((k, str(v)) for k, v in r.items())) for r in refused_nodes}]
+    refused += [dict(t) for t in sorted({tuple(sorted((k, str(v)) for k, v in r.items())) for r in refused_nodes})]
     for (k, field), texts in sorted(nv.items()):
         n = nodes[k]
         before = n["values"].get(field)
@@ -194,7 +194,7 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
         for k in sorted(nodes):
             first.setdefault(k[0], nodes[k]["ref"])
         bv, refused_branches = branch_values(cii, brs)
-        refused += [dict(t) for t in {tuple(sorted((k, str(v)) for k, v in r.items())) for r in refused_branches}]
+        refused += [dict(t) for t in sorted({tuple(sorted((k, str(v)) for k, v in r.items())) for r in refused_branches})]
         for (bi, field), texts in sorted(bv.items()):
             before = brs[bi]["values"].get(field)
             if len(texts) != 1:

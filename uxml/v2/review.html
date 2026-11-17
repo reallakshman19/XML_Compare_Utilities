@@ -151,7 +151,17 @@
       <button class="primary" id="trRun">Run the transfer under locks</button>
       <button id="trSample">Use the BM2 transfer sample</button>
     </div>
+    <p class="muted">No receipt yet? Open the CAESAR II file (.cii, 2019) the model was written to instead: the page runs the
+      transfer itself (the same Python as the command line, in this browser) and makes the receipt. The first time it loads
+      Python (about 10 MB).</p>
+    <div class="row">
+      <label for="trCii">CAESAR II file</label><input type="file" id="trCii" accept=".cii">
+      <label for="trScale">CII weights in</label><select id="trScale"><option value="10" selected>N (kg x 10, the XML to CII tab)</option><option value="1">kg</option></select>
+      <button class="primary" id="trFromCii">Transfer from the CAESAR II file</button>
+      <button id="trCiiSample">Use the BM2 CAESAR II sample</button>
+    </div>
     <div id="trMessage"></div>
+    <div id="trU2d" class="muted"></div>
     <div id="trResult" hidden>
       <div id="trSummary" class="counts"></div>
       <h3>Transferred and locked</h3>
@@ -161,10 +171,15 @@
       <div class="row" style="margin-top:10px">
         <button id="trDlXml">Download the final XML</button>
         <button id="trDlDelta">Download the transfer delta</button>
+        <button id="trDlReceipt" hidden>Download the transfer receipt</button>
+        <button id="trDlU2dXml" hidden>Download the transferred XML</button>
       </div>
     </div>
   </section>
 </main>
+<!-- Section 5 uses the CII matcher; its vendored validator imports Node helpers and reads process.argv only for its command line (same two lines as the matcher's own page). -->
+<script>globalThis.process ??= {argv: []};</script>
+<script type="importmap">{"imports":{"node:fs":"../../prototypes/p11-cii-map/engine/validator-browser-stub.mjs","node:path":"../../prototypes/p11-cii-map/engine/validator-browser-stub.mjs","node:url":"../../prototypes/p11-cii-map/engine/validator-browser-stub.mjs"}}</script>
 <script type="module" src="./UxmlV2ReviewPage.js"></script>
 <script type="module" src="./UxmlV2SupportsReview.js"></script>
 <script type="module" src="./UxmlV2TransferReview.js"></script>

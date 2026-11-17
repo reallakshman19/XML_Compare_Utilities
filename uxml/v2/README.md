@@ -87,3 +87,14 @@ the XML the CII engine received, hashes, and the transfer-protected values. Revi
 (UxmlV2RunRecord.js), shows the same support and engineering tables without re-running anything; a record whose CII input
 XML does not match its hash is refused, and an opened model XML is named as the Run's input file, its CII input XML, or
 not this Run's file. Test: tests/uxml-v2-run-record.test.mjs (a GOLDEN-30 record gives the rows of a fresh stage run).
+
+## Transfer in the page (section 5, Owner 17 Nov 2026)
+Section 5 also takes the Enriched XML and the CAESAR II file (.cii, 2019) the model was written to, and runs the transfer
+itself: `transfer/U2dInBrowser.js` runs the same steps as `prototypes/u2d-cii-source` (v11 -> v14 copy, match-psi116
+`--tol 1 --frame cii2019`, transfer plan, U1 write-back, protection note, receipt). The Python files run in Pyodide 0.27.2
+(pinned CDN build) and are checked against `transfer/u2d-py-pin.json` first (`U2D_PIN_MISMATCH` stops the page);
+`uxml/v2/vendor/cii-v11-v14/` is 3D_Converters' converter at the commit named in the pin. Re-pin after any change:
+`node scripts/pin-u2d-py.mjs`. The page then runs the usual transfer under locks with the receipt it made, and offers the
+receipt and the transferred XML for download. Page-only rule: a CII with no node at a point of the XML is refused
+(`U2D_NO_NODE_PAIRS`). BM2 sample: `fixtures/uxml-v2-transfer/BM2/source.cii` (public). Test:
+`tests/uxml-v2-transfer-in-app.test.mjs` (the full run needs `U2D_PYODIDE=<local Pyodide 0.27.2 folder>`).
