@@ -68,3 +68,15 @@ Decisions taken in step 3:
 - **The writer re-renders a file restraint whose field set changed** (a field added or removed) from its modelled values, with the record's own indentation. A restraint whose values only changed is still patched in place, and every other record stays byte for byte.
 - **Inserts at one position keep their order** (several new restraints or values on one node). Step 1's writer reversed them.
 - **Topology is not the supports stage's job.** Today's step-10 chain also drops gaskets, removes duplicate ATTA nodes and splits condensed valve/flange nodes. The gate sets those nodes aside, with exact counts per benchmark.
+
+## Step 6: the property transfer as a UXML change with locks (17 Nov 2026)
+Owner D5 (13 Nov): "Transferred values win". The transfer is post-processing on the Enriched XML (Owner, 13 Nov).
+
+| File | What it does |
+|---|---|
+| `transfer/TransferStage.js` | `transferStage`: a U2d transfer receipt (`u2.transfer-receipt` v1) applied to the UXML of its own target file. Each receipt change becomes `set` + `lock {by:'transfer', receipt, order, field}`; a transferred branch MaterialNumber also sets and locks every node MaterialCode of the branch and clears a non-empty node MaterialName (today's rule). Refused: a receipt for another file (`UXML_TRANSFER_BASE_MISMATCH`), a target that no longer holds the receipt's value (`UXML_TRANSFER_BEFORE_MISMATCH`), a branch or node that does not match (`UXML_TRANSFER_TARGET_MISMATCH`). `noteLockStage`: the same locks from the note of a file the transfer already wrote. |
+| `transfer/TransferNote.js` | locks <-> the `TOPOFIX-TRANSFER-PROTECT` note that today's 3D_Converters step 10 honours, written byte for byte as U2d writes it. |
+| `transfer/LockedEngineering.js` | `runEngineeringUnderLocks`: the supports + engineering stage gets the PSI116 without the note; its value changes become `set` ops and the kernel drops the writes to locked values and lists them as conflicts. A stage output with other branches, nodes, restraints or tags is refused (`UXML_ENGINEERING_STRUCTURE_CHANGED`). |
+| `UxmlV2TransferReview.js` | review page section 5: open the Enriched XML and the receipt (or the BM2 sample), see what was transferred and what the stage was stopped from changing, download the final XML (with the note) and the transfer delta. |
+
+BM2 transfer pair (`fixtures/uxml-v2-transfer/BM2`, test `tests/uxml-v2-transfer-locks.test.mjs`): 10 changes + 70 refusals as in the receipt; the written file equals the U2d file byte for byte; under locks T1 127, FluidDensity 110 and MaterialNumber 106 are kept and the stage's 2 attempts are listed (T1 120, FluidDensity 100); values equal the stage's own note protection; undo gives the base back byte for byte; a tampered delta is refused; without locks T1 goes back to 120.
