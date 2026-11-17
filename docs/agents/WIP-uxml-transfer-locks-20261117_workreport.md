@@ -1,4 +1,4 @@
-# WIP-uxml-transfer-locks-20261117 — UXML plan step 6: the property transfer as a UXML change with locks
+# WIP-uxml-transfer-locks-20261117 = PR 283 — UXML plan step 6: the property transfer as a UXML change with locks
 
 ## Mission and scope
 Owner, 17 Nov 2026: "Start step 6", then "Build, merge 282 first" (design D:/CodeD/topofix-agents/roadmap/UXML-STEP6-DESIGN.md, local).
@@ -37,4 +37,4 @@ main 5a554c1d (PR 282 merge, tree equal to cfea5beb). Branch feat/uxml-transfer-
 - The receipt must be for exactly this file (sha); a re-saved file needs a new transfer.
 
 ## EXACT_NEXT_ACTION
-Owner: open review page section 5 (BM2 sample) and the draft PR; merge on the Owner's word.
+Draft PR 283 is open. Owner: open review page section 5 (BM2 sample); merge on the Owner's word.
