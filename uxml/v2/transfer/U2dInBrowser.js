@@ -73,6 +73,14 @@ export function prepareU2d({loadPyodide, indexURL, onStatus = () => {}} = {}) {
 const bytesOf = value => value instanceof Uint8Array ? value : new TextEncoder().encode(String(value));
 const toJs = value => (value?.toJs ? value.toJs() : value);
 const pyBytes = (py, bytes) => py.toPy(bytes);
+/** A Python refusal as its code line ("U2D_...: ..."), not the traceback. */
+function pyCall(fn) {
+  try { return fn(); } catch (error) {
+    const lines = String(error?.message || error).trim().split(/\r?\n/);
+    const code = lines.reverse().find(l => /\b[A-Z][A-Z0-9]*_[A-Z0-9_]+:/.test(l));
+    throw new Error(code ? code.replace(/^\w*Error: /, '').trim() : String(error?.message || error));
+  }
+}
 
 /** match-psi116 --tol 1 --frame cii2019, shaped as the command line prints it. */
 export async function matchForU2d(targetBytes, v14Bytes, ciiName) {
@@ -89,20 +97,21 @@ export async function matchForU2d(targetBytes, v14Bytes, ciiName) {
  * names: {cii, target, revised} file names for the receipt. Returns {revisedBytes, receiptText, receipt, ms}.
  * Refusals are thrown as Error with the U2D_/U1_/MATCH_ code at the start of the message; nothing is returned then.
  */
-export async function transferCiiIntoXml({targetBytes, ciiBytes, names, weightScale = 10, items = 'name,weight,element', createdAt, ...load}) {
+export async function transferCiiIntoXml({targetBytes, ciiBytes, names, weightScale, items = 'name,weight,element', createdAt, ...load}) {
+  if (weightScale !== 10 && weightScale !== 1) throw new Error('U2D_WEIGHT_SCALE_REQUIRED: the CII weight unit must be chosen: 10 (N, kg x 10) or 1 (kg)');
   const started = Date.now();
   const {py, browser} = await prepareU2d(load);
   const target = bytesOf(targetBytes), cii = bytesOf(ciiBytes);
-  const v14 = toJs(browser.to_v14(pyBytes(py, cii)));
+  const v14 = toJs(pyCall(() => browser.to_v14(pyBytes(py, cii))));
   const match = await matchForU2d(target, v14, names.cii);
   // Page rule (the command line has no such check): a CII with no node at any point of this XML is another model's file.
   if (!match.nodePairs?.length) throw new Error(`U2D_NO_NODE_PAIRS: no node of ${names.cii} is at a point of ${names.target}; it looks like another model's CAESAR II file. Nothing was transferred.`);
-  const planJson = browser.plan_edits(pyBytes(py, target), pyBytes(py, cii), pyBytes(py, v14), JSON.stringify(match), weightScale, items);
+  const planJson = pyCall(() => browser.plan_edits(pyBytes(py, target), pyBytes(py, cii), pyBytes(py, v14), JSON.stringify(match), weightScale, items));
   const {envelope} = JSON.parse(planJson);
   const u1 = await applyPsi116Edits(target, envelope.edits, {fileSha256: envelope.fileSha256});
   const u1Json = JSON.stringify({sha256Before: u1.sha256Before, sha256After: u1.sha256After, changes: u1.changes});
-  const out = browser.finish(pyBytes(py, target), pyBytes(py, cii), pyBytes(py, u1.bytes), u1Json, planJson,
-    JSON.stringify([names.cii, names.target, names.revised]), weightScale, items, createdAt ?? null);
+  const out = pyCall(() => browser.finish(pyBytes(py, target), pyBytes(py, cii), pyBytes(py, u1.bytes), u1Json, planJson,
+    JSON.stringify([names.cii, names.target, names.revised]), weightScale, items, createdAt ?? null));
   const [revised, receiptText] = out.toJs();
   out.destroy?.();
   return {revisedBytes: revised, receiptText, receipt: JSON.parse(receiptText), match: match.summary, ms: Date.now() - started};

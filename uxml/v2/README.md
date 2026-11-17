@@ -98,3 +98,10 @@ itself: `transfer/U2dInBrowser.js` runs the same steps as `prototypes/u2d-cii-so
 receipt and the transferred XML for download. Page-only rule: a CII with no node at a point of the XML is refused
 (`U2D_NO_NODE_PAIRS`). BM2 sample: `fixtures/uxml-v2-transfer/BM2/source.cii` (public). Test:
 `tests/uxml-v2-transfer-in-app.test.mjs` (the full run needs `U2D_PYODIDE=<local Pyodide 0.27.2 folder>`).
+
+Review fixes (17 Nov 2026): branch values (temperature, pressure, density, material) are taken only from CII elements
+whose two ends matched this XML by position (Owner rule; else `U2D_BRANCH_NOT_PAIRED`, command line too); the CII weight
+unit must be chosen, and a transfer whose weight changes are mostly exactly 10x or 0.1x is refused
+(`U2D_WEIGHT_SCALE_SUSPECT`); an XML with a UTF-8 byte-order mark keeps it, so its hash matches the receipt. Known limit:
+the run under locks refuses when the supports stage adds restraints (`UXML_ENGINEERING_STRUCTURE_CHANGED`, e.g. EF-05
+node 390 without a staged JSON); the page now shows where.
