@@ -7,7 +7,7 @@
 import {runSupportsStage} from './supports/SupportsStage.js';
 import {provenanceTableRows, provenanceCsv, PROVENANCE_COLUMNS} from './supports/SupportProvenanceRows.js';
 import {showEngineering} from './UxmlV2EngineeringReview.js';
-import {asStageResult, readRunRecordFile, runRecordFacts, runRecordXmlMatch, transferKeptRows} from './UxmlV2RunRecord.js';
+import {asStageResult, readRunRecordFile, runOutcome, runRecordFacts, runRecordXmlMatch, transferKeptRows} from './UxmlV2RunRecord.js';
 
 const $ = id => document.getElementById(id);
 const SHOW_AT_MOST = 400;
@@ -72,7 +72,7 @@ async function showRecord(index) {
   $('supRecordInfo').replaceChildren(...runRecordFacts(record).map(t => el('div', {className: 'muted', textContent: t})),
     el('div', {className: match === null ? 'notice' : 'muted', textContent: check}),
     kept.length ? el('div', {}, el('h3', {textContent: `Transfer-protected values (${kept.filter(r => r[5] === 'kept').length} of ${kept.length} kept)`}),
-      table(['Branch', 'Node', 'Field', 'Transferred', 'In the CII input XML', ''], kept)) : '');
+      table(['Branch', 'Node', 'Field', 'Transferred', runOutcome(record) === 'held' ? 'In the held XML' : 'In the CII input XML', ''], kept)) : '');
   show(asStageResult(record), Boolean(record.hashes?.stagedJson));
 }
 

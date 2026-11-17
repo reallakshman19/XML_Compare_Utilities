@@ -27,6 +27,9 @@ function el(tag, attrs = {}, ...children) {
 }
 const say = (text, isNotice = true) => $('trMessage').replaceChildren(text ? el('div', {className: isNotice ? 'notice' : 'muted', textContent: text}) : '');
 const fileText = async id => { const f = $(id).files[0]; return f ? f.text() : ''; };
+// XML keeps a UTF-8 byte-order mark: the receipt names the file by the SHA-256 of its bytes (review 17 Nov, EF-05).
+const decodeXml = bytes => new TextDecoder('utf-8', {ignoreBOM: true}).decode(bytes);
+const xmlFileText = async id => { const f = $(id).files[0]; return f ? decodeXml(await f.arrayBuffer()) : ''; };
 async function fetchText(file) {
   const res = await fetch(BENCH + file);
   if (!res.ok) throw new Error(`could not load ${file} (${res.status})`);
@@ -78,13 +81,15 @@ function download(text, file, type) {
 
 async function guarded(fn) {
   say('Running the transfer and the stage under its locks…', false);
-  try { await fn(); } catch (error) { $('trResult').hidden = true; say('Could not run: ' + String(error?.code || '') + ' ' + String(error?.message || error)); }
+  try { await fn(); } catch (error) { $('trResult').hidden = true; say('Could not run: ' + String(error?.message || error) + (error?.details && Object.keys(error.details).length ? ' ' + JSON.stringify(error.details) : '')); }
 }
 
 /** Section 5 without a receipt: the page runs the transfer from the CAESAR II file, then the usual run under locks. */
 async function fromCii(xmlFile = $('trXml').files[0], ciiFile = $('trCii').files[0]) {
   u2d = null;
+  $('trU2d').replaceChildren();
   if (!xmlFile || !ciiFile) throw new Error('open the Enriched XML and the CAESAR II file first');
+  if (!$('trScale').value) throw new Error('choose the unit of the CII weights first (N for a file from the XML to CII tab)');
   name = xmlFile.name.replace(/\.[^.]+$/, '');
   const targetBytes = new Uint8Array(await xmlFile.arrayBuffer());
   u2d = await transferCiiIntoXml({targetBytes, ciiBytes: new Uint8Array(await ciiFile.arrayBuffer()), weightScale: Number($('trScale').value),
@@ -93,13 +98,13 @@ async function fromCii(xmlFile = $('trXml').files[0], ciiFile = $('trCii').files
   const refused = Object.entries(summary.refused).map(([code, n]) => `${code} ${n}`).join(', ') || 'none';
   $('trU2d').textContent = `Transfer from ${ciiFile.name}: ${summary.edits} value(s) differ and were transferred, ${summary.pairs} node pairs, `
     + `${summary.ciiElements} CII elements; refused: ${refused}. ${(u2d.ms / 1000).toFixed(1)} s in this browser.`;
-  run({xmlText: new TextDecoder().decode(targetBytes), receiptText: u2d.receiptText, stagedJsonText: await fileText('supStaged'),
+  run({xmlText: decodeXml(targetBytes), receiptText: u2d.receiptText, stagedJsonText: await fileText('supStaged'),
     configText: await fileText('supConfig'), rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
 }
 
 function wire() {
   $('trRun').addEventListener('click', () => guarded(async () => {
-    const xmlText = await fileText('trXml');
+    const xmlText = await xmlFileText('trXml');
     const receiptText = await fileText('trReceipt');
     if (!xmlText || !receiptText) throw new Error('open the Enriched XML and the transfer receipt first');
     name = $('trXml').files[0].name.replace(/\.[^.]+$/, '');

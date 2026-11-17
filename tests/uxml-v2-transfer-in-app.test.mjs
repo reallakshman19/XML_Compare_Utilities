@@ -41,8 +41,13 @@ test('BM2: the page transfer gives the receipt and values of the command-line tr
   assert.equal(r.receipt.source.sha256, cli.source.sha256);
   assert.equal(r.receipt.revised.sha256, cli.revised.sha256, 'transferred XML (with its protection note) is byte-identical');
   assert.deepEqual(r.receipt.changes, cli.changes);
-  assert.deepEqual(r.receipt.summary, cli.summary);
-  // The committed receipt predates the sorted refusal order: compare the refusals as a set.
+  assert.equal(r.receipt.summary.edits, cli.summary.edits);
+  assert.deepEqual(r.receipt.summary.byField, cli.summary.byField);
+  // The committed receipt predates the Owner's 17 Nov rule (branch values only from paired elements): two BM2 branches
+  // with no matched element moved from U2D_MATERIAL_CARRIED to U2D_BRANCH_NOT_PAIRED; every other refusal is unchanged.
   const key = x => JSON.stringify(Object.entries(x).sort());
-  assert.deepEqual(r.receipt.refused.map(key).sort(), cli.refused.map(key).sort());
+  const moved = new Set(r.receipt.refused.filter(x => x.code === 'U2D_BRANCH_NOT_PAIRED').map(x => x.branch));
+  assert.equal(moved.size, 2);
+  const old = cli.refused.filter(x => !(x.code === 'U2D_MATERIAL_CARRIED' && moved.has(x.branch)));
+  assert.deepEqual(r.receipt.refused.filter(x => x.code !== 'U2D_BRANCH_NOT_PAIRED').map(key).sort(), old.map(key).sort());
 });

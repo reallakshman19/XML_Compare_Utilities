@@ -36,9 +36,14 @@ export function runRecordXmlMatch(record, xmlText) {
 }
 
 /** Plain lines about the Run, for the page. */
+/** 'held' (parity failed: no CII) or 'released-to-engine'; records before 17 Nov have no outcome: taken from parity. */
+export const runOutcome = record => record.outcome || (record.parity?.ok ? 'released-to-engine' : 'held');
+
 export function runRecordFacts(record) {
   const p = record.parity || {};
-  return [`${record.model}, run ${record.createdAt} with ${record.stage}`,
+  return [runOutcome(record) === 'held' ? 'HELD: this Run wrote no CII (parity failed on the UXML XML).'
+    : 'The UXML XML was released to the CII engine (this record does not say whether the engine then wrote the CII).',
+    `${record.model}, run ${record.createdAt} with ${record.stage}`,
     `parity ${p.ok ? 'PASS' : 'HELD'} (${p.comparisons ?? '?'} comparisons, ${p.mismatches ?? '?'} mismatches)`,
     record.compare?.equal ? 'XML equal to today\'s route' : `differs from today's route on ${record.compare?.nodesDiffer ?? '?'} node(s): ${Object.keys(record.compare?.fields || {}).join(', ') || 'branch values'}`];
 }

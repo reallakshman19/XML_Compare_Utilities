@@ -118,22 +118,36 @@ def element_branch(el: dict) -> str | None:
     return m.group(2)[:int(m.group(1))] if m else None
 
 
-def branch_values(cii: dict, brs: dict) -> tuple[dict, list]:
+def paired_into(el: dict, bi: int, pairs: dict, nodes: dict) -> bool:
+    """Owner, 17 Nov 2026: a branch takes values only from CII elements whose two ends both matched
+    this XML by position (match-psi116 pairs; a point with several PSI116 records still matched), with
+    at least one matched record in that branch (a branch's first node may sit on its parent branch)."""
+    ends = [pairs.get(node_key(el["E"][0][i]), []) for i in (0, 1)]
+    return all(ends) and any(k[0] == bi for e in ends for k in e)
+
+
+def branch_values(cii: dict, brs: dict, pairs: dict, nodes: dict) -> tuple[dict, list]:
     """(branchOrdinal, field) -> set of texts from every element whose line-number field names
-    the branch. A CII temperature 0 is the converter's 'unset' (-100000). A material equal to the
-    one carried in from the previous element is not taken as the branch's own."""
+    the branch and whose ends matched this XML (paired_into). A branch named by CII elements none
+    of which matched is refused (U2D_BRANCH_NOT_PAIRED). A CII temperature 0 is the converter's
+    'unset' (-100000). A material equal to the one carried in from the previous element is not
+    taken as the branch's own."""
     by_name = {}
     for bi, b in brs.items():
         by_name.setdefault(b["name"], []).append(bi)
     want, refused, carried = {}, [], {}
+    named, used = set(), set()
     prev = 1.0
     for el in cii["elements"]:
         name = element_branch(el)
         targets = by_name.get(name, [])
         if len(targets) > 1:
             refused.append({"code": "U2D_BRANCH_NAME_SHARED", "branch": name})
-        if len(targets) == 1:
+        if len(targets) == 1 and not paired_into(el, targets[0], pairs, nodes):
+            named.add(targets[0])
+        elif len(targets) == 1:
             bi = targets[0]
+            used.add(bi)
             for field, (li, ci) in BRANCH_CELLS.items():
                 v = num(el["E"][li][ci])
                 if v is None:
@@ -147,6 +161,9 @@ def branch_values(cii: dict, brs: dict) -> tuple[dict, list]:
                 carried.setdefault(bi, []).append(same(el["material"], prev))
         if el["material"] is not None:
             prev = el["material"]
+    for bi in sorted(named - used):
+        refused.append({"code": "U2D_BRANCH_NOT_PAIRED", "branch": brs[bi]["name"],
+                        "detail": "no CII element of this branch matched the XML's nodes; its values are not taken"})
     for bi, flags in carried.items():
         if all(flags):
             want.pop((bi, "Branch/MaterialNumber"), None)
@@ -160,6 +177,17 @@ def differs(field: str, before, after: str) -> bool:
         return before != after and not (len(before) > NAME_LIMIT and before[:NAME_LIMIT] == after)
     b = num(before)
     return b is None or not same(b, num(after))
+
+
+def check_weight_scale(edits: list, weight_scale: float) -> None:
+    """Refuse the whole transfer when the weight edits look like a wrong unit: at least 5 weight
+    edits and 80 % of them exactly 10x or 0.1x the PSI116 weight (review 17 Nov 2026)."""
+    ratios = [num(e["after"]) / num(e["before"]) for e in edits
+              if e["field"] == "Node/Weight" and num(e["before"]) and num(e["after"]) is not None]
+    off = sum(1 for r in ratios if same(r, 10.0) or same(r, 0.1))
+    if len(ratios) >= 5 and off >= 0.8 * len(ratios):
+        raise ValueError(f"U2D_WEIGHT_SCALE_SUSPECT: {off} of {len(ratios)} weight changes are exactly 10x or 0.1x the "
+                         f"XML weight; the CII weight unit (--weight-scale {weight_scale:g}) is probably wrong. Nothing was transferred.")
 
 
 def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, items=("name", "weight", "element")) -> dict:
@@ -193,7 +221,7 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
         first = {}
         for k in sorted(nodes):
             first.setdefault(k[0], nodes[k]["ref"])
-        bv, refused_branches = branch_values(cii, brs)
+        bv, refused_branches = branch_values(cii, brs, pairs, nodes)
         refused += [dict(t) for t in sorted({tuple(sorted((k, str(v)) for k, v in r.items())) for r in refused_branches})]
         for (bi, field), texts in sorted(bv.items()):
             before = brs[bi]["values"].get(field)
@@ -203,6 +231,7 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
                 refused.append({"code": "U2D_FIELD_UNAVAILABLE", "branch": brs[bi]["name"], "field": field})
             elif differs(field, before, next(iter(texts))):
                 edits.append({"ref": first[bi], "field": field, "before": before, "after": next(iter(texts)), "lineNo": "[TBA]"})
+    check_weight_scale(edits, weight_scale)
     by = {}
     for e in edits:
         by[e["field"]] = by.get(e["field"], 0) + 1
