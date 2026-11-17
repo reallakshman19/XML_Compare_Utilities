@@ -26,7 +26,7 @@ Benchmarks (counts only): `node scripts/uxml-v2-roundtrip.mjs <label>=<file.xml>
 - **Writer placement:** a new value goes just before the record's close tag, and new restraints are appended after the existing ones. The CII route reads by tag name, so order inside a record does not change it.
 
 ## Step 1 results (15 Nov 2026)
-PSI116 -> UXML v2 -> PS116 on GOLDEN-30, RMS-BLOW-1 and two private benchmarks (run locally, counts only):
+PSI116 -> UXML v2 -> PS116 on GOLDEN-30, RMS-BLOW-1, BM2 and EF05 (BM2 and EF05 run locally then; public since 16 Nov):
 - byte-identical output;
 - the same revision id when the file is read twice;
 - a T1 edit changes exactly 1 field after re-reading;
@@ -41,8 +41,30 @@ Three writer mutants are caught by the tests: ignoring changed values, ignoring 
 | `UxmlV2Stages.js` | adds `runStages` (the registry in order, each result feeding the next) and an optional lock on the edit stage |
 | `UxmlV2ReviewSession.js` | the page's revision list. Actions: repair, edit, split, undo, open a delta. Pure. |
 | `review.html` + `UxmlV2ReviewPage.js` | the review page: open a PSI116 file or the GOLDEN-30 sample, make a change, compare any two revisions, and download the PSI116, the UXML or the delta. It runs in the browser and uploads nothing. |
+| `UxmlV2SupportsReview.js` + `supports/SupportProvenanceRows.js` | section 4 of the review page: run the supports stage on a model (or the GOLDEN-30 sample) and list every support value and restraint with the step that set it, where it came from and the staged item it matched; staged supports that became no restraint and duplicate supports removed are shown; download as CSV. |
 
 Check: `node --test tests/uxml-v2-review-diff.test.mjs` (8 tests). Four diff mutants are caught: ignoring locks, ignoring removals, calling a split an add, and dropping the source.
 
 - **Undo is one level.** An undo is not undone again, because that would re-apply the step.
-- **The CII check (run locally).** The edited PSI116 from step 1 was run through today's XML -> CII 2019 converter (3D_Converters `v045/converters/scripts/xml_to_cii2019_runtime_custody.py`). On GOLDEN-30, RMS-BLOW-1 and the two private benchmarks, the CII differs from the original only in the edited T1 tokens: 13, 40, 3 and 30 tokens. Line counts are unchanged.
+- **The CII check (run locally).** The edited PSI116 from step 1 was run through today's XML -> CII 2019 converter (3D_Converters `v045/converters/scripts/xml_to_cii2019_runtime_custody.py`). On GOLDEN-30, RMS-BLOW-1, BM2 and EF05, the CII differs from the original only in the edited T1 tokens: 13, 40, 3 and 30 tokens. Line counts are unchanged.
+
+## Step 3: the supports stage (in progress, 15 Nov 2026)
+Goal: today's support rules (3D_Converters main f8622395, the live step-10 chain) as a pure UXML stage with no XML page. Oracle: `fixtures/uxml-v2-supports/` holds today's support table after each of its four sub-stages, on seven benchmarks (BM2 and EF05 added 16 Nov).
+
+| File | What it does |
+|---|---|
+| `supports/SupportTable.js` | `supportTableOf(doc)`: per node the support values and restraints, as text, in the oracle's shape |
+| `supports/SupportView.js` | `viewOf(doc)`, `tableOfView`, `opsFromView(doc, view)`: the plain view the support rules work on, and the kernel ops that turn a document into it |
+| `scripts/uxml-v2-supports-table.mjs` | the support table of a PSI116 file |
+| `scripts/uxml-v2-supports-compare-tables.mjs`, `scripts/uxml-v2-supports-check-gate.mjs` | the gate: compare two tables node by node, then check the counts against `GATES.json` |
+
+Check: `node --test tests/uxml-v2-supports.test.mjs`.
+- The input tables equal today's on all 7 benchmarks.
+- Today's whole final result goes through view -> ops -> kernel -> writer -> reader and passes the gate on all 7.
+
+Decisions taken in step 3:
+- **A restraint add or remove is on the `supports` layer** (step 1 counted it as topology). Node keys `DTXR_*` and `CMPSUPGAP*` are `supports` too. A supports stage still may not add, split or remove a node.
+- **A restraint's direction frame can be set** with `{op: 'set', path: 'frame'}`, so a restraint that gains direction cosines states their frame (`CII_XYZ`, the frame of XML cosines).
+- **The writer re-renders a file restraint whose field set changed** (a field added or removed) from its modelled values, with the record's own indentation. A restraint whose values only changed is still patched in place, and every other record stays byte for byte.
+- **Inserts at one position keep their order** (several new restraints or values on one node). Step 1's writer reversed them.
+- **Topology is not the supports stage's job.** Today's step-10 chain also drops gaskets, removes duplicate ATTA nodes and splits condensed valve/flange nodes. The gate sets those nodes aside, with exact counts per benchmark.

@@ -6,12 +6,12 @@
  * diffRevisions(before, after) -> {before, after, changes[], counts}
  *   change: {type, uid, kind, pipeline, node, key, layer, before, after, src, rule, stage, lock,
  *            from (source uids), fromLabels (their node numbers or names)}
- *   type:   'set' (value changed) | 'add-value' | 'remove-value' | 'lock' | 'unlock'
+ *   type:   'set' (value changed; key 'frame' = a restraint's direction frame) | 'add-value' | 'remove-value' | 'lock' | 'unlock'
  *           | 'add' | 'split' | 'remove' (whole node or restraint)
  * The `rev` stamp alone is not a change; a value counts as changed when v, text, unit, src,
  * rule or lock differ.
  */
-import {walkEntities, layerOf, canonicalJson} from './UxmlV2Kernel.js';
+import {walkEntities, layerOf, entityLayer, canonicalJson} from './UxmlV2Kernel.js';
 
 const LABEL_KEYS = Object.freeze({pipeline: ['Branchname'], component: ['NodeNumber', 'NodeName'], restraint: ['Type', 'RestraintType']});
 
@@ -78,6 +78,12 @@ function valueChanges(uid, oldPlace, newPlace, index, stage) {
         rule: '', lock: after?.lock ?? null});
     }
   }
+  const frameBefore = oldPlace.entity.frame ?? null;
+  const frameAfter = newPlace.entity.frame ?? null;
+  if (frameBefore !== frameAfter) {
+    out.push({uid, kind: newPlace.kind, ...where(newPlace, index), key: 'frame', layer: 'supports',
+      before: frameBefore, after: frameAfter, stage, type: 'set', src: 'stage', rule: '', lock: null});
+  }
   return out;
 }
 
@@ -89,7 +95,7 @@ function entityChange(type, uid, place, index, stage, oldIndex = index) {
   });
   return {
     fromLabels,
-    type, uid, kind: place.kind, ...where(place, index), key: '', layer: 'topology',
+    type, uid, kind: place.kind, ...where(place, index), key: '', layer: entityLayer(place.kind),
     before: type === 'remove' ? entityLabel(place.entity, place.kind) : null,
     after: type === 'remove' ? null : entityLabel(place.entity, place.kind),
     src: type === 'remove' ? '' : 'stage', rule: lineage?.rule ?? '', stage: lineage?.stage ?? stage,

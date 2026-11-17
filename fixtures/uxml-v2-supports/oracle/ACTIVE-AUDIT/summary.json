@@ -1,0 +1,34 @@
+{
+ "benchmark": "active-audit-ns.xml",
+ "stagedJson": true,
+ "error": null,
+ "applied": true,
+ "stages": [
+  {
+   "order": 1,
+   "name": "parent-enrichment",
+   "nodesChanged": 1,
+   "restraintsAfter": 1
+  },
+  {
+   "order": 2,
+   "name": "dtxr-enrichment",
+   "nodesChanged": 1,
+   "restraintsAfter": 1
+  },
+  {
+   "order": 3,
+   "name": "atta-default",
+   "nodesChanged": 0,
+   "restraintsAfter": 1
+  },
+  {
+   "order": 4,
+   "name": "mds-closure",
+   "nodesChanged": 0,
+   "restraintsAfter": 1
+  }
+ ],
+ "finalRestraints": 1,
+ "supportDiagnostics": 7
+}

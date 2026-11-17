@@ -32,7 +32,9 @@ const element = (key, value) => '<' + tagOf(key) + '>' + renderValue(value) + '<
 const changed = value => (value?.rev || 0) > 0;
 
 function patch(text, edits) {
-  const sorted = [...edits].sort((a, b) => b.start - a.start || b.end - a.end);
+  // Applied back to front. Inserts at one position: the later edit goes in first, so the text
+  // ends up in edit order (step 3: several new restraints or values on one node).
+  const sorted = edits.map((e, i) => ({...e, i})).sort((a, b) => b.start - a.start || b.end - a.end || b.i - a.i);
   let out = text;
   let floor = Infinity;
   for (const e of sorted) {
@@ -74,11 +76,24 @@ function renderNewRestraint(r, ws, stats) {
   return '<Restraint>' + ws + keys.map(k => element(k, r.values[k])).join(ws) + ws + '</Restraint>';
 }
 
+/**
+ * An existing restraint: patched in place when only values changed; re-rendered from its modelled
+ * values (with the record's own indentation) when a stage added or removed a field (step 3).
+ */
 function renderRestraint(r, custody, stats) {
   const raw = custody[r.uid]?.raw;
   if (raw == null) return null;
-  const edits = valueEdits(r, custody[r.uid].spans, null, '', stats);
-  return edits.length ? patch(raw, edits) : raw;
+  const spans = custody[r.uid].spans;
+  const keys = r.fieldOrder || Object.keys(r.values);
+  const reshaped = Object.keys(spans).some(k => !Object.hasOwn(r.values, k)) || keys.some(k => r.values[k] && !spans[k]);
+  if (!reshaped) {
+    const edits = valueEdits(r, spans, null, '', stats);
+    return edits.length ? patch(raw, edits) : raw;
+  }
+  const inner = /^<Restraint>(\s*)/.exec(raw)?.[1] ?? '';
+  const outer = /(\s*)<\/Restraint>$/.exec(raw)?.[1] ?? '';
+  stats.patchedValues += 1;
+  return '<Restraint>' + inner + keys.filter(k => r.values[k]).map(k => element(k, r.values[k])).join(inner) + outer + '</Restraint>';
 }
 
 function renderNode(comp, doc, stats) {

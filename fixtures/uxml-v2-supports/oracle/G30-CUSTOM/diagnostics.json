@@ -1,0 +1,3935 @@
+[
+ {
+  "type": "staged-support-index",
+  "supports": 31,
+  "coordinateKeys": 19,
+  "psTagKeys": 17
+ },
+ {
+  "type": "config",
+  "duplicateSupportPolicy": "prefer_datum",
+  "coordinateTolerance": 1,
+  "rating": {
+   "sourceFields": [
+    "RATING",
+    "PRAT",
+    "PSPE",
+    "SPRE",
+    "LSTU"
+   ],
+   "tokenDelimiter": "-",
+   "pipingClassTokenIndex": 5,
+   "pipingClassRegex": "",
+   "pipingClassGroup": 1,
+   "ratingSequence": [
+    [
+     "200",
+     "20000"
+    ],
+    [
+     "150",
+     "15000"
+    ],
+    [
+     "100",
+     "10000"
+    ],
+    [
+     "25",
+     "2500"
+    ],
+    [
+     "15",
+     "1500"
+    ],
+    [
+     "5",
+     "5000"
+    ],
+    [
+     "1",
+     "150"
+    ],
+    [
+     "3",
+     "300"
+    ],
+    [
+     "6",
+     "600"
+    ],
+    [
+     "9",
+     "900"
+    ]
+   ]
+  },
+  "weight": {
+   "sourceFields": [
+    "WEIGHT",
+    "PSIWEIGHT",
+    "CMPWEIGHTDRY"
+   ],
+   "tokenDelimiter": "-",
+   "boreTokenIndex": 3,
+   "boreRegex": "",
+   "boreGroup": 1,
+   "inchToMm": 25.4,
+   "npsToDn": {
+    "1": 25,
+    "2": 50,
+    "3": 80,
+    "4": 100,
+    "6": 150,
+    "8": 200,
+    "10": 250,
+    "12": 300,
+    "14": 350,
+    "16": 400,
+    "18": 450,
+    "20": 500,
+    "24": 600,
+    "0.25": 8,
+    "0.375": 10,
+    "0.5": 15,
+    "0.75": 20,
+    "1.25": 32,
+    "1.5": 40,
+    "2.5": 65
+   },
+   "lengthToleranceMm": 4,
+   "masterLengthUnit": "raw",
+   "convertSmallLengthsInToMm": false,
+   "masterUrl": "",
+   "masterRows": "1595 row(s)"
+  }
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "60",
+  "nodeName": "PS-1001",
+  "componentType": "ATTA",
+  "position": "2000.00 0.00 0.00",
+  "count": 1,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "2000.00 0.00 0.00",
+  "sourcePath": "$[0].children[8]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Pipe Rest XRT01(NAME=/PS-1001.1)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "60",
+  "nodeName": "PS-1001",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "2000|0|0",
+  "kind": "REST",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "+Y",
+  "finalValue": "+Y",
+  "stagedName": "SUPPORT PS-1001.1",
+  "tags": [
+   "PS-1001"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "70",
+  "nodeName": "PS-1002",
+  "componentType": "ATTA",
+  "tags": "PS-1002",
+  "count": 2,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-1002",
+  "finalValue": "Pipe Guide|Base Plate",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "70",
+  "nodeName": "PS-1002",
+  "componentType": "ATTA",
+  "position": "3500.00 0.00 0.00",
+  "count": 2,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "3500.00 0.00 0.00",
+  "sourcePath": "$[0].children[9]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Pipe Guide(NAME=/PS-1002)|Base Plate(NAME=/PS-1002)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "70",
+  "nodeName": "PS-1002",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "3500|0|0",
+  "kind": "GUIDE+REST",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "GUI++Y",
+  "finalValue": "GUI++Y",
+  "stagedName": "SUPPORT PS-1002",
+  "tags": [
+   "PS-1002"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "90",
+  "nodeName": "PS-1010",
+  "componentType": "ATTA",
+  "tags": "PS-1010",
+  "count": 2,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-1010",
+  "finalValue": "Pipe Rest|Pipe Guide",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "90",
+  "nodeName": "PS-1010",
+  "componentType": "ATTA",
+  "position": "6000.00 0.00 0.00",
+  "count": 2,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "6000.00 0.00 0.00",
+  "sourcePath": "$[0].children[17]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Pipe Rest(NAME=/PS-1010)|Pipe Guide(NAME=/PS-1010)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "90",
+  "nodeName": "PS-1010",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "6000|0|0",
+  "kind": "REST+GUIDE",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "+Y+GUI",
+  "finalValue": "+Y+GUI",
+  "stagedName": "SUPPORT PS-1010",
+  "tags": [
+   "PS-1010"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "120",
+  "nodeName": "PS-1003",
+  "componentType": "ATTA",
+  "tags": "PS-1003",
+  "count": 2,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-1003",
+  "finalValue": "Riser Guide|Riser Lug",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "120",
+  "nodeName": "PS-1003",
+  "componentType": "ATTA",
+  "position": "8000.00 0.00 1500.00",
+  "count": 2,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "8000.00 0.00 1500.00",
+  "sourcePath": "$[0].children[11]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Riser Guide(NAME=/PS-1003)|Riser Lug(NAME=/PS-1003)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "120",
+  "nodeName": "PS-1003",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "8000|0|1500",
+  "kind": "GUIDE+REST",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "GUI++Y",
+  "finalValue": "GUI++Y",
+  "stagedName": "SUPPORT PS-1003",
+  "tags": [
+   "PS-1003"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "140",
+  "nodeName": "PS-1004",
+  "componentType": "ATTA",
+  "tags": "PS-1004",
+  "count": 3,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-1004",
+  "finalValue": "Line Stop|Base Plate|Pipe Guide",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "140",
+  "nodeName": "PS-1004",
+  "componentType": "ATTA",
+  "position": "8000.00 1500.00 3000.00",
+  "count": 3,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "8000.00 1500.00 3000.00",
+  "sourcePath": "$[0].children[13]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Line Stop(NAME=/PS-1004)|Base Plate(NAME=/PS-1004)|Pipe Guide(NAME=/PS-1004,CMPSUPGAP=5mm GAP)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "140",
+  "nodeName": "PS-1004",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "8000|1500|3000",
+  "kind": "LINESTOP+REST+GUIDE",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "LIM++Y+GUI",
+  "finalValue": "LIM++Y+GUI",
+  "stagedName": "SUPPORT PS-1004",
+  "tags": [
+   "PS-1004"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "150",
+  "nodeName": "PS-1005",
+  "componentType": "ATTA",
+  "tags": "PS-1005",
+  "count": 1,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-1005",
+  "finalValue": "PIPE SHOE 100MM",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "150",
+  "nodeName": "PS-1005",
+  "componentType": "ATTA",
+  "position": "8000.00 2500.00 3000.00",
+  "count": 1,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "8000.00 2500.00 3000.00",
+  "sourcePath": "$[0].children[16]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "PIPE SHOE 100MM(NAME=/PS-1005)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "150",
+  "nodeName": "PS-1005",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "8000|2500|3000",
+  "kind": "REST",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "+Y",
+  "finalValue": "+Y",
+  "stagedName": "SUPPORT PS-1005",
+  "tags": [
+   "PS-1005"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "210",
+  "nodeName": "PS-2001",
+  "componentType": "ATTA",
+  "tags": "PS-2001",
+  "count": 2,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-2001",
+  "finalValue": "Guide GT5|Pipe Rest",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "210",
+  "nodeName": "PS-2001",
+  "componentType": "ATTA",
+  "position": "5000.00 -1200.00 0.00",
+  "count": 2,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "5000.00 -1200.00 0.00",
+  "sourcePath": "$[1].children[4]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Guide GT5(NAME=/PS-2001)|Pipe Rest(NAME=/PS-2001)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "210",
+  "nodeName": "PS-2001",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "5000|-1200|0",
+  "kind": "REST",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "+Y",
+  "finalValue": "+Y",
+  "stagedName": "SUPPORT PS-2001",
+  "tags": [
+   "PS-2001"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "220",
+  "nodeName": "PS-2002",
+  "componentType": "ATTA",
+  "tags": "PS-2002",
+  "count": 2,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-2002",
+  "finalValue": "Guide on base|PIPE SHOE 50MM",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "220",
+  "nodeName": "PS-2002",
+  "componentType": "ATTA",
+  "position": "5000.00 -2200.00 0.00",
+  "count": 2,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "5000.00 -2200.00 0.00",
+  "sourcePath": "$[1].children[6]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Guide on base(NAME=/PS-2002)|PIPE SHOE 50MM(NAME=/PS-2002)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "220",
+  "nodeName": "PS-2002",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "5000|-2200|0",
+  "kind": "GUIDE+REST",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "GUI++Y",
+  "finalValue": "GUI++Y",
+  "stagedName": "SUPPORT PS-2002",
+  "tags": [
+   "PS-2002"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "250",
+  "nodeName": "PS-2003",
+  "componentType": "ATTA",
+  "tags": "PS-2003",
+  "count": 1,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-2003",
+  "finalValue": "Anchor",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "250",
+  "nodeName": "PS-2003",
+  "componentType": "ATTA",
+  "position": "5000.00 -3600.00 0.00",
+  "count": 1,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "5000.00 -3600.00 0.00",
+  "sourcePath": "$[1].children[8]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Anchor(NAME=/PS-2003)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "250",
+  "nodeName": "PS-2003",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "5000|-3600|0",
+  "kind": "ANCHOR",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "A",
+  "finalValue": "A",
+  "stagedName": "SUPPORT PS-2003",
+  "tags": [
+   "PS-2003"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "260",
+  "nodeName": "PS-2004",
+  "componentType": "ATTA",
+  "tags": "PS-2004",
+  "count": 2,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-2004",
+  "finalValue": "Pipe Guide|Base Plate",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "260",
+  "nodeName": "PS-2004",
+  "componentType": "ATTA",
+  "position": "5000.00 -4200.00 0.00",
+  "count": 2,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "5000.00 -4200.00 0.00",
+  "sourcePath": "$[1].children[9]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Pipe Guide(NAME=/PS-2004,CMPSUPGAP=5mm GAP)|Base Plate(NAME=/PS-2004)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "260",
+  "nodeName": "PS-2004",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "5000|-4200|0",
+  "kind": "GUIDE+REST",
+  "xmlRestraintTypes": "+Y+GUI",
+  "restraintTypes": "GUI++Y",
+  "finalValue": "GUI++Y",
+  "stagedName": "SUPPORT PS-2004",
+  "tags": [
+   "PS-2004"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "280",
+  "nodeName": "PS-2005",
+  "componentType": "ATTA",
+  "tags": "PS-2005",
+  "count": 1,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-2005",
+  "finalValue": "Variable Spring",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "280",
+  "nodeName": "PS-2005",
+  "componentType": "ATTA",
+  "position": "5000.00 -5000.00 -1200.00",
+  "count": 1,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "5000.00 -5000.00 -1200.00",
+  "sourcePath": "$[1].children[11]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Variable Spring(NAME=/PS-2005)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "280",
+  "nodeName": "PS-2005",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "5000|-5000|-1200",
+  "kind": "SPRING",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "Y",
+  "finalValue": "Y",
+  "stagedName": "SUPPORT PS-2005",
+  "tags": [
+   "PS-2005"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "530",
+  "nodeName": "PS-4001",
+  "componentType": "ATTA",
+  "tags": "PS-4001",
+  "count": 3,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-4001",
+  "finalValue": "Line Stop|Pipe Guide|Base Plate",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "530",
+  "nodeName": "PS-4001",
+  "componentType": "ATTA",
+  "position": "2000.00 10000.00 -20.00",
+  "count": 3,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "2000.00 10000.00 -20.00",
+  "sourcePath": "$[3].children[3]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Line Stop(NAME=/PS-4001,CMPSUPGAP=2mm GAP)|Pipe Guide(NAME=/PS-4001)|Base Plate(NAME=/PS-4001)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "530",
+  "nodeName": "PS-4001",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "2000|10000|-20",
+  "kind": "LINESTOP+GUIDE+REST",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "LIM+GUI++Y",
+  "finalValue": "LIM+GUI++Y",
+  "stagedName": "SUPPORT PS-4001",
+  "tags": [
+   "PS-4001"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "540",
+  "nodeName": "PS-4002",
+  "componentType": "ATTA",
+  "tags": "PS-4002",
+  "count": 2,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-4002",
+  "finalValue": "Limit Stop|Pipe Rest",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "540",
+  "nodeName": "PS-4002",
+  "componentType": "ATTA",
+  "position": "3500.00 10000.00 -35.00",
+  "count": 2,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "3500.00 10000.00 -35.00",
+  "sourcePath": "$[3].children[6]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Limit Stop(NAME=/PS-4002)|Pipe Rest(NAME=/PS-4002)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "540",
+  "nodeName": "PS-4002",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "3500|10000|-35",
+  "kind": "LINESTOP+REST",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "LIM++Y",
+  "finalValue": "LIM++Y",
+  "stagedName": "SUPPORT PS-4002",
+  "tags": [
+   "PS-4002"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "550",
+  "nodeName": "PS-4003",
+  "componentType": "ATTA",
+  "tags": "PS-4003",
+  "count": 2,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-4003",
+  "finalValue": "DIRECTIONAL ANCHOR|Pipe Rest",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "550",
+  "nodeName": "PS-4003",
+  "componentType": "ATTA",
+  "position": "5000.00 10000.00 -50.00",
+  "count": 2,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "5000.00 10000.00 -50.00",
+  "sourcePath": "$[3].children[8]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "DIRECTIONAL ANCHOR(NAME=/PS-4003)|Pipe Rest(NAME=/PS-4003)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "550",
+  "nodeName": "PS-4003",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "5000|10000|-50",
+  "kind": "LINESTOP+REST",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "LIM++Y",
+  "finalValue": "LIM++Y",
+  "stagedName": "SUPPORT PS-4003",
+  "tags": [
+   "PS-4003"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "610",
+  "nodeName": "PS-5001",
+  "componentType": "ATTA",
+  "tags": "PS-5001",
+  "count": 2,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-5001",
+  "finalValue": "Pipe Guide|Base Plate",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "610",
+  "nodeName": "PS-5001",
+  "componentType": "ATTA",
+  "position": "4200.00 11000.00 -42.00",
+  "count": 2,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "4200.00 11000.00 -42.00",
+  "sourcePath": "$[4].children[2]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Pipe Guide(NAME=/PS-5001,CMPSUPGAP=3mm GAP)|Base Plate(NAME=/PS-5001)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "610",
+  "nodeName": "PS-5001",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "4200|11000|-42",
+  "kind": "GUIDE+REST",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "GUI++Y",
+  "finalValue": "GUI++Y",
+  "stagedName": "SUPPORT PS-5001",
+  "tags": [
+   "PS-5001"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-ps",
+  "nodeNumber": "640",
+  "nodeName": "PS-5002",
+  "componentType": "ATTA",
+  "tags": "PS-5002",
+  "count": 1,
+  "matchedBy": "DTXR_PS",
+  "matchedKey": "PS-5002",
+  "finalValue": "Pipe Rest",
+  "status": "applied"
+ },
+ {
+  "type": "dtxr-pos",
+  "nodeNumber": "640",
+  "nodeName": "PS-5002",
+  "componentType": "ATTA",
+  "position": "4200.00 12800.00 -42.00",
+  "count": 1,
+  "matchedBy": "DTXR_POS",
+  "matchedKey": "4200.00 12800.00 -42.00",
+  "sourcePath": "$[4].children[4]",
+  "method": "DTXR_POS exact or within +/-6mm trace tolerance",
+  "finalValue": "Pipe Rest(NAME=/PS-5002)",
+  "status": "applied"
+ },
+ {
+  "type": "support-match",
+  "nodeNumber": "640",
+  "nodeName": "PS-5002",
+  "componentType": "ATTA",
+  "method": "dtxr-pos-coordinate",
+  "matchedBy": "dtxr-pos-coordinate",
+  "matchedKey": "4200|12800|-42",
+  "kind": "REST",
+  "xmlRestraintTypes": "",
+  "restraintTypes": "+Y",
+  "finalValue": "+Y",
+  "stagedName": "SUPPORT PS-5002",
+  "tags": [
+   "PS-5002"
+  ],
+  "status": "applied"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 1,
+  "xmlNodeNumber": "10",
+  "nodeNumber": "10",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "BRAN",
+  "componentRefNo": "=9030/1001",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "0.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 0,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 0,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "2"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "2",
+    "sourcePath": "$[0].children[0]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "203mm",
+    "point": {
+     "x": 0,
+     "y": 0,
+     "z": 0
+    },
+    "type": "FLAN",
+    "name": "=9030/1078",
+    "dtxrPosValue": "FLAN(NAME==9030/1078)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[0]"
+  ],
+  "dtxrPosValue": "FLAN(NAME==9030/1078)",
+  "dtxrPos": "FLAN(NAME==9030/1078)",
+  "dtxrPosValues": [
+   "FLAN(NAME==9030/1078)"
+  ],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "FLAN(NAME==9030/1078)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G1"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 2,
+  "xmlNodeNumber": "20",
+  "nodeNumber": "20",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "FLAN",
+  "componentRefNo": "=9030/1002",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "0.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 0,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 0,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "2"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "2",
+    "sourcePath": "$[0].children[0]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "203mm",
+    "point": {
+     "x": 0,
+     "y": 0,
+     "z": 0
+    },
+    "type": "FLAN",
+    "name": "=9030/1078",
+    "dtxrPosValue": "FLAN(NAME==9030/1078)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[0]"
+  ],
+  "dtxrPosValue": "FLAN(NAME==9030/1078)",
+  "dtxrPos": "FLAN(NAME==9030/1078)",
+  "dtxrPosValues": [
+   "FLAN(NAME==9030/1078)"
+  ],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "FLAN(NAME==9030/1078)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G1"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 3,
+  "xmlNodeNumber": "29",
+  "nodeNumber": "29",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "FLAN",
+  "componentRefNo": "=9030/1003",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "112.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 112,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 115,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 3,
+  "distanceMm": 3,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "3"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "3",
+    "sourcePath": "$[0].children[1]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "203mm",
+    "point": {
+     "x": 115,
+     "y": 0,
+     "z": 0
+    },
+    "type": "VALV",
+    "name": "=9030/1079",
+    "dtxrPosValue": "VGT-30001(NAME==9030/1079)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[1]"
+  ],
+  "dtxrPosValue": "VGT-30001(NAME==9030/1079)",
+  "dtxrPos": "VGT-30001(NAME==9030/1079)",
+  "dtxrPosValues": [
+   "VGT-30001(NAME==9030/1079)"
+  ],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "VGT-30001(NAME==9030/1079)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G2"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 5,
+  "xmlNodeNumber": "40",
+  "nodeNumber": "40",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "VALV",
+  "componentRefNo": "=9030/1005",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "534.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 534,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 537,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 3,
+  "distanceMm": 3,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "4"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "4",
+    "sourcePath": "$[0].children[2]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "203mm",
+    "point": {
+     "x": 537,
+     "y": 0,
+     "z": 0
+    },
+    "type": "FLAN",
+    "name": "=9030/1080",
+    "dtxrPosValue": "FLAN(NAME==9030/1080)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[2]"
+  ],
+  "dtxrPosValue": "FLAN(NAME==9030/1080)",
+  "dtxrPos": "FLAN(NAME==9030/1080)",
+  "dtxrPosValues": [
+   "FLAN(NAME==9030/1080)"
+  ],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "FLAN(NAME==9030/1080)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G3"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 6,
+  "xmlNodeNumber": "58",
+  "nodeNumber": "58",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "FLAN",
+  "componentRefNo": "=9030/1006",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "537.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 537,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 537,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "4"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "4",
+    "sourcePath": "$[0].children[2]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "203mm",
+    "point": {
+     "x": 537,
+     "y": 0,
+     "z": 0
+    },
+    "type": "FLAN",
+    "name": "=9030/1080",
+    "dtxrPosValue": "FLAN(NAME==9030/1080)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[2]"
+  ],
+  "dtxrPosValue": "FLAN(NAME==9030/1080)",
+  "dtxrPos": "FLAN(NAME==9030/1080)",
+  "dtxrPosValues": [
+   "FLAN(NAME==9030/1080)"
+  ],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "FLAN(NAME==9030/1080)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G3"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 7,
+  "xmlNodeNumber": "59",
+  "nodeNumber": "59",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "FLAN",
+  "componentRefNo": "=9030/1007",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "649.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 649,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 8,
+  "xmlNodeNumber": "60",
+  "nodeNumber": "60",
+  "xmlNodeName": "PS-1001",
+  "nodeName": "PS-1001",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1008",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "2000.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 2000,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 2000,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "10"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "10",
+    "sourcePath": "$[0].children[8]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 2000,
+     "y": 0,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-1001.1",
+    "dtxrPosValue": "Pipe Rest XRT01(NAME=/PS-1001.1)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[8]"
+  ],
+  "dtxrPosValue": "Pipe Rest XRT01(NAME=/PS-1001.1)",
+  "dtxrPos": "Pipe Rest XRT01(NAME=/PS-1001.1)",
+  "dtxrPosValues": [
+   "Pipe Rest XRT01(NAME=/PS-1001.1)"
+  ],
+  "dtxrPsName": "PS1001",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "Pipe Rest XRT01(NAME=/PS-1001.1)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "REST"
+  ],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G9"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 9,
+  "xmlNodeNumber": "70",
+  "nodeNumber": "70",
+  "xmlNodeName": "PS-1002",
+  "nodeName": "PS-1002",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1009",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "3500.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 3500,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 3500,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "11",
+   "12"
+  ],
+  "dtxrPsNodeNumbers": [
+   "11"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "11",
+    "sourcePath": "$[0].children[9]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 3500,
+     "y": 0,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-1002",
+    "dtxrPosValue": "Pipe Guide(NAME=/PS-1002)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   },
+   {
+    "jsonNodeNo": "12",
+    "sourcePath": "$[0].children[10]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 3500,
+     "y": 0,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-1002",
+    "dtxrPosValue": "Base Plate(NAME=/PS-1002)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[9]",
+   "$[0].children[10]"
+  ],
+  "dtxrPosValue": "Pipe Guide(NAME=/PS-1002) | Base Plate(NAME=/PS-1002)",
+  "dtxrPos": "Pipe Guide(NAME=/PS-1002) | Base Plate(NAME=/PS-1002)",
+  "dtxrPosValues": [
+   "Pipe Guide(NAME=/PS-1002)",
+   "Base Plate(NAME=/PS-1002)"
+  ],
+  "dtxrPsName": "PS1002",
+  "dtxrPsValue": "Pipe Guide",
+  "dtxrPs": "Pipe Guide",
+  "effectiveDtxr": "Pipe Guide(NAME=/PS-1002) | Base Plate(NAME=/PS-1002)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "GUIDE"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G10"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 10,
+  "xmlNodeNumber": "-1",
+  "nodeNumber": "-1",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "TEE",
+  "componentRefNo": "=9030/1010",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "4800.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 4800,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 11,
+  "xmlNodeNumber": "-1",
+  "nodeNumber": "-1",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "TEE",
+  "componentRefNo": "=9030/1011",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "5000.00 -200.00 0.00",
+  "xmlPoint": {
+   "x": 5000,
+   "y": -200,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 12,
+  "xmlNodeNumber": "80",
+  "nodeNumber": "80",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "TEE",
+  "componentRefNo": "=9030/1012",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "5000.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 5000,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 5000,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "5"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "5",
+    "sourcePath": "$[0].children[3]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "203mm",
+    "point": {
+     "x": 5000,
+     "y": 0,
+     "z": 0
+    },
+    "type": "TEE",
+    "name": "=9030/1081",
+    "dtxrPosValue": "TEE =9030/1081(NAME==9030/1081)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[3]"
+  ],
+  "dtxrPosValue": "TEE =9030/1081(NAME==9030/1081)",
+  "dtxrPos": "TEE =9030/1081(NAME==9030/1081)",
+  "dtxrPosValues": [
+   "TEE =9030/1081(NAME==9030/1081)"
+  ],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "TEE =9030/1081(NAME==9030/1081)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G4"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 13,
+  "xmlNodeNumber": "-1",
+  "nodeNumber": "-1",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "TEE",
+  "componentRefNo": "=9030/1013",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "5200.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 5200,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 14,
+  "xmlNodeNumber": "90",
+  "nodeNumber": "90",
+  "xmlNodeName": "PS-1010",
+  "nodeName": "PS-1010",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1014",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "6000.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 6000,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 6000,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "19",
+   "20"
+  ],
+  "dtxrPsNodeNumbers": [
+   "19"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "19",
+    "sourcePath": "$[0].children[17]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 6000,
+     "y": 0,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-1010",
+    "dtxrPosValue": "Pipe Rest(NAME=/PS-1010)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   },
+   {
+    "jsonNodeNo": "20",
+    "sourcePath": "$[0].children[18]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 6000,
+     "y": 0,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-1010",
+    "dtxrPosValue": "Pipe Guide(NAME=/PS-1010)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[17]",
+   "$[0].children[18]"
+  ],
+  "dtxrPosValue": "Pipe Rest(NAME=/PS-1010) | Pipe Guide(NAME=/PS-1010)",
+  "dtxrPos": "Pipe Rest(NAME=/PS-1010) | Pipe Guide(NAME=/PS-1010)",
+  "dtxrPosValues": [
+   "Pipe Rest(NAME=/PS-1010)",
+   "Pipe Guide(NAME=/PS-1010)"
+  ],
+  "dtxrPsName": "PS1010",
+  "dtxrPsValue": "Pipe Rest",
+  "dtxrPs": "Pipe Rest",
+  "effectiveDtxr": "Pipe Rest(NAME=/PS-1010) | Pipe Guide(NAME=/PS-1010)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "GUIDE",
+   "REST"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G14"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 15,
+  "xmlNodeNumber": "-1",
+  "nodeNumber": "-1",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "OLET",
+  "componentRefNo": "=9030/1015",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "6500.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 6500,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 6500,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "6"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "6",
+    "sourcePath": "$[0].children[4]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "203mm",
+    "point": {
+     "x": 6500,
+     "y": 0,
+     "z": 0
+    },
+    "type": "OLET",
+    "name": "=9030/1082",
+    "dtxrPosValue": "OLET =9030/1082(NAME==9030/1082)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[4]"
+  ],
+  "dtxrPosValue": "OLET =9030/1082(NAME==9030/1082)",
+  "dtxrPos": "OLET =9030/1082(NAME==9030/1082)",
+  "dtxrPosValues": [
+   "OLET =9030/1082(NAME==9030/1082)"
+  ],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "OLET =9030/1082(NAME==9030/1082)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G5"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 16,
+  "xmlNodeNumber": "-1",
+  "nodeNumber": "-1",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "OLET",
+  "componentRefNo": "=9030/1016",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "6500.00 0.00 147.00",
+  "xmlPoint": {
+   "x": 6500,
+   "y": 0,
+   "z": 147
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 17,
+  "xmlNodeNumber": "100",
+  "nodeNumber": "100",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "OLET",
+  "componentRefNo": "=9030/1017",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "6500.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 6500,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 6500,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "6"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "6",
+    "sourcePath": "$[0].children[4]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "203mm",
+    "point": {
+     "x": 6500,
+     "y": 0,
+     "z": 0
+    },
+    "type": "OLET",
+    "name": "=9030/1082",
+    "dtxrPosValue": "OLET =9030/1082(NAME==9030/1082)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[4]"
+  ],
+  "dtxrPosValue": "OLET =9030/1082(NAME==9030/1082)",
+  "dtxrPos": "OLET =9030/1082(NAME==9030/1082)",
+  "dtxrPosValues": [
+   "OLET =9030/1082(NAME==9030/1082)"
+  ],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "OLET =9030/1082(NAME==9030/1082)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G5"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 18,
+  "xmlNodeNumber": "-1",
+  "nodeNumber": "-1",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "OLET",
+  "componentRefNo": "=9030/1018",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "6500.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 6500,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 6500,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "6"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "6",
+    "sourcePath": "$[0].children[4]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "203mm",
+    "point": {
+     "x": 6500,
+     "y": 0,
+     "z": 0
+    },
+    "type": "OLET",
+    "name": "=9030/1082",
+    "dtxrPosValue": "OLET =9030/1082(NAME==9030/1082)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[4]"
+  ],
+  "dtxrPosValue": "OLET =9030/1082(NAME==9030/1082)",
+  "dtxrPos": "OLET =9030/1082(NAME==9030/1082)",
+  "dtxrPosValues": [
+   "OLET =9030/1082(NAME==9030/1082)"
+  ],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "OLET =9030/1082(NAME==9030/1082)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G5"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 19,
+  "xmlNodeNumber": "-1",
+  "nodeNumber": "-1",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "ELBO",
+  "componentRefNo": "=9030/1019",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "7695.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 7695,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 20,
+  "xmlNodeNumber": "110",
+  "nodeNumber": "110",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "ELBO",
+  "componentRefNo": "=9030/1020",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "8000.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 8000,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 8000,
+   "y": 0,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "7"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "7",
+    "sourcePath": "$[0].children[5]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "203mm",
+    "point": {
+     "x": 8000,
+     "y": 0,
+     "z": 0
+    },
+    "type": "ELBO",
+    "name": "=9030/1083",
+    "dtxrPosValue": "ELBO =9030/1083(NAME==9030/1083)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[5]"
+  ],
+  "dtxrPosValue": "ELBO =9030/1083(NAME==9030/1083)",
+  "dtxrPos": "ELBO =9030/1083(NAME==9030/1083)",
+  "dtxrPosValues": [
+   "ELBO =9030/1083(NAME==9030/1083)"
+  ],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "ELBO =9030/1083(NAME==9030/1083)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G6"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 21,
+  "xmlNodeNumber": "-1",
+  "nodeNumber": "-1",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "ELBO",
+  "componentRefNo": "=9030/1021",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "8000.00 0.00 305.00",
+  "xmlPoint": {
+   "x": 8000,
+   "y": 0,
+   "z": 305
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 22,
+  "xmlNodeNumber": "120",
+  "nodeNumber": "120",
+  "xmlNodeName": "PS-1003",
+  "nodeName": "PS-1003",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1022",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "8000.00 0.00 1500.00",
+  "xmlPoint": {
+   "x": 8000,
+   "y": 0,
+   "z": 1500
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 8000,
+   "y": 0,
+   "z": 1500
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "13",
+   "14"
+  ],
+  "dtxrPsNodeNumbers": [
+   "13"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "13",
+    "sourcePath": "$[0].children[11]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 8000,
+     "y": 0,
+     "z": 1500
+    },
+    "type": "SUPPORT",
+    "name": "/PS-1003",
+    "dtxrPosValue": "Riser Guide(NAME=/PS-1003)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   },
+   {
+    "jsonNodeNo": "14",
+    "sourcePath": "$[0].children[12]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 8000,
+     "y": 0,
+     "z": 1500
+    },
+    "type": "SUPPORT",
+    "name": "/PS-1003",
+    "dtxrPosValue": "Riser Lug(NAME=/PS-1003)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[11]",
+   "$[0].children[12]"
+  ],
+  "dtxrPosValue": "Riser Guide(NAME=/PS-1003) | Riser Lug(NAME=/PS-1003)",
+  "dtxrPos": "Riser Guide(NAME=/PS-1003) | Riser Lug(NAME=/PS-1003)",
+  "dtxrPosValues": [
+   "Riser Guide(NAME=/PS-1003)",
+   "Riser Lug(NAME=/PS-1003)"
+  ],
+  "dtxrPsName": "PS1003",
+  "dtxrPsValue": "Riser Guide",
+  "dtxrPs": "Riser Guide",
+  "effectiveDtxr": "Riser Guide(NAME=/PS-1003) | Riser Lug(NAME=/PS-1003)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "GUIDE"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G11"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 23,
+  "xmlNodeNumber": "-1",
+  "nodeNumber": "-1",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "ELBO",
+  "componentRefNo": "=9030/1023",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "8000.00 0.00 2695.00",
+  "xmlPoint": {
+   "x": 8000,
+   "y": 0,
+   "z": 2695
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 26,
+  "xmlNodeNumber": "140",
+  "nodeNumber": "140",
+  "xmlNodeName": "PS-1004",
+  "nodeName": "PS-1004",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1026",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "8000.00 1500.00 3000.00",
+  "xmlPoint": {
+   "x": 8000,
+   "y": 1500,
+   "z": 3000
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 8000,
+   "y": 1500,
+   "z": 3000
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "15",
+   "16",
+   "17"
+  ],
+  "dtxrPsNodeNumbers": [
+   "15"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "15",
+    "sourcePath": "$[0].children[13]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 8000,
+     "y": 1500,
+     "z": 3000
+    },
+    "type": "SUPPORT",
+    "name": "/PS-1004",
+    "dtxrPosValue": "Line Stop(NAME=/PS-1004)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   },
+   {
+    "jsonNodeNo": "16",
+    "sourcePath": "$[0].children[14]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 8000,
+     "y": 1500,
+     "z": 3000
+    },
+    "type": "SUPPORT",
+    "name": "/PS-1004",
+    "dtxrPosValue": "Base Plate(NAME=/PS-1004)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   },
+   {
+    "jsonNodeNo": "17",
+    "sourcePath": "$[0].children[15]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 8000,
+     "y": 1500,
+     "z": 3000
+    },
+    "type": "SUPPORT",
+    "name": "/PS-1004",
+    "dtxrPosValue": "Pipe Guide(NAME=/PS-1004)",
+    "dtxrPsValue": "",
+    "cmpSupGap": "5mm GAP"
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[13]",
+   "$[0].children[14]",
+   "$[0].children[15]"
+  ],
+  "dtxrPosValue": "Line Stop(NAME=/PS-1004) | Base Plate(NAME=/PS-1004) | Pipe Guide(NAME=/PS-1004)",
+  "dtxrPos": "Line Stop(NAME=/PS-1004) | Base Plate(NAME=/PS-1004) | Pipe Guide(NAME=/PS-1004)",
+  "dtxrPosValues": [
+   "Line Stop(NAME=/PS-1004)",
+   "Base Plate(NAME=/PS-1004)",
+   "Pipe Guide(NAME=/PS-1004)"
+  ],
+  "dtxrPsName": "PS1004",
+  "dtxrPsValue": "Line Stop",
+  "dtxrPs": "Line Stop",
+  "effectiveDtxr": "Line Stop(NAME=/PS-1004) | Base Plate(NAME=/PS-1004) | Pipe Guide(NAME=/PS-1004)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "LINESTOP",
+   "GUIDE"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G12"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 27,
+  "xmlNodeNumber": "150",
+  "nodeNumber": "150",
+  "xmlNodeName": "PS-1005",
+  "nodeName": "PS-1005",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1027",
+  "xmlBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+  "xmlPosition": "8000.00 2500.00 3000.00",
+  "xmlPoint": {
+   "x": 8000,
+   "y": 2500,
+   "z": 3000
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "stagedBranch": "/GF30-01-8\"-P0001-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 8000,
+   "y": 2500,
+   "z": 3000
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "18"
+  ],
+  "dtxrPsNodeNumbers": [
+   "18"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "18",
+    "sourcePath": "$[0].children[16]",
+    "branchName": "/GF30-01-8\"-P0001-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 8000,
+     "y": 2500,
+     "z": 3000
+    },
+    "type": "SUPPORT",
+    "name": "/PS-1005",
+    "dtxrPosValue": "PIPE SHOE 100MM(NAME=/PS-1005)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[0].children[16]"
+  ],
+  "dtxrPosValue": "PIPE SHOE 100MM(NAME=/PS-1005)",
+  "dtxrPos": "PIPE SHOE 100MM(NAME=/PS-1005)",
+  "dtxrPosValues": [
+   "PIPE SHOE 100MM(NAME=/PS-1005)"
+  ],
+  "dtxrPsName": "PS1005",
+  "dtxrPsValue": "PIPE SHOE 100MM",
+  "dtxrPs": "PIPE SHOE 100MM",
+  "effectiveDtxr": "PIPE SHOE 100MM(NAME=/PS-1005)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "REST"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G13"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 31,
+  "xmlNodeNumber": "80",
+  "nodeNumber": "80",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "BRAN",
+  "componentRefNo": "=9030/1031",
+  "xmlBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+  "xmlPosition": "5000.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 5000,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 32,
+  "xmlNodeNumber": "210",
+  "nodeNumber": "210",
+  "xmlNodeName": "PS-2001",
+  "nodeName": "PS-2001",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1032",
+  "xmlBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+  "xmlPosition": "5000.00 -1200.00 0.00",
+  "xmlPoint": {
+   "x": 5000,
+   "y": -1200,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "stagedBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 5000,
+   "y": -1200,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "26",
+   "27"
+  ],
+  "dtxrPsNodeNumbers": [
+   "26"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "26",
+    "sourcePath": "$[1].children[4]",
+    "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 5000,
+     "y": -1200,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-2001",
+    "dtxrPosValue": "Guide GT5(NAME=/PS-2001)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   },
+   {
+    "jsonNodeNo": "27",
+    "sourcePath": "$[1].children[5]",
+    "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 5000,
+     "y": -1200,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-2001",
+    "dtxrPosValue": "Pipe Rest(NAME=/PS-2001)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[1].children[4]",
+   "$[1].children[5]"
+  ],
+  "dtxrPosValue": "Guide GT5(NAME=/PS-2001) | Pipe Rest(NAME=/PS-2001)",
+  "dtxrPos": "Guide GT5(NAME=/PS-2001) | Pipe Rest(NAME=/PS-2001)",
+  "dtxrPosValues": [
+   "Guide GT5(NAME=/PS-2001)",
+   "Pipe Rest(NAME=/PS-2001)"
+  ],
+  "dtxrPsName": "PS2001",
+  "dtxrPsValue": "Guide GT5",
+  "dtxrPs": "Guide GT5",
+  "effectiveDtxr": "Guide GT5(NAME=/PS-2001) | Pipe Rest(NAME=/PS-2001)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "GUIDE",
+   "REST"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G19"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 33,
+  "xmlNodeNumber": "220",
+  "nodeNumber": "220",
+  "xmlNodeName": "PS-2002",
+  "nodeName": "PS-2002",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1033",
+  "xmlBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+  "xmlPosition": "5000.00 -2200.00 0.00",
+  "xmlPoint": {
+   "x": 5000,
+   "y": -2200,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "stagedBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 5000,
+   "y": -2200,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "28",
+   "29"
+  ],
+  "dtxrPsNodeNumbers": [
+   "28"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "28",
+    "sourcePath": "$[1].children[6]",
+    "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 5000,
+     "y": -2200,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-2002",
+    "dtxrPosValue": "Guide on base(NAME=/PS-2002)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   },
+   {
+    "jsonNodeNo": "29",
+    "sourcePath": "$[1].children[7]",
+    "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 5000,
+     "y": -2200,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-2002",
+    "dtxrPosValue": "PIPE SHOE 50MM(NAME=/PS-2002)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[1].children[6]",
+   "$[1].children[7]"
+  ],
+  "dtxrPosValue": "Guide on base(NAME=/PS-2002) | PIPE SHOE 50MM(NAME=/PS-2002)",
+  "dtxrPos": "Guide on base(NAME=/PS-2002) | PIPE SHOE 50MM(NAME=/PS-2002)",
+  "dtxrPosValues": [
+   "Guide on base(NAME=/PS-2002)",
+   "PIPE SHOE 50MM(NAME=/PS-2002)"
+  ],
+  "dtxrPsName": "PS2002",
+  "dtxrPsValue": "Guide on base",
+  "dtxrPs": "Guide on base",
+  "effectiveDtxr": "Guide on base(NAME=/PS-2002) | PIPE SHOE 50MM(NAME=/PS-2002)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "GUIDE",
+   "REST"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G20"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 36,
+  "xmlNodeNumber": "250",
+  "nodeNumber": "250",
+  "xmlNodeName": "PS-2003",
+  "nodeName": "PS-2003",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1036",
+  "xmlBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+  "xmlPosition": "5000.00 -3600.00 0.00",
+  "xmlPoint": {
+   "x": 5000,
+   "y": -3600,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "stagedBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 5000,
+   "y": -3600,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "30"
+  ],
+  "dtxrPsNodeNumbers": [
+   "30"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "30",
+    "sourcePath": "$[1].children[8]",
+    "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 5000,
+     "y": -3600,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-2003",
+    "dtxrPosValue": "Anchor(NAME=/PS-2003)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[1].children[8]"
+  ],
+  "dtxrPosValue": "Anchor(NAME=/PS-2003)",
+  "dtxrPos": "Anchor(NAME=/PS-2003)",
+  "dtxrPosValues": [
+   "Anchor(NAME=/PS-2003)"
+  ],
+  "dtxrPsName": "PS2003",
+  "dtxrPsValue": "Anchor",
+  "dtxrPs": "Anchor",
+  "effectiveDtxr": "Anchor(NAME=/PS-2003)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "ANCHOR"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G21"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 37,
+  "xmlNodeNumber": "260",
+  "nodeNumber": "260",
+  "xmlNodeName": "PS-2004",
+  "nodeName": "PS-2004",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1037",
+  "xmlBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+  "xmlPosition": "5000.00 -4200.00 0.00",
+  "xmlPoint": {
+   "x": 5000,
+   "y": -4200,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "stagedBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 5000,
+   "y": -4200,
+   "z": 0
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "31",
+   "32"
+  ],
+  "dtxrPsNodeNumbers": [
+   "31"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "31",
+    "sourcePath": "$[1].children[9]",
+    "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 5000,
+     "y": -4200,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-2004",
+    "dtxrPosValue": "Pipe Guide(NAME=/PS-2004)",
+    "dtxrPsValue": "",
+    "cmpSupGap": "5mm GAP"
+   },
+   {
+    "jsonNodeNo": "32",
+    "sourcePath": "$[1].children[10]",
+    "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 5000,
+     "y": -4200,
+     "z": 0
+    },
+    "type": "SUPPORT",
+    "name": "/PS-2004",
+    "dtxrPosValue": "Base Plate(NAME=/PS-2004)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[1].children[9]",
+   "$[1].children[10]"
+  ],
+  "dtxrPosValue": "Pipe Guide(NAME=/PS-2004) | Base Plate(NAME=/PS-2004)",
+  "dtxrPos": "Pipe Guide(NAME=/PS-2004) | Base Plate(NAME=/PS-2004)",
+  "dtxrPosValues": [
+   "Pipe Guide(NAME=/PS-2004)",
+   "Base Plate(NAME=/PS-2004)"
+  ],
+  "dtxrPsName": "PS2004",
+  "dtxrPsValue": "Pipe Guide",
+  "dtxrPs": "Pipe Guide",
+  "effectiveDtxr": "Pipe Guide(NAME=/PS-2004) | Base Plate(NAME=/PS-2004)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "GUIDE"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G22"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 41,
+  "xmlNodeNumber": "280",
+  "nodeNumber": "280",
+  "xmlNodeName": "PS-2005",
+  "nodeName": "PS-2005",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1041",
+  "xmlBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+  "xmlPosition": "5000.00 -5000.00 -1200.00",
+  "xmlPoint": {
+   "x": 5000,
+   "y": -5000,
+   "z": -1200
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "stagedBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 5000,
+   "y": -5000,
+   "z": -1200
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "33"
+  ],
+  "dtxrPsNodeNumbers": [
+   "33"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "33",
+    "sourcePath": "$[1].children[11]",
+    "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 5000,
+     "y": -5000,
+     "z": -1200
+    },
+    "type": "SUPPORT",
+    "name": "/PS-2005",
+    "dtxrPosValue": "Variable Spring(NAME=/PS-2005)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[1].children[11]"
+  ],
+  "dtxrPosValue": "Variable Spring(NAME=/PS-2005)",
+  "dtxrPos": "Variable Spring(NAME=/PS-2005)",
+  "dtxrPosValues": [
+   "Variable Spring(NAME=/PS-2005)"
+  ],
+  "dtxrPsName": "PS2005",
+  "dtxrPsValue": "Variable Spring",
+  "dtxrPs": "Variable Spring",
+  "effectiveDtxr": "Variable Spring(NAME=/PS-2005)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G23"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 42,
+  "xmlNodeNumber": "290",
+  "nodeNumber": "290",
+  "xmlNodeName": "PS-2006",
+  "nodeName": "PS-2006",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1042",
+  "xmlBranch": "/GF30-01-4\"-P0002-A1A/B1",
+  "branchName": "/GF30-01-4\"-P0002-A1A/B1",
+  "xmlPosition": "5000.00 -5000.00 -1700.00",
+  "xmlPoint": {
+   "x": 5000,
+   "y": -5000,
+   "z": -1700
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "PS2006",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 48,
+  "xmlNodeNumber": "100",
+  "nodeNumber": "100",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "BRAN",
+  "componentRefNo": "=9030/1048",
+  "xmlBranch": "/GF30-01-2\"-P0003-B2B/B1",
+  "branchName": "/GF30-01-2\"-P0003-B2B/B1",
+  "xmlPosition": "6500.00 0.00 0.00",
+  "xmlPoint": {
+   "x": 6500,
+   "y": 0,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 50,
+  "xmlNodeNumber": "429",
+  "nodeNumber": "429",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "VALV",
+  "componentRefNo": "=9030/1050",
+  "xmlBranch": "/GF30-01-2\"-P0003-B2B/B1",
+  "branchName": "/GF30-01-2\"-P0003-B2B/B1",
+  "xmlPosition": "6500.00 0.00 500.00",
+  "xmlPoint": {
+   "x": 6500,
+   "y": 0,
+   "z": 500
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 51,
+  "xmlNodeNumber": "430",
+  "nodeNumber": "430",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1051",
+  "xmlBranch": "/GF30-01-2\"-P0003-B2B/B1",
+  "branchName": "/GF30-01-2\"-P0003-B2B/B1",
+  "xmlPosition": "6500.00 0.00 900.00",
+  "xmlPoint": {
+   "x": 6500,
+   "y": 0,
+   "z": 900
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-2\"-P0003-B2B/B1",
+  "stagedBranch": "/GF30-01-2\"-P0003-B2B/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 6500.8,
+   "y": 0,
+   "z": 900
+  },
+  "positionDistanceMm": 0.8000000000001819,
+  "distanceMm": 0.8000000000001819,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "37"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "37",
+    "sourcePath": "$[2].children[2]",
+    "branchName": "/GF30-01-2\"-P0003-B2B/B1",
+    "bore": "",
+    "point": {
+     "x": 6500.8,
+     "y": 0,
+     "z": 900
+    },
+    "type": "SUPPORT",
+    "name": "=9030/1111",
+    "dtxrPosValue": "Base Plate(NAME==9030/1111)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[2].children[2]"
+  ],
+  "dtxrPosValue": "Base Plate(NAME==9030/1111)",
+  "dtxrPos": "Base Plate(NAME==9030/1111)",
+  "dtxrPosValues": [
+   "Base Plate(NAME==9030/1111)"
+  ],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "Base Plate(NAME==9030/1111)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G26"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 52,
+  "xmlNodeNumber": "440",
+  "nodeNumber": "440",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1052",
+  "xmlBranch": "/GF30-01-2\"-P0003-B2B/B1",
+  "branchName": "/GF30-01-2\"-P0003-B2B/B1",
+  "xmlPosition": "6500.00 0.00 1400.00",
+  "xmlPoint": {
+   "x": 6500,
+   "y": 0,
+   "z": 1400
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-2\"-P0003-B2B/B1",
+  "stagedBranch": "/GF30-01-2\"-P0003-B2B/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 6501.5,
+   "y": 0,
+   "z": 1400
+  },
+  "positionDistanceMm": 1.5,
+  "distanceMm": 1.5,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "38"
+  ],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "38",
+    "sourcePath": "$[2].children[3]",
+    "branchName": "/GF30-01-2\"-P0003-B2B/B1",
+    "bore": "",
+    "point": {
+     "x": 6501.5,
+     "y": 0,
+     "z": 1400
+    },
+    "type": "SUPPORT",
+    "name": "=9030/1112",
+    "dtxrPosValue": "Pipe Guide(NAME==9030/1112)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[2].children[3]"
+  ],
+  "dtxrPosValue": "Pipe Guide(NAME==9030/1112)",
+  "dtxrPos": "Pipe Guide(NAME==9030/1112)",
+  "dtxrPosValues": [
+   "Pipe Guide(NAME==9030/1112)"
+  ],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "Pipe Guide(NAME==9030/1112)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "GUIDE"
+  ],
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G27"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 56,
+  "xmlNodeNumber": "500",
+  "nodeNumber": "500",
+  "xmlNodeName": "",
+  "nodeName": "",
+  "componentType": "BRAN",
+  "componentRefNo": "=9030/1056",
+  "xmlBranch": "/GF30-01-6\"-P0004-A1A/B1",
+  "branchName": "/GF30-01-6\"-P0004-A1A/B1",
+  "xmlPosition": "0.00 10000.00 -0.00",
+  "xmlPoint": {
+   "x": 0,
+   "y": 10000,
+   "z": 0
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 59,
+  "xmlNodeNumber": "530",
+  "nodeNumber": "530",
+  "xmlNodeName": "PS-4001",
+  "nodeName": "PS-4001",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1059",
+  "xmlBranch": "/GF30-01-6\"-P0004-A1A/B1",
+  "branchName": "/GF30-01-6\"-P0004-A1A/B1",
+  "xmlPosition": "2000.00 10000.00 -20.00",
+  "xmlPoint": {
+   "x": 2000,
+   "y": 10000,
+   "z": -20
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-6\"-P0004-A1A/B1",
+  "stagedBranch": "/GF30-01-6\"-P0004-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 2000,
+   "y": 10000,
+   "z": -20
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "43",
+   "44",
+   "45"
+  ],
+  "dtxrPsNodeNumbers": [
+   "43"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "43",
+    "sourcePath": "$[3].children[3]",
+    "branchName": "/GF30-01-6\"-P0004-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 2000,
+     "y": 10000,
+     "z": -20
+    },
+    "type": "SUPPORT",
+    "name": "/PS-4001",
+    "dtxrPosValue": "Line Stop(NAME=/PS-4001)",
+    "dtxrPsValue": "",
+    "cmpSupGap": "2mm GAP"
+   },
+   {
+    "jsonNodeNo": "44",
+    "sourcePath": "$[3].children[4]",
+    "branchName": "/GF30-01-6\"-P0004-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 2000,
+     "y": 10000,
+     "z": -20
+    },
+    "type": "SUPPORT",
+    "name": "/PS-4001",
+    "dtxrPosValue": "Pipe Guide(NAME=/PS-4001)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   },
+   {
+    "jsonNodeNo": "45",
+    "sourcePath": "$[3].children[5]",
+    "branchName": "/GF30-01-6\"-P0004-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 2000,
+     "y": 10000,
+     "z": -20
+    },
+    "type": "SUPPORT",
+    "name": "/PS-4001",
+    "dtxrPosValue": "Base Plate(NAME=/PS-4001)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[3].children[3]",
+   "$[3].children[4]",
+   "$[3].children[5]"
+  ],
+  "dtxrPosValue": "Line Stop(NAME=/PS-4001) | Pipe Guide(NAME=/PS-4001) | Base Plate(NAME=/PS-4001)",
+  "dtxrPos": "Line Stop(NAME=/PS-4001) | Pipe Guide(NAME=/PS-4001) | Base Plate(NAME=/PS-4001)",
+  "dtxrPosValues": [
+   "Line Stop(NAME=/PS-4001)",
+   "Pipe Guide(NAME=/PS-4001)",
+   "Base Plate(NAME=/PS-4001)"
+  ],
+  "dtxrPsName": "PS4001",
+  "dtxrPsValue": "Line Stop",
+  "dtxrPs": "Line Stop",
+  "effectiveDtxr": "Line Stop(NAME=/PS-4001) | Pipe Guide(NAME=/PS-4001) | Base Plate(NAME=/PS-4001)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "LINESTOP",
+   "GUIDE"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G31"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 60,
+  "xmlNodeNumber": "540",
+  "nodeNumber": "540",
+  "xmlNodeName": "PS-4002",
+  "nodeName": "PS-4002",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1060",
+  "xmlBranch": "/GF30-01-6\"-P0004-A1A/B1",
+  "branchName": "/GF30-01-6\"-P0004-A1A/B1",
+  "xmlPosition": "3500.00 10000.00 -35.00",
+  "xmlPoint": {
+   "x": 3500,
+   "y": 10000,
+   "z": -35
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-6\"-P0004-A1A/B1",
+  "stagedBranch": "/GF30-01-6\"-P0004-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 3500,
+   "y": 10000,
+   "z": -35
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "46",
+   "47"
+  ],
+  "dtxrPsNodeNumbers": [
+   "46"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "46",
+    "sourcePath": "$[3].children[6]",
+    "branchName": "/GF30-01-6\"-P0004-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 3500,
+     "y": 10000,
+     "z": -35
+    },
+    "type": "SUPPORT",
+    "name": "/PS-4002",
+    "dtxrPosValue": "Limit Stop(NAME=/PS-4002)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   },
+   {
+    "jsonNodeNo": "47",
+    "sourcePath": "$[3].children[7]",
+    "branchName": "/GF30-01-6\"-P0004-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 3500,
+     "y": 10000,
+     "z": -35
+    },
+    "type": "SUPPORT",
+    "name": "/PS-4002",
+    "dtxrPosValue": "Pipe Rest(NAME=/PS-4002)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[3].children[6]",
+   "$[3].children[7]"
+  ],
+  "dtxrPosValue": "Limit Stop(NAME=/PS-4002) | Pipe Rest(NAME=/PS-4002)",
+  "dtxrPos": "Limit Stop(NAME=/PS-4002) | Pipe Rest(NAME=/PS-4002)",
+  "dtxrPosValues": [
+   "Limit Stop(NAME=/PS-4002)",
+   "Pipe Rest(NAME=/PS-4002)"
+  ],
+  "dtxrPsName": "PS4002",
+  "dtxrPsValue": "Limit Stop",
+  "dtxrPs": "Limit Stop",
+  "effectiveDtxr": "Limit Stop(NAME=/PS-4002) | Pipe Rest(NAME=/PS-4002)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "LINESTOP",
+   "REST"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G32"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 65,
+  "xmlNodeNumber": "550",
+  "nodeNumber": "550",
+  "xmlNodeName": "PS-4003",
+  "nodeName": "PS-4003",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1065",
+  "xmlBranch": "/GF30-01-6\"-P0004-A1A/B1",
+  "branchName": "/GF30-01-6\"-P0004-A1A/B1",
+  "xmlPosition": "5000.00 10000.00 -50.00",
+  "xmlPoint": {
+   "x": 5000,
+   "y": 10000,
+   "z": -50
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-6\"-P0004-A1A/B1",
+  "stagedBranch": "/GF30-01-6\"-P0004-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 5000,
+   "y": 10000,
+   "z": -50
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "48",
+   "49"
+  ],
+  "dtxrPsNodeNumbers": [
+   "48"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "48",
+    "sourcePath": "$[3].children[8]",
+    "branchName": "/GF30-01-6\"-P0004-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 5000,
+     "y": 10000,
+     "z": -50
+    },
+    "type": "SUPPORT",
+    "name": "/PS-4003",
+    "dtxrPosValue": "DIRECTIONAL ANCHOR(NAME=/PS-4003)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   },
+   {
+    "jsonNodeNo": "49",
+    "sourcePath": "$[3].children[9]",
+    "branchName": "/GF30-01-6\"-P0004-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 5000,
+     "y": 10000,
+     "z": -50
+    },
+    "type": "SUPPORT",
+    "name": "/PS-4003",
+    "dtxrPosValue": "Pipe Rest(NAME=/PS-4003)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[3].children[8]",
+   "$[3].children[9]"
+  ],
+  "dtxrPosValue": "DIRECTIONAL ANCHOR(NAME=/PS-4003) | Pipe Rest(NAME=/PS-4003)",
+  "dtxrPos": "DIRECTIONAL ANCHOR(NAME=/PS-4003) | Pipe Rest(NAME=/PS-4003)",
+  "dtxrPosValues": [
+   "DIRECTIONAL ANCHOR(NAME=/PS-4003)",
+   "Pipe Rest(NAME=/PS-4003)"
+  ],
+  "dtxrPsName": "PS4003",
+  "dtxrPsValue": "DIRECTIONAL ANCHOR",
+  "dtxrPs": "DIRECTIONAL ANCHOR",
+  "effectiveDtxr": "DIRECTIONAL ANCHOR(NAME=/PS-4003) | Pipe Rest(NAME=/PS-4003)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "ANCHOR",
+   "REST"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G33"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 66,
+  "xmlNodeNumber": "560",
+  "nodeNumber": "560",
+  "xmlNodeName": "PS-4004",
+  "nodeName": "PS-4004",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1066",
+  "xmlBranch": "/GF30-01-6\"-P0004-A1A/B1",
+  "branchName": "/GF30-01-6\"-P0004-A1A/B1",
+  "xmlPosition": "6000.00 10000.00 -60.00",
+  "xmlPoint": {
+   "x": 6000,
+   "y": 10000,
+   "z": -60
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "",
+  "stagedBranch": "",
+  "branchRelationship": "",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": null,
+  "positionDistanceMm": null,
+  "distanceMm": null,
+  "maxInternalDistanceMm": null,
+  "dtxrPosNodeNumbers": [],
+  "dtxrPsNodeNumbers": [],
+  "positionMembers": [],
+  "sourcePaths": [],
+  "dtxrPosValue": "",
+  "dtxrPos": "",
+  "dtxrPosValues": [],
+  "dtxrPsName": "PS4004",
+  "dtxrPsValue": "",
+  "dtxrPs": "",
+  "effectiveDtxr": "",
+  "effectiveSource": "NONE",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [],
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "candidateCount": 0,
+  "groupId": ""
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 71,
+  "xmlNodeNumber": "610",
+  "nodeNumber": "610",
+  "xmlNodeName": "PS-5001",
+  "nodeName": "PS-5001",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1071",
+  "xmlBranch": "/GF30-01-3\"-P0005-A1A/B1",
+  "branchName": "/GF30-01-3\"-P0005-A1A/B1",
+  "xmlPosition": "4200.00 11000.00 -42.00",
+  "xmlPoint": {
+   "x": 4200,
+   "y": 11000,
+   "z": -42
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-3\"-P0005-A1A/B1",
+  "stagedBranch": "/GF30-01-3\"-P0005-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 4200,
+   "y": 11000,
+   "z": -42
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "54",
+   "55"
+  ],
+  "dtxrPsNodeNumbers": [
+   "54"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "54",
+    "sourcePath": "$[4].children[2]",
+    "branchName": "/GF30-01-3\"-P0005-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 4200,
+     "y": 11000,
+     "z": -42
+    },
+    "type": "SUPPORT",
+    "name": "/PS-5001",
+    "dtxrPosValue": "Pipe Guide(NAME=/PS-5001)",
+    "dtxrPsValue": "",
+    "cmpSupGap": "3mm GAP"
+   },
+   {
+    "jsonNodeNo": "55",
+    "sourcePath": "$[4].children[3]",
+    "branchName": "/GF30-01-3\"-P0005-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 4200,
+     "y": 11000,
+     "z": -42
+    },
+    "type": "SUPPORT",
+    "name": "/PS-5001",
+    "dtxrPosValue": "Base Plate(NAME=/PS-5001)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[4].children[2]",
+   "$[4].children[3]"
+  ],
+  "dtxrPosValue": "Pipe Guide(NAME=/PS-5001) | Base Plate(NAME=/PS-5001)",
+  "dtxrPos": "Pipe Guide(NAME=/PS-5001) | Base Plate(NAME=/PS-5001)",
+  "dtxrPosValues": [
+   "Pipe Guide(NAME=/PS-5001)",
+   "Base Plate(NAME=/PS-5001)"
+  ],
+  "dtxrPsName": "PS5001",
+  "dtxrPsValue": "Pipe Guide",
+  "dtxrPs": "Pipe Guide",
+  "effectiveDtxr": "Pipe Guide(NAME=/PS-5001) | Base Plate(NAME=/PS-5001)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "GUIDE"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G37"
+ },
+ {
+  "type": "standalone-dtxr-node-resolution",
+  "schema": "xml-cii-trace-resolution-ledger/v1",
+  "xmlIndex": 74,
+  "xmlNodeNumber": "640",
+  "nodeNumber": "640",
+  "xmlNodeName": "PS-5002",
+  "nodeName": "PS-5002",
+  "componentType": "ATTA",
+  "componentRefNo": "=9030/1074",
+  "xmlBranch": "/GF30-01-3\"-P0005-A1A/B1",
+  "branchName": "/GF30-01-3\"-P0005-A1A/B1",
+  "xmlPosition": "4200.00 12800.00 -42.00",
+  "xmlPoint": {
+   "x": 4200,
+   "y": 12800,
+   "z": -42
+  },
+  "sourceKind": "staged-json",
+  "sourceBranch": "/GF30-01-3\"-P0005-A1A/B1",
+  "stagedBranch": "/GF30-01-3\"-P0005-A1A/B1",
+  "branchRelationship": "exact",
+  "coordinateToleranceMm": 6,
+  "toleranceMm": 6,
+  "matchedPosition": {
+   "x": 4200,
+   "y": 12800,
+   "z": -42
+  },
+  "positionDistanceMm": 0,
+  "distanceMm": 0,
+  "maxInternalDistanceMm": 0,
+  "dtxrPosNodeNumbers": [
+   "56"
+  ],
+  "dtxrPsNodeNumbers": [
+   "56"
+  ],
+  "positionMembers": [
+   {
+    "jsonNodeNo": "56",
+    "sourcePath": "$[4].children[4]",
+    "branchName": "/GF30-01-3\"-P0005-A1A/B1",
+    "bore": "",
+    "point": {
+     "x": 4200,
+     "y": 12800,
+     "z": -42
+    },
+    "type": "SUPPORT",
+    "name": "/PS-5002",
+    "dtxrPosValue": "Pipe Rest(NAME=/PS-5002)",
+    "dtxrPsValue": "",
+    "cmpSupGap": ""
+   }
+  ],
+  "sourcePaths": [
+   "$[4].children[4]"
+  ],
+  "dtxrPosValue": "Pipe Rest(NAME=/PS-5002)",
+  "dtxrPos": "Pipe Rest(NAME=/PS-5002)",
+  "dtxrPosValues": [
+   "Pipe Rest(NAME=/PS-5002)"
+  ],
+  "dtxrPsName": "PS5002",
+  "dtxrPsValue": "Pipe Rest",
+  "dtxrPs": "Pipe Rest",
+  "effectiveDtxr": "Pipe Rest(NAME=/PS-5002)",
+  "effectiveSource": "DTXR_POS",
+  "fallbackUsed": false,
+  "derivedSupportTypes": [
+   "REST"
+  ],
+  "matchType": "POS_PS",
+  "status": "RESOLVED_POS_PS",
+  "candidateCount": 1,
+  "groupId": "DTXR-G38"
+ },
+ {
+  "type": "atta-default-rest-restraint-materialized",
+  "nodeNumber": "290",
+  "nodeName": "PS-2006",
+  "componentType": "ATTA",
+  "effectiveSource": "NONE",
+  "matchType": "NONE",
+  "status": "UNRESOLVED",
+  "supportTypes": [
+   "REST"
+  ],
+  "restraintTypes": [
+   "+Y"
+  ],
+  "replacedExistingPlaceholder": false,
+  "authority": "component-default-rest",
+  "message": "ATTA had no authoritative restraint evidence; the configured ATTA default REST profile was materialized."
+ },
+ {
+  "type": "staged-json-rest-restraint-materialized",
+  "nodeNumber": "430",
+  "nodeName": "",
+  "componentType": "ATTA",
+  "effectiveSource": "DTXR_POS",
+  "matchType": "POS",
+  "status": "RESOLVED_POS",
+  "supportTypes": [
+   "REST"
+  ],
+  "restraintTypes": [
+   "+Y"
+  ],
+  "replacedExistingPlaceholder": false,
+  "authority": "staged-json-rest",
+  "message": "Uploaded XML had no restraint; REST resolved from authoritative staged JSON evidence was materialized through the shared support-mapping profile."
+ },
+ {
+  "type": "atta-default-rest-restraint-materialized",
+  "nodeNumber": "440",
+  "nodeName": "",
+  "componentType": "ATTA",
+  "authority": "component-default-rest",
+  "restraintTypes": [
+   "+Y"
+  ],
+  "replacedExistingPlaceholder": false,
+  "message": "ATTA had no authoritative restraint evidence; the governed default REST profile was materialized."
+ },
+ {
+  "type": "mds-position-restraints-materialized",
+  "nodeNumber": "210",
+  "nodeName": "PS-2001",
+  "componentType": "ATTA",
+  "effectiveSource": "DTXR_POS",
+  "matchType": "POS_PS",
+  "supportKinds": [
+   "GUIDE"
+  ],
+  "restraintTypes": [
+   "GUI"
+  ],
+  "message": "Missing governed restraints were appended from the matched DTXR_POS position-group MDSSUPPTYPE evidence."
+ },
+ {
+  "type": "mds-position-restraints-materialized",
+  "nodeNumber": "440",
+  "nodeName": "",
+  "componentType": "ATTA",
+  "effectiveSource": "DTXR_POS",
+  "matchType": "POS",
+  "supportKinds": [
+   "GUIDE"
+  ],
+  "restraintTypes": [
+   "GUI"
+  ],
+  "message": "Missing governed restraints were appended from the matched DTXR_POS position-group MDSSUPPTYPE evidence."
+ },
+ {
+  "type": "staged-support-unmatched",
+  "severity": "warning",
+  "code": "SUPPORT_ORPHAN",
+  "tag": "/PS-9999",
+  "stagedPath": "$[3].children[10]",
+  "stagedBranch": "/GF30-01-6\"-P0004-A1A/B1",
+  "position": "20000 20000 0",
+  "nearestNode": "580",
+  "distanceMm": 16401.4,
+  "message": "staged support /PS-9999 on line /GF30-01-6\"-P0004-A1A/B1 at 20000 20000 0 has no node of this XML at its position; nearest node 580 is 16401 mm away; no restraint was written"
+ }
+]

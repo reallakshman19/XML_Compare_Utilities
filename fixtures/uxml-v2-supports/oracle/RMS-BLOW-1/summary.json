@@ -1,0 +1,34 @@
+{
+ "benchmark": "RMS-BLOW-1.xml",
+ "stagedJson": false,
+ "error": null,
+ "applied": true,
+ "stages": [
+  {
+   "order": 1,
+   "name": "parent-enrichment",
+   "nodesChanged": 22,
+   "restraintsAfter": 14
+  },
+  {
+   "order": 2,
+   "name": "dtxr-enrichment",
+   "nodesChanged": 0,
+   "restraintsAfter": 14
+  },
+  {
+   "order": 3,
+   "name": "atta-default",
+   "nodesChanged": 6,
+   "restraintsAfter": 20
+  },
+  {
+   "order": 4,
+   "name": "mds-closure",
+   "nodesChanged": 0,
+   "restraintsAfter": 20
+  }
+ ],
+ "finalRestraints": 20,
+ "supportDiagnostics": 48
+}

@@ -1,0 +1,34 @@
+{
+ "benchmark": "golden-30.xml",
+ "stagedJson": false,
+ "error": null,
+ "applied": true,
+ "stages": [
+  {
+   "order": 1,
+   "name": "parent-enrichment",
+   "nodesChanged": 1,
+   "restraintsAfter": 5
+  },
+  {
+   "order": 2,
+   "name": "dtxr-enrichment",
+   "nodesChanged": 0,
+   "restraintsAfter": 5
+  },
+  {
+   "order": 3,
+   "name": "atta-default",
+   "nodesChanged": 18,
+   "restraintsAfter": 23
+  },
+  {
+   "order": 4,
+   "name": "mds-closure",
+   "nodesChanged": 0,
+   "restraintsAfter": 23
+  }
+ ],
+ "finalRestraints": 23,
+ "supportDiagnostics": 61
+}

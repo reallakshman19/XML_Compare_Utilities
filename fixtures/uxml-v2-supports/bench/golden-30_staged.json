@@ -1,0 +1,1412 @@
+[
+ {
+  "name": "/GF30-01-8\"-P0001-A1A/B1",
+  "type": "BRANCH",
+  "attributes": {
+   "NAME": "/GF30-01-8\"-P0001-A1A/B1",
+   "HPOS": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "TPOS": {
+    "x": 8000,
+    "y": 3652,
+    "z": 3000
+   },
+   "HBOR": "219.1mm",
+   "TBOR": "219.1mm"
+  },
+  "children": [
+   {
+    "name": "FLAN =9030/1078",
+    "type": "FLAN",
+    "attributes": {
+     "NAME": "=9030/1078",
+     "TYPE": "FLAN",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1078",
+     "POS": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+     },
+     "POSI": "E 0mm N 0mm U 0mm",
+     "APOS": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+     },
+     "LPOS": {
+      "x": 112,
+      "y": 0,
+      "z": 0
+     },
+     "ABORE": "203mm",
+     "LBORE": "203mm",
+     "RAW_TYPE": "FLAN",
+     "DTXR": "FLAN"
+    }
+   },
+   {
+    "name": "VALV =9030/1079",
+    "type": "VALV",
+    "attributes": {
+     "NAME": "=9030/1079",
+     "TYPE": "VALV",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1079",
+     "POS": {
+      "x": 115,
+      "y": 0,
+      "z": 0
+     },
+     "POSI": "E 115mm N 0mm U 0mm",
+     "APOS": {
+      "x": 115,
+      "y": 0,
+      "z": 0
+     },
+     "LPOS": {
+      "x": 534,
+      "y": 0,
+      "z": 0
+     },
+     "ABORE": "203mm",
+     "LBORE": "203mm",
+     "RAW_TYPE": "VALV",
+     "DTXR": "VGT-30001"
+    }
+   },
+   {
+    "name": "FLAN =9030/1080",
+    "type": "FLAN",
+    "attributes": {
+     "NAME": "=9030/1080",
+     "TYPE": "FLAN",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1080",
+     "POS": {
+      "x": 537,
+      "y": 0,
+      "z": 0
+     },
+     "POSI": "E 537mm N 0mm U 0mm",
+     "APOS": {
+      "x": 537,
+      "y": 0,
+      "z": 0
+     },
+     "LPOS": {
+      "x": 649,
+      "y": 0,
+      "z": 0
+     },
+     "ABORE": "203mm",
+     "LBORE": "203mm",
+     "RAW_TYPE": "FLAN",
+     "DTXR": "FLAN"
+    }
+   },
+   {
+    "name": "TEE =9030/1081",
+    "type": "TEE",
+    "attributes": {
+     "NAME": "=9030/1081",
+     "TYPE": "TEE",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1081",
+     "POS": {
+      "x": 5000,
+      "y": 0,
+      "z": 0
+     },
+     "POSI": "E 5000mm N 0mm U 0mm",
+     "APOS": {
+      "x": 5000,
+      "y": 0,
+      "z": 0
+     },
+     "LPOS": {
+      "x": 5000,
+      "y": 0,
+      "z": 0
+     },
+     "ABORE": "203mm",
+     "LBORE": "203mm",
+     "RAW_TYPE": "TEE"
+    }
+   },
+   {
+    "name": "OLET =9030/1082",
+    "type": "OLET",
+    "attributes": {
+     "NAME": "=9030/1082",
+     "TYPE": "OLET",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1082",
+     "POS": {
+      "x": 6500,
+      "y": 0,
+      "z": 0
+     },
+     "POSI": "E 6500mm N 0mm U 0mm",
+     "APOS": {
+      "x": 6500,
+      "y": 0,
+      "z": 0
+     },
+     "LPOS": {
+      "x": 6500,
+      "y": 0,
+      "z": 0
+     },
+     "ABORE": "203mm",
+     "LBORE": "203mm",
+     "RAW_TYPE": "OLET"
+    }
+   },
+   {
+    "name": "ELBO =9030/1083",
+    "type": "ELBO",
+    "attributes": {
+     "NAME": "=9030/1083",
+     "TYPE": "ELBO",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1083",
+     "POS": {
+      "x": 8000,
+      "y": 0,
+      "z": 0
+     },
+     "POSI": "E 8000mm N 0mm U 0mm",
+     "APOS": {
+      "x": 8000,
+      "y": 0,
+      "z": 0
+     },
+     "LPOS": {
+      "x": 8000,
+      "y": 0,
+      "z": 0
+     },
+     "ABORE": "203mm",
+     "LBORE": "203mm",
+     "RAW_TYPE": "ELBO"
+    }
+   },
+   {
+    "name": "ELBO =9030/1084",
+    "type": "ELBO",
+    "attributes": {
+     "NAME": "=9030/1084",
+     "TYPE": "ELBO",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1084",
+     "POS": {
+      "x": 8000,
+      "y": 0,
+      "z": 3000
+     },
+     "POSI": "E 8000mm N 0mm U 3000mm",
+     "APOS": {
+      "x": 8000,
+      "y": 0,
+      "z": 3000
+     },
+     "LPOS": {
+      "x": 8000,
+      "y": 0,
+      "z": 3000
+     },
+     "ABORE": "203mm",
+     "LBORE": "203mm",
+     "RAW_TYPE": "ELBO"
+    }
+   },
+   {
+    "name": "REDU =9030/1085",
+    "type": "REDU",
+    "attributes": {
+     "NAME": "=9030/1085",
+     "TYPE": "REDU",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1085",
+     "POS": {
+      "x": 8000,
+      "y": 3500,
+      "z": 3000
+     },
+     "POSI": "E 8000mm N 3500mm U 3000mm",
+     "APOS": {
+      "x": 8000,
+      "y": 3500,
+      "z": 3000
+     },
+     "LPOS": {
+      "x": 8000,
+      "y": 3652,
+      "z": 3000
+     },
+     "ABORE": "203mm",
+     "LBORE": "203mm",
+     "RAW_TYPE": "REDU",
+     "DTXR": "REDU"
+    }
+   },
+   {
+    "name": "SUPPORT PS-1001.1",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-1001.1",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1086",
+     "POS": {
+      "x": 2000,
+      "y": 0,
+      "z": 0
+     },
+     "POSI": "E 2000mm N 0mm U 0mm",
+     "CMPSTRESSN": "PS-1001.1",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "SKEY": "CA150",
+     "DTXR": "Pipe Rest XRT01"
+    }
+   },
+   {
+    "name": "SUPPORT PS-1002",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-1002",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1087",
+     "POS": {
+      "x": 3500,
+      "y": 0,
+      "z": 0
+     },
+     "POSI": "E 3500mm N 0mm U 0mm",
+     "CMPSTRESSN": "PS-1002",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "PG-01",
+     "DTXR": "Pipe Guide",
+     "PIPE_AXIS": {
+      "x": 1,
+      "y": 0,
+      "z": 0
+     }
+    }
+   },
+   {
+    "name": "SUPPORT PS-1002",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-1002",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1088",
+     "POS": {
+      "x": 3500,
+      "y": 0,
+      "z": 0
+     },
+     "POSI": "E 3500mm N 0mm U 0mm",
+     "CMPSTRESSN": "PS-1002",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "BP-01",
+     "DTXR": "Base Plate"
+    }
+   },
+   {
+    "name": "SUPPORT PS-1003",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-1003",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1089",
+     "POS": {
+      "x": 8000,
+      "y": 0,
+      "z": 1500
+     },
+     "POSI": "E 8000mm N 0mm U 1500mm",
+     "CMPSTRESSN": "PS-1003",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "G-03",
+     "DTXR": "Riser Guide",
+     "PIPE_AXIS": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+     }
+    }
+   },
+   {
+    "name": "SUPPORT PS-1003",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-1003",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1090",
+     "POS": {
+      "x": 8000,
+      "y": 0,
+      "z": 1500
+     },
+     "POSI": "E 8000mm N 0mm U 1500mm",
+     "CMPSTRESSN": "PS-1003",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "BP-13",
+     "DTXR": "Riser Lug"
+    }
+   },
+   {
+    "name": "SUPPORT PS-1004",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-1004",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1091",
+     "POS": {
+      "x": 8000,
+      "y": 1500,
+      "z": 3000
+     },
+     "POSI": "E 8000mm N 1500mm U 3000mm",
+     "CMPSTRESSN": "PS-1004",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "LS-01",
+     "DTXR": "Line Stop",
+     "PIPE_AXIS": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     }
+    }
+   },
+   {
+    "name": "SUPPORT PS-1004",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-1004",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1092",
+     "POS": {
+      "x": 8000,
+      "y": 1500,
+      "z": 3000
+     },
+     "POSI": "E 8000mm N 1500mm U 3000mm",
+     "CMPSTRESSN": "PS-1004",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "BP-04",
+     "DTXR": "Base Plate"
+    }
+   },
+   {
+    "name": "SUPPORT PS-1004",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-1004",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1093",
+     "POS": {
+      "x": 8000,
+      "y": 1500,
+      "z": 3000
+     },
+     "POSI": "E 8000mm N 1500mm U 3000mm",
+     "CMPSTRESSN": "PS-1004",
+     "NODEGAP": "5",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "PG-04",
+     "DTXR": "Pipe Guide",
+     "CMPSUPGAP": "5mm GAP",
+     "PIPE_AXIS": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     }
+    }
+   },
+   {
+    "name": "SUPPORT PS-1005",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-1005",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1094",
+     "POS": {
+      "x": 8000,
+      "y": 2500,
+      "z": 3000
+     },
+     "POSI": "E 8000mm N 2500mm U 3000mm",
+     "CMPSTRESSN": "PS-1005",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "DESC": "PIPE SHOE 100MM"
+    }
+   },
+   {
+    "name": "SUPPORT PS-1010",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-1010",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1095",
+     "POS": {
+      "x": 6000,
+      "y": 0,
+      "z": 0
+     },
+     "POSI": "E 6000mm N 0mm U 0mm",
+     "CMPSTRESSN": "PS-1010",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "REST",
+     "DTXR": "Pipe Rest"
+    }
+   },
+   {
+    "name": "SUPPORT PS-1010",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-1010",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-8\"-P0001-A1A/B1",
+     "REF": "=9030/1096",
+     "POS": {
+      "x": 6000,
+      "y": 0,
+      "z": 0
+     },
+     "POSI": "E 6000mm N 0mm U 0mm",
+     "CMPSTRESSN": "PS-1010",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "PG-10",
+     "DTXR": "Pipe Guide"
+    }
+   }
+  ]
+ },
+ {
+  "name": "/GF30-01-4\"-P0002-A1A/B1",
+  "type": "BRANCH",
+  "attributes": {
+   "NAME": "/GF30-01-4\"-P0002-A1A/B1",
+   "HPOS": {
+    "x": 5000,
+    "y": 0,
+    "z": 0
+   },
+   "TPOS": {
+    "x": 5000,
+    "y": -5000,
+    "z": -2000
+   },
+   "HBOR": "114.3mm",
+   "TBOR": "114.3mm"
+  },
+  "children": [
+   {
+    "name": "INST =9030/1097",
+    "type": "INST",
+    "attributes": {
+     "NAME": "=9030/1097",
+     "TYPE": "INST",
+     "OWNER": "/GF30-01-4\"-P0002-A1A/B1",
+     "REF": "=9030/1097",
+     "POS": {
+      "x": 5000,
+      "y": -2800,
+      "z": 0
+     },
+     "POSI": "E 5000mm S 2800mm U 0mm",
+     "APOS": {
+      "x": 5000,
+      "y": -2800,
+      "z": 0
+     },
+     "LPOS": {
+      "x": 5000,
+      "y": -3100,
+      "z": 0
+     },
+     "ABORE": "102mm",
+     "LBORE": "102mm",
+     "RAW_TYPE": "INST",
+     "DTXR": "FT-30001"
+    }
+   },
+   {
+    "name": "ELBO =9030/1098",
+    "type": "ELBO",
+    "attributes": {
+     "NAME": "=9030/1098",
+     "TYPE": "ELBO",
+     "OWNER": "/GF30-01-4\"-P0002-A1A/B1",
+     "REF": "=9030/1098",
+     "POS": {
+      "x": 5000,
+      "y": -5000,
+      "z": 0
+     },
+     "POSI": "E 5000mm S 5000mm U 0mm",
+     "APOS": {
+      "x": 5000,
+      "y": -5000,
+      "z": 0
+     },
+     "LPOS": {
+      "x": 5000,
+      "y": -5000,
+      "z": 0
+     },
+     "ABORE": "102mm",
+     "LBORE": "102mm",
+     "RAW_TYPE": "ELBO"
+    }
+   },
+   {
+    "name": "REDU =9030/1099",
+    "type": "REDU",
+    "attributes": {
+     "NAME": "=9030/1099",
+     "TYPE": "REDU",
+     "OWNER": "/GF30-01-4\"-P0002-A1A/B1",
+     "REF": "=9030/1099",
+     "POS": {
+      "x": 5000,
+      "y": -5000,
+      "z": -1750
+     },
+     "POSI": "E 5000mm S 5000mm D 1750mm",
+     "APOS": {
+      "x": 5000,
+      "y": -5000,
+      "z": -1750
+     },
+     "LPOS": {
+      "x": 5000,
+      "y": -5000,
+      "z": -1839
+     },
+     "ABORE": "102mm",
+     "LBORE": "102mm",
+     "RAW_TYPE": "REDU",
+     "DTXR": "REDU"
+    }
+   },
+   {
+    "name": "FLAN =9030/1100",
+    "type": "FLAN",
+    "attributes": {
+     "NAME": "=9030/1100",
+     "TYPE": "FLAN",
+     "OWNER": "/GF30-01-4\"-P0002-A1A/B1",
+     "REF": "=9030/1100",
+     "POS": {
+      "x": 5000,
+      "y": -5000,
+      "z": -1888
+     },
+     "POSI": "E 5000mm S 5000mm D 1888mm",
+     "APOS": {
+      "x": 5000,
+      "y": -5000,
+      "z": -1888
+     },
+     "LPOS": {
+      "x": 5000,
+      "y": -5000,
+      "z": -2000
+     },
+     "ABORE": "78mm",
+     "LBORE": "78mm",
+     "RAW_TYPE": "FLAN",
+     "DTXR": "FLAN"
+    }
+   },
+   {
+    "name": "SUPPORT PS-2001",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-2001",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-4\"-P0002-A1A/B1",
+     "REF": "=9030/1101",
+     "POS": {
+      "x": 5000,
+      "y": -1200,
+      "z": 0
+     },
+     "POSI": "E 5000mm S 1200mm U 0mm",
+     "CMPSTRESSN": "PS-2001",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "MDSSUPPTYPE": "GT510",
+     "DTXR": "Guide GT5",
+     "PIPE_AXIS": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     }
+    }
+   },
+   {
+    "name": "SUPPORT PS-2001",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-2001",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-4\"-P0002-A1A/B1",
+     "REF": "=9030/1102",
+     "POS": {
+      "x": 5000,
+      "y": -1200,
+      "z": 0
+     },
+     "POSI": "E 5000mm S 1200mm U 0mm",
+     "CMPSTRESSN": "PS-2001",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "REST",
+     "DTXR": "Pipe Rest"
+    }
+   },
+   {
+    "name": "SUPPORT PS-2002",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-2002",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-4\"-P0002-A1A/B1",
+     "REF": "=9030/1103",
+     "POS": {
+      "x": 5000,
+      "y": -2200,
+      "z": 0
+     },
+     "POSI": "E 5000mm S 2200mm U 0mm",
+     "CMPSTRESSN": "PS-2002",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "PG-02",
+     "MDSSUPPTYPE": "BT10",
+     "DTXR": "Guide on base"
+    }
+   },
+   {
+    "name": "SUPPORT PS-2002",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-2002",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-4\"-P0002-A1A/B1",
+     "REF": "=9030/1104",
+     "POS": {
+      "x": 5000,
+      "y": -2200,
+      "z": 0
+     },
+     "POSI": "E 5000mm S 2200mm U 0mm",
+     "CMPSTRESSN": "PS-2002",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "DESC": "PIPE SHOE 50MM"
+    }
+   },
+   {
+    "name": "SUPPORT PS-2003",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-2003",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-4\"-P0002-A1A/B1",
+     "REF": "=9030/1105",
+     "POS": {
+      "x": 5000,
+      "y": -3600,
+      "z": 0
+     },
+     "POSI": "E 5000mm S 3600mm U 0mm",
+     "CMPSTRESSN": "PS-2003",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "MDSSUPPTYPE": "AN01",
+     "DTXR": "Anchor"
+    }
+   },
+   {
+    "name": "SUPPORT PS-2004",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-2004",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-4\"-P0002-A1A/B1",
+     "REF": "=9030/1106",
+     "POS": {
+      "x": 5000,
+      "y": -4200,
+      "z": 0
+     },
+     "POSI": "E 5000mm S 4200mm U 0mm",
+     "CMPSTRESSN": "PS-2004",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "PG-20",
+     "DTXR": "Pipe Guide",
+     "CMPSUPGAP": "5mm GAP"
+    }
+   },
+   {
+    "name": "SUPPORT PS-2004",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-2004",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-4\"-P0002-A1A/B1",
+     "REF": "=9030/1107",
+     "POS": {
+      "x": 5000,
+      "y": -4200,
+      "z": 0
+     },
+     "POSI": "E 5000mm S 4200mm U 0mm",
+     "CMPSTRESSN": "PS-2004",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "BP-20",
+     "DTXR": "Base Plate"
+    }
+   },
+   {
+    "name": "SUPPORT PS-2005",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-2005",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-4\"-P0002-A1A/B1",
+     "REF": "=9030/1108",
+     "POS": {
+      "x": 5000,
+      "y": -5000,
+      "z": -1200
+     },
+     "POSI": "E 5000mm S 5000mm D 1200mm",
+     "CMPSTRESSN": "PS-2005",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "SUPPORT_KIND": "SPRING",
+     "DTXR": "Variable Spring"
+    }
+   }
+  ]
+ },
+ {
+  "name": "/GF30-01-2\"-P0003-B2B/B1",
+  "type": "BRANCH",
+  "attributes": {
+   "NAME": "/GF30-01-2\"-P0003-B2B/B1",
+   "HPOS": {
+    "x": 6500,
+    "y": 0,
+    "z": 0
+   },
+   "TPOS": {
+    "x": 6500,
+    "y": 0,
+    "z": 2000
+   },
+   "HBOR": "60.3mm",
+   "TBOR": "60.3mm"
+  },
+  "children": [
+   {
+    "name": "VALV =9030/1109",
+    "type": "VALV",
+    "attributes": {
+     "NAME": "=9030/1109",
+     "TYPE": "VALV",
+     "OWNER": "/GF30-01-2\"-P0003-B2B/B1",
+     "REF": "=9030/1109",
+     "POS": {
+      "x": 6500,
+      "y": 0,
+      "z": 300
+     },
+     "POSI": "E 6500mm N 0mm U 300mm",
+     "APOS": {
+      "x": 6500,
+      "y": 0,
+      "z": 300
+     },
+     "LPOS": {
+      "x": 6500,
+      "y": 0,
+      "z": 500
+     },
+     "ABORE": "52mm",
+     "LBORE": "52mm",
+     "RAW_TYPE": "VALV",
+     "DTXR": "VGT-30002"
+    }
+   },
+   {
+    "name": "FLAN =9030/1110",
+    "type": "FLAN",
+    "attributes": {
+     "NAME": "=9030/1110",
+     "TYPE": "FLAN",
+     "OWNER": "/GF30-01-2\"-P0003-B2B/B1",
+     "REF": "=9030/1110",
+     "POS": {
+      "x": 6500,
+      "y": 0,
+      "z": 1900
+     },
+     "POSI": "E 6500mm N 0mm U 1900mm",
+     "APOS": {
+      "x": 6500,
+      "y": 0,
+      "z": 1900
+     },
+     "LPOS": {
+      "x": 6500,
+      "y": 0,
+      "z": 2000
+     },
+     "ABORE": "52mm",
+     "LBORE": "52mm",
+     "RAW_TYPE": "FLAN",
+     "DTXR": "FLAN"
+    }
+   },
+   {
+    "name": "SUPPORT =9030/1111",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "=9030/1111",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-2\"-P0003-B2B/B1",
+     "REF": "=9030/1111",
+     "POS": {
+      "x": 6500.8,
+      "y": 0,
+      "z": 900
+     },
+     "POSI": "E 6500.8mm N 0mm U 900mm",
+     "CMPSTRESSN": "",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "BP-03",
+     "DTXR": "Base Plate"
+    }
+   },
+   {
+    "name": "SUPPORT =9030/1112",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "=9030/1112",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-2\"-P0003-B2B/B1",
+     "REF": "=9030/1112",
+     "POS": {
+      "x": 6501.5,
+      "y": 0,
+      "z": 1400
+     },
+     "POSI": "E 6501.5mm N 0mm U 1400mm",
+     "CMPSTRESSN": "",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "PG-05",
+     "DTXR": "Pipe Guide"
+    }
+   }
+  ]
+ },
+ {
+  "name": "/GF30-01-6\"-P0004-A1A/B1",
+  "type": "BRANCH",
+  "attributes": {
+   "NAME": "/GF30-01-6\"-P0004-A1A/B1",
+   "HPOS": {
+    "x": 0,
+    "y": 10000,
+    "z": -0.0
+   },
+   "TPOS": {
+    "x": 7000,
+    "y": 10000,
+    "z": -70.0
+   },
+   "HBOR": "168.3mm",
+   "TBOR": "168.3mm"
+  },
+  "children": [
+   {
+    "name": "PCOM =9030/1113",
+    "type": "PCOM",
+    "attributes": {
+     "NAME": "=9030/1113",
+     "TYPE": "PCOM",
+     "OWNER": "/GF30-01-6\"-P0004-A1A/B1",
+     "REF": "=9030/1113",
+     "POS": {
+      "x": 500,
+      "y": 10000,
+      "z": -5.0
+     },
+     "POSI": "E 500mm N 10000mm D 5.0mm",
+     "APOS": {
+      "x": 500,
+      "y": 10000,
+      "z": -5.0
+     },
+     "LPOS": {
+      "x": 900,
+      "y": 10000,
+      "z": -9.0
+     },
+     "ABORE": "154mm",
+     "LBORE": "154mm",
+     "RAW_TYPE": "PCOM",
+     "DTXR": "SP-30001"
+    }
+   },
+   {
+    "name": "TEE =9030/1114",
+    "type": "TEE",
+    "attributes": {
+     "NAME": "=9030/1114",
+     "TYPE": "TEE",
+     "OWNER": "/GF30-01-6\"-P0004-A1A/B1",
+     "REF": "=9030/1114",
+     "POS": {
+      "x": 4200,
+      "y": 10000,
+      "z": -42.0
+     },
+     "POSI": "E 4200mm N 10000mm D 42.0mm",
+     "APOS": {
+      "x": 4200,
+      "y": 10000,
+      "z": -42.0
+     },
+     "LPOS": {
+      "x": 4200,
+      "y": 10000,
+      "z": -42.0
+     },
+     "ABORE": "154mm",
+     "LBORE": "154mm",
+     "RAW_TYPE": "TEE"
+    }
+   },
+   {
+    "name": "FLAN =9030/1115",
+    "type": "FLAN",
+    "attributes": {
+     "NAME": "=9030/1115",
+     "TYPE": "FLAN",
+     "OWNER": "/GF30-01-6\"-P0004-A1A/B1",
+     "REF": "=9030/1115",
+     "POS": {
+      "x": 6888,
+      "y": 10000,
+      "z": -68.88
+     },
+     "POSI": "E 6888mm N 10000mm D 68.88mm",
+     "APOS": {
+      "x": 6888,
+      "y": 10000,
+      "z": -68.88
+     },
+     "LPOS": {
+      "x": 7000,
+      "y": 10000,
+      "z": -70.0
+     },
+     "ABORE": "154mm",
+     "LBORE": "154mm",
+     "RAW_TYPE": "FLAN",
+     "DTXR": "FLAN"
+    }
+   },
+   {
+    "name": "SUPPORT PS-4001",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-4001",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-6\"-P0004-A1A/B1",
+     "REF": "=9030/1116",
+     "POS": {
+      "x": 2000,
+      "y": 10000,
+      "z": -20.0
+     },
+     "POSI": "E 2000mm N 10000mm D 20.0mm",
+     "CMPSTRESSN": "PS-4001",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "LS-02",
+     "DTXR": "Line Stop",
+     "CMPSUPGAP": "2mm GAP",
+     "PIPE_AXIS": {
+      "x": 0.99995,
+      "y": 0.0,
+      "z": -0.01
+     }
+    }
+   },
+   {
+    "name": "SUPPORT PS-4001",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-4001",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-6\"-P0004-A1A/B1",
+     "REF": "=9030/1117",
+     "POS": {
+      "x": 2000,
+      "y": 10000,
+      "z": -20.0
+     },
+     "POSI": "E 2000mm N 10000mm D 20.0mm",
+     "CMPSTRESSN": "PS-4001",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "PG-41",
+     "DTXR": "Pipe Guide"
+    }
+   },
+   {
+    "name": "SUPPORT PS-4001",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-4001",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-6\"-P0004-A1A/B1",
+     "REF": "=9030/1118",
+     "POS": {
+      "x": 2000,
+      "y": 10000,
+      "z": -20.0
+     },
+     "POSI": "E 2000mm N 10000mm D 20.0mm",
+     "CMPSTRESSN": "PS-4001",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "BP-41",
+     "DTXR": "Base Plate"
+    }
+   },
+   {
+    "name": "SUPPORT PS-4002",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-4002",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-6\"-P0004-A1A/B1",
+     "REF": "=9030/1119",
+     "POS": {
+      "x": 3500,
+      "y": 10000,
+      "z": -35.0
+     },
+     "POSI": "E 3500mm N 10000mm D 35.0mm",
+     "CMPSTRESSN": "PS-4002",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "SUPPORT_KIND": "LIMIT",
+     "DTXR": "Limit Stop",
+     "DIRECTION_COSINES": {
+      "x": 0.707107,
+      "y": 0,
+      "z": 0.707107
+     }
+    }
+   },
+   {
+    "name": "SUPPORT PS-4002",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-4002",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-6\"-P0004-A1A/B1",
+     "REF": "=9030/1120",
+     "POS": {
+      "x": 3500,
+      "y": 10000,
+      "z": -35.0
+     },
+     "POSI": "E 3500mm N 10000mm D 35.0mm",
+     "CMPSTRESSN": "PS-4002",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "SKEY": "CA150",
+     "DTXR": "Pipe Rest"
+    }
+   },
+   {
+    "name": "SUPPORT PS-4003",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-4003",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-6\"-P0004-A1A/B1",
+     "REF": "=9030/1121",
+     "POS": {
+      "x": 5000,
+      "y": 10000,
+      "z": -50.0
+     },
+     "POSI": "E 5000mm N 10000mm D 50.0mm",
+     "CMPSTRESSN": "PS-4003",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "DESC": "DIRECTIONAL ANCHOR"
+    }
+   },
+   {
+    "name": "SUPPORT PS-4003",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-4003",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-6\"-P0004-A1A/B1",
+     "REF": "=9030/1122",
+     "POS": {
+      "x": 5000,
+      "y": 10000,
+      "z": -50.0
+     },
+     "POSI": "E 5000mm N 10000mm D 50.0mm",
+     "CMPSTRESSN": "PS-4003",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "REST",
+     "DTXR": "Pipe Rest"
+    }
+   },
+   {
+    "name": "SUPPORT PS-9999",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-9999",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-6\"-P0004-A1A/B1",
+     "REF": "=9030/1123",
+     "POS": {
+      "x": 20000,
+      "y": 20000,
+      "z": 0
+     },
+     "POSI": "E 20000mm N 20000mm U 0mm",
+     "CMPSTRESSN": "PS-9999",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "REST",
+     "DTXR": "Pipe Rest (no pipe here)"
+    }
+   }
+  ]
+ },
+ {
+  "name": "/GF30-01-3\"-P0005-A1A/B1",
+  "type": "BRANCH",
+  "attributes": {
+   "NAME": "/GF30-01-3\"-P0005-A1A/B1",
+   "HPOS": {
+    "x": 4200,
+    "y": 10000,
+    "z": -42
+   },
+   "TPOS": {
+    "x": 4200,
+    "y": 13500,
+    "z": -42
+   },
+   "HBOR": "88.9mm",
+   "TBOR": "88.9mm"
+  },
+  "children": [
+   {
+    "name": "REDU =9030/1124",
+    "type": "REDU",
+    "attributes": {
+     "NAME": "=9030/1124",
+     "TYPE": "REDU",
+     "OWNER": "/GF30-01-3\"-P0005-A1A/B1",
+     "REF": "=9030/1124",
+     "POS": {
+      "x": 4200,
+      "y": 11800,
+      "z": -42
+     },
+     "POSI": "E 4200mm N 11800mm D 42mm",
+     "APOS": {
+      "x": 4200,
+      "y": 11800,
+      "z": -42
+     },
+     "LPOS": {
+      "x": 4200,
+      "y": 11889,
+      "z": -42
+     },
+     "ABORE": "78mm",
+     "LBORE": "78mm",
+     "RAW_TYPE": "REDU",
+     "DTXR": "REDU"
+    }
+   },
+   {
+    "name": "FLAN =9030/1125",
+    "type": "FLAN",
+    "attributes": {
+     "NAME": "=9030/1125",
+     "TYPE": "FLAN",
+     "OWNER": "/GF30-01-3\"-P0005-A1A/B1",
+     "REF": "=9030/1125",
+     "POS": {
+      "x": 4200,
+      "y": 13388,
+      "z": -42
+     },
+     "POSI": "E 4200mm N 13388mm D 42mm",
+     "APOS": {
+      "x": 4200,
+      "y": 13388,
+      "z": -42
+     },
+     "LPOS": {
+      "x": 4200,
+      "y": 13500,
+      "z": -42
+     },
+     "ABORE": "52mm",
+     "LBORE": "52mm",
+     "RAW_TYPE": "FLAN",
+     "DTXR": "FLAN"
+    }
+   },
+   {
+    "name": "SUPPORT PS-5001",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-5001",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-3\"-P0005-A1A/B1",
+     "REF": "=9030/1126",
+     "POS": {
+      "x": 4200,
+      "y": 11000,
+      "z": -42
+     },
+     "POSI": "E 4200mm N 11000mm D 42mm",
+     "CMPSTRESSN": "PS-5001",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "PG-51",
+     "DTXR": "Pipe Guide",
+     "CMPSUPGAP": "3mm GAP"
+    }
+   },
+   {
+    "name": "SUPPORT PS-5001",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-5001",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-3\"-P0005-A1A/B1",
+     "REF": "=9030/1127",
+     "POS": {
+      "x": 4200,
+      "y": 11000,
+      "z": -42
+     },
+     "POSI": "E 4200mm N 11000mm D 42mm",
+     "CMPSTRESSN": "PS-5001",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "CMPSUPTYPE": "BP-51",
+     "DTXR": "Base Plate"
+    }
+   },
+   {
+    "name": "SUPPORT PS-5002",
+    "type": "SUPPORT",
+    "attributes": {
+     "NAME": "/PS-5002",
+     "TYPE": "ATTA",
+     "OWNER": "/GF30-01-3\"-P0005-A1A/B1",
+     "REF": "=9030/1128",
+     "POS": {
+      "x": 4200,
+      "y": 12800,
+      "z": -42
+     },
+     "POSI": "E 4200mm N 12800mm D 42mm",
+     "CMPSTRESSN": "PS-5002",
+     "NODEGAP": "0",
+     "NODEFRICTION": "0.3",
+     "RAW_TYPE": "ATTA",
+     "SKEY": "CA150",
+     "DTXR": "Pipe Rest"
+    }
+   }
+  ]
+ }
+]

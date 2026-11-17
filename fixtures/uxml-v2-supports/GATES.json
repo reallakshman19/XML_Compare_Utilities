@@ -1,0 +1,191 @@
+{
+ "G30": {
+  "01-parent-enrichment": {
+   "matchedNodes": 67,
+   "nodesTheStageMustChange": 37,
+   "topologyOnlyInOracle": 10,
+   "topologyOnlyInUxml": 10
+  },
+  "02-dtxr-enrichment": {
+   "matchedNodes": 67,
+   "nodesTheStageMustChange": 41,
+   "topologyOnlyInOracle": 10,
+   "topologyOnlyInUxml": 10
+  },
+  "03-atta-default": {
+   "matchedNodes": 67,
+   "nodesTheStageMustChange": 41,
+   "topologyOnlyInOracle": 10,
+   "topologyOnlyInUxml": 10
+  },
+  "04-mds-closure": {
+   "matchedNodes": 67,
+   "nodesTheStageMustChange": 41,
+   "topologyOnlyInOracle": 10,
+   "topologyOnlyInUxml": 10
+  },
+  "finalRestraints": 36
+ },
+ "G30-NOJSON": {
+  "01-parent-enrichment": {
+   "matchedNodes": 67,
+   "nodesTheStageMustChange": 1,
+   "topologyOnlyInOracle": 10,
+   "topologyOnlyInUxml": 10
+  },
+  "02-dtxr-enrichment": {
+   "matchedNodes": 67,
+   "nodesTheStageMustChange": 1,
+   "topologyOnlyInOracle": 10,
+   "topologyOnlyInUxml": 10
+  },
+  "03-atta-default": {
+   "matchedNodes": 67,
+   "nodesTheStageMustChange": 19,
+   "topologyOnlyInOracle": 10,
+   "topologyOnlyInUxml": 10
+  },
+  "04-mds-closure": {
+   "matchedNodes": 67,
+   "nodesTheStageMustChange": 19,
+   "topologyOnlyInOracle": 10,
+   "topologyOnlyInUxml": 10
+  },
+  "finalRestraints": 23
+ },
+ "G30-CUSTOM": {
+  "01-parent-enrichment": {
+   "matchedNodes": 67,
+   "nodesTheStageMustChange": 37,
+   "topologyOnlyInOracle": 10,
+   "topologyOnlyInUxml": 10
+  },
+  "02-dtxr-enrichment": {
+   "matchedNodes": 67,
+   "nodesTheStageMustChange": 41,
+   "topologyOnlyInOracle": 10,
+   "topologyOnlyInUxml": 10
+  },
+  "03-atta-default": {
+   "matchedNodes": 67,
+   "nodesTheStageMustChange": 41,
+   "topologyOnlyInOracle": 10,
+   "topologyOnlyInUxml": 10
+  },
+  "04-mds-closure": {
+   "matchedNodes": 67,
+   "nodesTheStageMustChange": 41,
+   "topologyOnlyInOracle": 10,
+   "topologyOnlyInUxml": 10
+  },
+  "finalRestraints": 36
+ },
+ "RMS-BLOW-1": {
+  "01-parent-enrichment": {
+   "matchedNodes": 161,
+   "nodesTheStageMustChange": 0,
+   "topologyOnlyInOracle": 38,
+   "topologyOnlyInUxml": 99
+  },
+  "02-dtxr-enrichment": {
+   "matchedNodes": 161,
+   "nodesTheStageMustChange": 0,
+   "topologyOnlyInOracle": 38,
+   "topologyOnlyInUxml": 99
+  },
+  "03-atta-default": {
+   "matchedNodes": 161,
+   "nodesTheStageMustChange": 6,
+   "topologyOnlyInOracle": 38,
+   "topologyOnlyInUxml": 99
+  },
+  "04-mds-closure": {
+   "matchedNodes": 161,
+   "nodesTheStageMustChange": 6,
+   "topologyOnlyInOracle": 38,
+   "topologyOnlyInUxml": 99
+  },
+  "finalRestraints": 20
+ },
+ "ACTIVE-AUDIT": {
+  "01-parent-enrichment": {
+   "matchedNodes": 3,
+   "nodesTheStageMustChange": 1,
+   "topologyOnlyInOracle": 0,
+   "topologyOnlyInUxml": 0
+  },
+  "02-dtxr-enrichment": {
+   "matchedNodes": 3,
+   "nodesTheStageMustChange": 1,
+   "topologyOnlyInOracle": 0,
+   "topologyOnlyInUxml": 0
+  },
+  "03-atta-default": {
+   "matchedNodes": 3,
+   "nodesTheStageMustChange": 1,
+   "topologyOnlyInOracle": 0,
+   "topologyOnlyInUxml": 0
+  },
+  "04-mds-closure": {
+   "matchedNodes": 3,
+   "nodesTheStageMustChange": 1,
+   "topologyOnlyInOracle": 0,
+   "topologyOnlyInUxml": 0
+  },
+  "finalRestraints": 1
+ },
+ "BM2": {
+  "01-parent-enrichment": {
+   "matchedNodes": 828,
+   "nodesTheStageMustChange": 0,
+   "topologyOnlyInOracle": 166,
+   "topologyOnlyInUxml": 368
+  },
+  "02-dtxr-enrichment": {
+   "matchedNodes": 828,
+   "nodesTheStageMustChange": 0,
+   "topologyOnlyInOracle": 166,
+   "topologyOnlyInUxml": 368
+  },
+  "03-atta-default": {
+   "matchedNodes": 828,
+   "nodesTheStageMustChange": 9,
+   "topologyOnlyInOracle": 166,
+   "topologyOnlyInUxml": 368
+  },
+  "04-mds-closure": {
+   "matchedNodes": 828,
+   "nodesTheStageMustChange": 9,
+   "topologyOnlyInOracle": 166,
+   "topologyOnlyInUxml": 368
+  },
+  "finalRestraints": 15
+ },
+ "EF05": {
+  "01-parent-enrichment": {
+   "matchedNodes": 1116,
+   "nodesTheStageMustChange": 94,
+   "topologyOnlyInOracle": 168,
+   "topologyOnlyInUxml": 538
+  },
+  "02-dtxr-enrichment": {
+   "matchedNodes": 1116,
+   "nodesTheStageMustChange": 94,
+   "topologyOnlyInOracle": 168,
+   "topologyOnlyInUxml": 538
+  },
+  "03-atta-default": {
+   "matchedNodes": 1116,
+   "nodesTheStageMustChange": 173,
+   "topologyOnlyInOracle": 168,
+   "topologyOnlyInUxml": 538
+  },
+  "04-mds-closure": {
+   "matchedNodes": 1116,
+   "nodesTheStageMustChange": 173,
+   "topologyOnlyInOracle": 168,
+   "topologyOnlyInUxml": 538
+  },
+  "finalRestraints": 173
+ }
+}

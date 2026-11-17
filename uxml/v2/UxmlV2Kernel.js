@@ -185,10 +185,15 @@ const ENGINEERING_KEYS = new Set(['HydroPressure', 'MaterialNumber', 'MaterialNa
   'FluidDensity', 'InsulationDensity', 'InsulationThickness', 'LineNo', 'PipelineReference',
   'PipingClass', 'Rating', 'OutsideDiameter', 'WallThickness', 'CorrosionAllowance', 'Weight',
   'SIF', 'BoreMm', 'Rigid']);
+const SUPPORT_KEY = /^(DTXR_|CMPSUPGAP)/;
+/** Layer of an add/remove: a restraint belongs to `supports`, anything else to `topology`. */
+export const entityLayer = kind => (kind === 'restraint' ? 'supports' : 'topology');
 /** Layer of a value key on an entity kind (restraint values are all `supports`). */
 export function layerOf(kind, key) {
   if (kind === 'restraint') return 'supports';
   const leaf = String(key).split('#')[0].split('.').at(-1);
+  // Step 3: the support annotations a node carries are written by the supports stage.
+  if (SUPPORT_KEY.test(leaf)) return 'supports';
   if (NAME_KEYS.has(leaf)) return 'names';
   if (TOPOLOGY_KEYS.has(leaf)) return 'topology';
   if (ENGINEERING_KEYS.has(leaf) || /^(Temperature|Pressure)\d*$/.test(leaf)) return 'engineering';
@@ -237,11 +242,22 @@ const valueKey = path => {
 };
 const same = (a, b) => canonicalJson(a ?? null) === canonicalJson(b ?? null);
 
+/** `set` of a restraint's direction frame (path 'frame'); after = a DIRECTION_FRAMES name or null. */
+function setFrame(item, op) {
+  if (item.kind !== 'restraint') refuse(CODES.DELTA_OP_UNSUPPORTED, {message: 'frame on ' + item.kind});
+  if (op.after != null && !DIRECTION_FRAMES.includes(op.after)) refuse(CODES.FRAME_MISSING, {uid: op.uid});
+  if (!same(item.entity.frame ?? null, op.before)) refuse(CODES.DELTA_BEFORE_MISMATCH, {uid: op.uid, key: 'frame'});
+  if (op.after == null) delete item.entity.frame; else item.entity.frame = op.after;
+}
+
 function applyOps(doc, ops) {
   let index = indexEntities(doc);
   const retired = new Set(doc.retiredUids || []);
   for (const op of ops) {
-    if (op.op === 'set' || op.op === 'lock' || op.op === 'unlock') {
+    if (op.op === 'set' && op.path === 'frame') {
+      const item = index.get(op.uid) || refuse(CODES.UID_UNKNOWN, {uid: op.uid});
+      setFrame(item, op);
+    } else if (op.op === 'set' || op.op === 'lock' || op.op === 'unlock') {
       const item = index.get(op.uid) || refuse(CODES.UID_UNKNOWN, {uid: op.uid});
       const key = valueKey(op.path);
       const values = item.entity.values || (item.entity.values = {});
@@ -365,7 +381,11 @@ export function runStage(stage, base, inputs = {}, settings = {}, {producer = {t
   const work = clone(base);
   for (const raw of first.ops || []) {
     const op = clone(raw);
-    if (op.op === 'set' || op.op === 'lock' || op.op === 'unlock') {
+    if (op.op === 'set' && op.path === 'frame') {
+      const item = indexEntities(work).get(op.uid) || refuse(CODES.UID_UNKNOWN, {uid: op.uid});
+      if (!declared.has('supports')) refuse(CODES.LAYER_UNDECLARED_WRITE, {stage: stage.id, uid: op.uid, key: 'frame', layer: 'supports'});
+      op.before = item.entity.frame ?? null;
+    } else if (op.op === 'set' || op.op === 'lock' || op.op === 'unlock') {
       const item = indexEntities(work).get(op.uid) || refuse(CODES.UID_UNKNOWN, {uid: op.uid});
       const key = valueKey(op.path);
       const layer = layerOf(item.kind, key);
@@ -384,7 +404,8 @@ export function runStage(stage, base, inputs = {}, settings = {}, {producer = {t
         if (op.op === 'lock') op.after = {...op.after, rev: seq};
       }
     } else if (op.op === 'add' || op.op === 'split') {
-      if (!declared.has('topology')) refuse(CODES.LAYER_UNDECLARED_WRITE, {stage: stage.id, op: op.op, layer: 'topology'});
+      const layer = op.op === 'add' ? entityLayer(op.kind) : 'topology';
+      if (!declared.has(layer)) refuse(CODES.LAYER_UNDECLARED_WRITE, {stage: stage.id, op: op.op, layer});
       if (!op.entity?.lineage) refuse(CODES.LINEAGE_MISSING, {uid: op.uid});
       op.entity = clone(op.entity);
       delete op.entity.h;
@@ -393,8 +414,9 @@ export function runStage(stage, base, inputs = {}, settings = {}, {producer = {t
         value.rev = seq;
       }
     } else if (op.op === 'remove') {
-      if (!declared.has('topology')) refuse(CODES.LAYER_UNDECLARED_WRITE, {stage: stage.id, op: 'remove', layer: 'topology'});
       const item = indexEntities(work).get(op.uid) || refuse(CODES.UID_UNKNOWN, {uid: op.uid});
+      const layer = entityLayer(item.kind);
+      if (!declared.has(layer)) refuse(CODES.LAYER_UNDECLARED_WRITE, {stage: stage.id, op: 'remove', layer});
       const before = clone(item.entity); delete before.h;
       Object.assign(op, {before, parent: item.parent?.uid ?? null,
         after: item.index > 0 ? item.list[item.index - 1].uid : null, kind: item.kind});

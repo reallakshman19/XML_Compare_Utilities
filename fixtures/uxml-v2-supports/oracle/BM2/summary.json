@@ -1,0 +1,34 @@
+{
+ "benchmark": "GLRD-1000-PI-01 - BM2.xml",
+ "stagedJson": false,
+ "error": null,
+ "applied": true,
+ "stages": [
+  {
+   "order": 1,
+   "name": "parent-enrichment",
+   "nodesChanged": 5,
+   "restraintsAfter": 6
+  },
+  {
+   "order": 2,
+   "name": "dtxr-enrichment",
+   "nodesChanged": 0,
+   "restraintsAfter": 6
+  },
+  {
+   "order": 3,
+   "name": "atta-default",
+   "nodesChanged": 9,
+   "restraintsAfter": 15
+  },
+  {
+   "order": 4,
+   "name": "mds-closure",
+   "nodesChanged": 0,
+   "restraintsAfter": 15
+  }
+ ],
+ "finalRestraints": 15,
+ "supportDiagnostics": 19
+}

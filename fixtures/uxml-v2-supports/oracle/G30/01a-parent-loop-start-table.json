@@ -1,0 +1,734 @@
+[
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 0,
+  "NodeNumber": "10",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 1,
+  "NodeNumber": "20",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 2,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 3,
+  "NodeNumber": "30",
+  "NodeName": "VGT-30001",
+  "ComponentType": "VALV",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 4,
+  "NodeNumber": "40",
+  "NodeName": "",
+  "ComponentType": "VALV",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 5,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 6,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 7,
+  "NodeNumber": "60",
+  "NodeName": "PS-1001",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 8,
+  "NodeNumber": "70",
+  "NodeName": "PS-1002",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 9,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 10,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 11,
+  "NodeNumber": "80",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 12,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 13,
+  "NodeNumber": "90",
+  "NodeName": "PS-1010",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 14,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "OLET",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 15,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "OLET",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 16,
+  "NodeNumber": "100",
+  "NodeName": "",
+  "ComponentType": "OLET",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 17,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "OLET",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 18,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 19,
+  "NodeNumber": "110",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 20,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 21,
+  "NodeNumber": "120",
+  "NodeName": "PS-1003",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 22,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 23,
+  "NodeNumber": "130",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 24,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 25,
+  "NodeNumber": "140",
+  "NodeName": "PS-1004",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 26,
+  "NodeNumber": "150",
+  "NodeName": "PS-1005",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 27,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "REDU",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 28,
+  "NodeNumber": "170",
+  "NodeName": "",
+  "ComponentType": "REDU",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-8\"-P0001-A1A/B1",
+  "nodeIndex": 29,
+  "NodeNumber": "175",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 0,
+  "NodeNumber": "80",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 1,
+  "NodeNumber": "210",
+  "NodeName": "PS-2001",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 2,
+  "NodeNumber": "220",
+  "NodeName": "PS-2002",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 3,
+  "NodeNumber": "230",
+  "NodeName": "FT-30001",
+  "ComponentType": "INST",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 4,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "INST",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 5,
+  "NodeNumber": "250",
+  "NodeName": "PS-2003",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 6,
+  "NodeNumber": "260",
+  "NodeName": "PS-2004",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": [
+   {
+    "Type": "+Y",
+    "Stiffness": "0",
+    "Gap": "0",
+    "Friction": "0.3",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   },
+   {
+    "Type": "GUI",
+    "Stiffness": "0",
+    "Gap": "5",
+    "Friction": "-1.010100",
+    "CMPSUPGAP": "5mm GAP"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 7,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 8,
+  "NodeNumber": "270",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 9,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "ELBO",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 10,
+  "NodeNumber": "280",
+  "NodeName": "PS-2005",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 11,
+  "NodeNumber": "290",
+  "NodeName": "PS-2006",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 12,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "REDU",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 13,
+  "NodeNumber": "300",
+  "NodeName": "",
+  "ComponentType": "REDU",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 14,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 15,
+  "NodeNumber": "310",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-4\"-P0002-A1A/B1",
+  "nodeIndex": 16,
+  "NodeNumber": "315",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 0,
+  "NodeNumber": "100",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 1,
+  "NodeNumber": "410",
+  "NodeName": "VGT-30002",
+  "ComponentType": "VALV",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 2,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "VALV",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 3,
+  "NodeNumber": "430",
+  "NodeName": "",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 4,
+  "NodeNumber": "440",
+  "NodeName": "",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 5,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 6,
+  "NodeNumber": "460",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-2\"-P0003-B2B/B1",
+  "nodeIndex": 7,
+  "NodeNumber": "465",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 0,
+  "NodeNumber": "500",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 1,
+  "NodeNumber": "510",
+  "NodeName": "SP-30001",
+  "ComponentType": "RIGID",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 2,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "RIGID",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 3,
+  "NodeNumber": "530",
+  "NodeName": "PS-4001",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 4,
+  "NodeNumber": "540",
+  "NodeName": "PS-4002",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 5,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 6,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 7,
+  "NodeNumber": "545",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 8,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "TEE",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 9,
+  "NodeNumber": "550",
+  "NodeName": "PS-4003",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 10,
+  "NodeNumber": "560",
+  "NodeName": "PS-4004",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": [
+   {
+    "Type": "+Y",
+    "Stiffness": "0",
+    "Gap": "0",
+    "Friction": "0.3",
+    "DirectionCosineX": "0.000000000",
+    "DirectionCosineY": "1.000000000",
+    "DirectionCosineZ": "0.000000000"
+   },
+   {
+    "Type": "X",
+    "Stiffness": "0",
+    "Gap": "0",
+    "Friction": "-1.010100"
+   },
+   {
+    "Type": "Z",
+    "Stiffness": "0",
+    "Gap": "3",
+    "Friction": "-1.010100"
+   }
+  ]
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 11,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 12,
+  "NodeNumber": "580",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-6\"-P0004-A1A/B1",
+  "nodeIndex": 13,
+  "NodeNumber": "585",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 0,
+  "NodeNumber": "545",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 1,
+  "NodeNumber": "610",
+  "NodeName": "PS-5001",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 2,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "REDU",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 3,
+  "NodeNumber": "620",
+  "NodeName": "",
+  "ComponentType": "REDU",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 4,
+  "NodeNumber": "640",
+  "NodeName": "PS-5002",
+  "ComponentType": "ATTA",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 5,
+  "NodeNumber": "-1",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 6,
+  "NodeNumber": "650",
+  "NodeName": "",
+  "ComponentType": "FLAN",
+  "support": {},
+  "restraints": []
+ },
+ {
+  "branch": "/GF30-01-3\"-P0005-A1A/B1",
+  "nodeIndex": 7,
+  "NodeNumber": "655",
+  "NodeName": "",
+  "ComponentType": "BRAN",
+  "support": {},
+  "restraints": []
+ }
+]
