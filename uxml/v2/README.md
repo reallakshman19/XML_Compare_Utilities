@@ -80,3 +80,10 @@ Owner D5 (13 Nov): "Transferred values win". The transfer is post-processing on 
 | `UxmlV2TransferReview.js` | review page section 5: open the Enriched XML and the receipt (or the BM2 sample), see what was transferred and what the stage was stopped from changing, download the final XML (with the note) and the transfer delta. |
 
 BM2 transfer pair (`fixtures/uxml-v2-transfer/BM2`, test `tests/uxml-v2-transfer-locks.test.mjs`): 10 changes + 70 refusals as in the receipt; the written file equals the U2d file byte for byte; under locks T1 127, FluidDensity 110 and MaterialNumber 106 are kept and the stage's 2 attempts are listed (T1 120, FluidDensity 100); values equal the stage's own note protection; undo gives the base back byte for byte; a tampered delta is refused; without locks T1 goes back to 120.
+
+## Run records: what one app Run changed (17 Nov 2026)
+3D_Converters step 10 offers "Download Run record" after a Run on the UXML route: that Run's own supports-stage provenance,
+the XML the CII engine received, hashes, and the transfer-protected values. Review page section 4, "Open a Run record"
+(UxmlV2RunRecord.js), shows the same support and engineering tables without re-running anything; a record whose CII input
+XML does not match its hash is refused, and an opened model XML is named as the Run's input file, its CII input XML, or
+not this Run's file. Test: tests/uxml-v2-run-record.test.mjs (a GOLDEN-30 record gives the rows of a fresh stage run).
