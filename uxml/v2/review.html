@@ -103,6 +103,12 @@
       <button id="supSample">Use the GOLDEN-30 sample</button>
       <button id="supSampleWeights">GOLDEN-30 with the Run popup's 5 weights</button>
     </div>
+    <div class="row">
+      <label for="supRecord">Or: a Run record (3D_Converters step 10, "Download Run record")</label><input type="file" id="supRecord" accept=".json">
+      <button id="supOpenRecord">Open a Run record</button>
+      <select id="supRecordModel" hidden></select>
+    </div>
+    <div id="supRecordInfo"></div>
     <div id="supMessage"></div>
     <div id="supResult" hidden>
       <div id="supSummary" class="counts"></div>

@@ -7,6 +7,7 @@
 import {runSupportsStage} from './supports/SupportsStage.js';
 import {provenanceTableRows, provenanceCsv, PROVENANCE_COLUMNS} from './supports/SupportProvenanceRows.js';
 import {showEngineering} from './UxmlV2EngineeringReview.js';
+import {asStageResult, readRunRecordFile, runRecordFacts, runRecordXmlMatch, transferKeptRows} from './UxmlV2RunRecord.js';
 
 const $ = id => document.getElementById(id);
 const SHOW_AT_MOST = 400;
@@ -15,7 +16,7 @@ const SAMPLE = {xml: 'oracle/G30/xml/engineering-pass-start.xml', staged: 'bench
 // The same job with the 5 rigid weights today's Run popup suggests (Use All Best), as in the weight gate.
 const SAMPLE_WEIGHTS = 'weights/G30/choices.json';
 const DEFAULT_ROWS = 'bench/default-material-map-rows.json';
-let result = null, rows = [], name = 'model', hadStaged = false;
+let result = null, rows = [], name = 'model', hadStaged = false, records = [];
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -39,15 +40,40 @@ function run({xmlText, stagedJsonText, configText, rowsText}) {
   const supportConfig = parseJson(configText, 'support config') || {};
   const materialMapRows = parseJson(rowsText, 'material map rows');
   if (materialMapRows !== undefined && !Array.isArray(materialMapRows)) throw new Error('the material map rows file must hold a list of rows');
-  result = runSupportsStage({xmlText, stagedJsonText, supportConfig, masters: {materialMapRows}});
+  $('supRecordInfo').replaceChildren();
+  show(runSupportsStage({xmlText, stagedJsonText, supportConfig, masters: {materialMapRows}}), Boolean(stagedJsonText.trim()));
+}
+
+function show(stageResult, staged) {
+  result = stageResult;
   rows = provenanceTableRows(result);
-  hadStaged = Boolean(stagedJsonText.trim());
+  hadStaged = staged;
   $('supBranch').replaceChildren(el('option', {value: '', textContent: 'all branches'}),
     ...[...new Set(rows.map(r => r.Branch))].map(b => el('option', {value: b, textContent: b})));
   $('supResult').hidden = false;
   say('');
   render();
   showEngineering(result, name);
+}
+
+const table = (head, body) => el('table', {}, el('tr', {}, ...head.map(h => el('th', {textContent: h}))),
+  ...body.map(r => el('tr', {}, ...r.map(c => el('td', {textContent: c ?? ''})))));
+
+/** A Run record from 3D_Converters step 10: that Run's own provenance (nothing is re-run). */
+async function showRecord(index) {
+  const record = records[index];
+  name = record.model.replace(/\.[^.]+$/, '') + '-run';
+  const xmlText = await fileText('supXml');
+  const match = xmlText ? runRecordXmlMatch(record, xmlText) : undefined;
+  const check = match === undefined ? 'Open the model XML too to check this record is for it.'
+    : match ? `The model XML opened is the Run's ${match === 'source' ? 'input file' : 'CII input XML'}.`
+      : 'The model XML opened is NOT the file of this Run record (its hash differs).';
+  const kept = transferKeptRows(record);
+  $('supRecordInfo').replaceChildren(...runRecordFacts(record).map(t => el('div', {className: 'muted', textContent: t})),
+    el('div', {className: match === null ? 'notice' : 'muted', textContent: check}),
+    kept.length ? el('div', {}, el('h3', {textContent: `Transfer-protected values (${kept.filter(r => r[5] === 'kept').length} of ${kept.length} kept)`}),
+      table(['Branch', 'Node', 'Field', 'Transferred', 'In the CII input XML', ''], kept)) : '');
+  show(asStageResult(record), Boolean(record.hashes?.stagedJson));
 }
 
 function renderSummary() {
@@ -103,6 +129,15 @@ function wire() {
     run({xmlText: await fetchText(SAMPLE.xml), stagedJsonText: await fetchText(SAMPLE.staged), configText: await fetchText(SAMPLE_WEIGHTS),
       rowsText: await fetchText(DEFAULT_ROWS)});
   }));
+  $('supOpenRecord').addEventListener('click', () => guarded(async () => {
+    const text = await fileText('supRecord');
+    if (!text) throw new Error('open a Run record (from 3D_Converters step 10) first');
+    records = readRunRecordFile(text);
+    $('supRecordModel').replaceChildren(...records.map((r, i) => el('option', {value: String(i), textContent: r.model})));
+    $('supRecordModel').hidden = records.length < 2;
+    await showRecord(0);
+  }));
+  $('supRecordModel').addEventListener('change', () => guarded(() => showRecord(Number($('supRecordModel').value))));
   for (const id of ['supBranch', 'supFrom']) $(id).addEventListener('change', render);
   $('supFind').addEventListener('input', render);
   $('supCsv').addEventListener('click', () => {
