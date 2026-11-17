@@ -11,12 +11,13 @@ import {readPsi116V2} from './UxmlV2Psi116Reader.js';
 import {runSupportsStage} from './supports/SupportsStage.js';
 import {transferStage} from './transfer/TransferStage.js';
 import {runEngineeringUnderLocks} from './transfer/LockedEngineering.js';
+import {transferCiiIntoXml} from './transfer/U2dInBrowser.js';
 
 const $ = id => document.getElementById(id);
 const BENCH = '../../fixtures/';
-const SAMPLE = {xml: 'uxml-v2-transfer/BM2/base.xml', receipt: 'uxml-v2-transfer/BM2/receipt.json'};
+const SAMPLE = {xml: 'uxml-v2-transfer/BM2/base.xml', receipt: 'uxml-v2-transfer/BM2/receipt.json', cii: 'uxml-v2-transfer/BM2/source.cii'};
 const DEFAULT_ROWS = 'uxml-v2-supports/bench/default-material-map-rows.json';
-let out = null, name = 'model';
+let out = null, name = 'model', u2d = null;
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -65,6 +66,7 @@ function render() {
     ? table(['Branch', 'Node', 'Field', 'Kept (transfer)', 'The stage wanted'], conflicts.map(c => [c.branch, c.node ?? 'branch', c.key.replace(/\./g, '/'), c.kept, c.stageWanted]))
     : el('div', {className: 'muted', textContent: 'The stage did not try to change any transferred value.'}));
   $('trResult').hidden = false;
+  $('trDlReceipt').hidden = $('trDlU2dXml').hidden = !u2d;
   say('');
 }
 
@@ -79,21 +81,52 @@ async function guarded(fn) {
   try { await fn(); } catch (error) { $('trResult').hidden = true; say('Could not run: ' + String(error?.code || '') + ' ' + String(error?.message || error)); }
 }
 
+/** Section 5 without a receipt: the page runs the transfer from the CAESAR II file, then the usual run under locks. */
+async function fromCii(xmlFile = $('trXml').files[0], ciiFile = $('trCii').files[0]) {
+  u2d = null;
+  if (!xmlFile || !ciiFile) throw new Error('open the Enriched XML and the CAESAR II file first');
+  name = xmlFile.name.replace(/\.[^.]+$/, '');
+  const targetBytes = new Uint8Array(await xmlFile.arrayBuffer());
+  u2d = await transferCiiIntoXml({targetBytes, ciiBytes: new Uint8Array(await ciiFile.arrayBuffer()), weightScale: Number($('trScale').value),
+    names: {cii: ciiFile.name, target: xmlFile.name, revised: `${name}_transferred.xml`}, onStatus: text => say(text, false)});
+  const {summary} = u2d.receipt;
+  const refused = Object.entries(summary.refused).map(([code, n]) => `${code} ${n}`).join(', ') || 'none';
+  $('trU2d').textContent = `Transfer from ${ciiFile.name}: ${summary.edits} value(s) differ and were transferred, ${summary.pairs} node pairs, `
+    + `${summary.ciiElements} CII elements; refused: ${refused}. ${(u2d.ms / 1000).toFixed(1)} s in this browser.`;
+  run({xmlText: new TextDecoder().decode(targetBytes), receiptText: u2d.receiptText, stagedJsonText: await fileText('supStaged'),
+    configText: await fileText('supConfig'), rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
+}
+
 function wire() {
   $('trRun').addEventListener('click', () => guarded(async () => {
     const xmlText = await fileText('trXml');
     const receiptText = await fileText('trReceipt');
     if (!xmlText || !receiptText) throw new Error('open the Enriched XML and the transfer receipt first');
     name = $('trXml').files[0].name.replace(/\.[^.]+$/, '');
+    u2d = null;
+    $('trU2d').replaceChildren();
     run({xmlText, receiptText, stagedJsonText: await fileText('supStaged'), configText: await fileText('supConfig'),
       rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
   }));
+  $('trFromCii').addEventListener('click', () => guarded(() => fromCii()));
+  $('trCiiSample').addEventListener('click', () => guarded(async () => {
+    const file = async (path, fileName) => {
+      const res = await fetch(BENCH + path);
+      if (!res.ok) throw new Error(`could not load ${path} (${res.status})`);
+      return new File([await res.arrayBuffer()], fileName);
+    };
+    await fromCii(await file(SAMPLE.xml, 'BM2-transfer.xml'), await file(SAMPLE.cii, 'BM2.cii'));
+  }));
   $('trSample').addEventListener('click', () => guarded(async () => {
+    u2d = null;
+    $('trU2d').replaceChildren();
     name = 'BM2-transfer';
     run({xmlText: await fetchText(SAMPLE.xml), receiptText: await fetchText(SAMPLE.receipt), stagedJsonText: '', configText: '',
       rowsText: await fetchText(DEFAULT_ROWS)});
   }));
   $('trDlXml').addEventListener('click', () => download(out.xmlText, `${name}_transfer-locked.xml`, 'application/xml'));
+  $('trDlReceipt').addEventListener('click', () => download(u2d.receiptText, `${name}_transfer-receipt.json`, 'application/json'));
+  $('trDlU2dXml').addEventListener('click', () => download(u2d.revisedBytes, `${name}_transferred.xml`, 'application/xml'));
   $('trDlDelta').addEventListener('click', () => download(JSON.stringify(out.transfer.delta, null, 1), `${name}_transfer.delta.json`, 'application/json'));
 }
 

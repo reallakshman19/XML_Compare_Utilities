@@ -1,0 +1,49 @@
+{
+ "format": "u2d-py-pin",
+ "version": 1,
+ "pyodide": "0.27.2",
+ "threeDConvertersCommit": "e53ae9a04fd7144116ffdf241faf492a658dde26",
+ "note": "cii-v11-v14 = 3D_Converters converters/scripts at that commit (same bytes as v045/converters/scripts). Paths are relative to the repository root; \"to\" is the place in the Pyodide file system under /u2d/.",
+ "files": {
+  "prototypes/u2d-cii-source/u2d.py": {
+   "to": "u2d-cii-source/u2d.py",
+   "sha256": "3913692ebf0a4b87b5097d51e2606216510740a71658f567d56dc6c4ebe57dcb"
+  },
+  "prototypes/u2d-cii-source/u2d_plan.py": {
+   "to": "u2d-cii-source/u2d_plan.py",
+   "sha256": "7322222a6e000f7b78acf720a7a132522b7e69ed6956c25624b734868c008f29"
+  },
+  "prototypes/u2d-cii-source/u2d_browser.py": {
+   "to": "u2d-cii-source/u2d_browser.py",
+   "sha256": "e404d8646a9ecba8eeb7a1089e77f1ce5926f6b5f78f425fbda7846500b9c49e"
+  },
+  "prototypes/u3b-cii-check/u3b_core.py": {
+   "to": "u3b-cii-check/u3b_core.py",
+   "sha256": "747c839955489b388c241778ae70e008711347889fd4c004adc7ca0309e55ba0"
+  },
+  "uxml/v2/vendor/cii-v11-v14/cii2019_section_rules.py": {
+   "to": "cii-v11-v14/cii2019_section_rules.py",
+   "sha256": "877eba71cb8ee2dbcdeb4946e56eb6a0491f91b3fedb513043bc44edd5600696"
+  },
+  "uxml/v2/vendor/cii-v11-v14/cii_v11_v14.py": {
+   "to": "cii-v11-v14/cii_v11_v14.py",
+   "sha256": "246725fae227e6513ad7541f363cf8226bf7dfd61a0e50e7b814d2ec360be57f"
+  },
+  "uxml/v2/vendor/cii-v11-v14/cii_v11_v14_format.py": {
+   "to": "cii-v11-v14/cii_v11_v14_format.py",
+   "sha256": "f2b2d2cc92d3dd4424cc5c6c3808808c4d29ab567538682cafc82bb64ec3ad47"
+  },
+  "uxml/v2/vendor/cii-v11-v14/cii_v11_v14_records.py": {
+   "to": "cii-v11-v14/cii_v11_v14_records.py",
+   "sha256": "b5c9da70387d5d74306bde9db18d79625ab5da6aa087322363a4e31bb2a06198"
+  },
+  "uxml/v2/vendor/cii-v11-v14/cii_v11_v14_sif.py": {
+   "to": "cii-v11-v14/cii_v11_v14_sif.py",
+   "sha256": "2a7ea51bde1f4adbe5a250b5e0c9c0ab050555909992a04a94c22de535f6595a"
+  },
+  "uxml/v2/vendor/cii-v11-v14/cii_v11_v14_validate.py": {
+   "to": "cii-v11-v14/cii_v11_v14_validate.py",
+   "sha256": "4558c98413e22b3ce8ef3c2c13fe10fcce97d5d198ef9fdd6f3d39048be3f03e"
+  }
+ }
+}
