@@ -1,0 +1,548 @@
+{
+ "ok": true,
+ "format": "u2.transfer-receipt",
+ "version": 1,
+ "kind": "cii-source",
+ "createdAt": "2026-11-14T09:02:37+00:00",
+ "source": {
+  "fileName": "ctl.cii",
+  "sha256": "51dc211fbf4074cdf2976fe112b73adad69d6e5d4357ea405c2e9e5837f838c2"
+ },
+ "base": {
+  "fileName": "target.xml",
+  "sha256": "3449c5471aed3fa3bc9cf0f0c72adec818be581af6996537e5eace4ec5611a86"
+ },
+ "revised": {
+  "fileName": "revised2.xml",
+  "sha256": "5abd49bf38e830b1a84e0d44b330b3b0a3bbf3e63fb790f48133ba489e60ea56",
+  "u1Sha256": "ecbf6f1368d51579ff226af2b3f4ec73a27c94ec6b17bf9df30d90aa45281e29"
+ },
+ "options": {
+  "items": [
+   "name",
+   "weight",
+   "element"
+  ],
+  "weightScale": 10.0,
+  "densityFactor": 1e-06
+ },
+ "changes": [
+  {
+   "ref": {
+    "branchOrdinal": 0,
+    "branchName": "/GLRD-1000-6\"-P4110001-93833-01/B6",
+    "nodeOrdinal": 1,
+    "nodeNumber": "20",
+    "componentRefNo": "=134234934/30505"
+   },
+   "field": "Node/NodeName",
+   "before": "PS00597.1",
+   "after": "TFXN-01",
+   "start": 2261,
+   "end": 2270,
+   "lineNo": "[TBA]"
+  },
+  {
+   "ref": {
+    "branchOrdinal": 4,
+    "branchName": "/GLRD-1000-2\"-P4110005-93833-01/B1",
+    "nodeOrdinal": 8,
+    "nodeNumber": "640",
+    "componentRefNo": "=134234934/24773"
+   },
+   "field": "Node/NodeName",
+   "before": "=134234934/24764",
+   "after": "TFXN-02",
+   "start": 122935,
+   "end": 122951,
+   "lineNo": "[TBA]"
+  },
+  {
+   "ref": {
+    "branchOrdinal": 8,
+    "branchName": "/GLRD-1000-2\"-P4110010-93833-01/B1",
+    "nodeOrdinal": 8,
+    "nodeNumber": "1120",
+    "componentRefNo": "=134234934/28064"
+   },
+   "field": "Node/NodeName",
+   "before": "=134234934/28060",
+   "after": "TFXN-03",
+   "start": 227717,
+   "end": 227733,
+   "lineNo": "[TBA]"
+  },
+  {
+   "ref": {
+    "branchOrdinal": 13,
+    "branchName": "/GLRD-1000-2\"-B4110006-93833-01/B1",
+    "nodeOrdinal": 9,
+    "nodeNumber": "1640",
+    "componentRefNo": "=134234934/28986"
+   },
+   "field": "Node/NodeName",
+   "before": "=134234934/28984",
+   "after": "TFXN-04",
+   "start": 345856,
+   "end": 345872,
+   "lineNo": "[TBA]"
+  },
+  {
+   "ref": {
+    "branchOrdinal": 17,
+    "branchName": "/GLRD-1000-2\"-B4110007-93833-01/B1",
+    "nodeOrdinal": 14,
+    "nodeNumber": "2120",
+    "componentRefNo": "=134234934/30529"
+   },
+   "field": "Node/NodeName",
+   "before": "PS00605.1",
+   "after": "TFXN-05",
+   "start": 451749,
+   "end": 451758,
+   "lineNo": "[TBA]"
+  },
+  {
+   "ref": {
+    "branchOrdinal": 21,
+    "branchName": "/GLRD-1000-2\"-B4110008-93833-01/B1",
+    "nodeOrdinal": 22,
+    "nodeNumber": "2610",
+    "componentRefNo": "=134234934/29119"
+   },
+   "field": "Node/NodeName",
+   "before": "=134234934/29115",
+   "after": "TFXN-06",
+   "start": 562596,
+   "end": 562612,
+   "lineNo": "[TBA]"
+  },
+  {
+   "ref": {
+    "branchOrdinal": 30,
+    "branchName": "/GLRD-1000-2\"-B4110011-93833-01/B1",
+    "nodeOrdinal": 13,
+    "nodeNumber": "3590",
+    "componentRefNo": "=134234934/30296"
+   },
+   "field": "Node/NodeName",
+   "before": "PS00594.1",
+   "after": "TFXN-08",
+   "start": 759767,
+   "end": 759776,
+   "lineNo": "[TBA]"
+  },
+  {
+   "ref": {
+    "branchOrdinal": 30,
+    "branchName": "/GLRD-1000-2\"-B4110011-93833-01/B1",
+    "nodeOrdinal": 0,
+    "nodeNumber": "110",
+    "componentRefNo": "=134234934/7991"
+   },
+   "field": "Branch/FluidDensity",
+   "before": "100",
+   "after": "110",
+   "start": 750010,
+   "end": 750013,
+   "lineNo": "[TBA]"
+  },
+  {
+   "ref": {
+    "branchOrdinal": 30,
+    "branchName": "/GLRD-1000-2\"-B4110011-93833-01/B1",
+    "nodeOrdinal": 0,
+    "nodeNumber": "110",
+    "componentRefNo": "=134234934/7991"
+   },
+   "field": "Branch/MaterialNumber",
+   "before": "338",
+   "after": "106",
+   "start": 749934,
+   "end": 749937,
+   "lineNo": "[TBA]"
+  },
+  {
+   "ref": {
+    "branchOrdinal": 30,
+    "branchName": "/GLRD-1000-2\"-B4110011-93833-01/B1",
+    "nodeOrdinal": 0,
+    "nodeNumber": "110",
+    "componentRefNo": "=134234934/7991"
+   },
+   "field": "Branch/Temperature/Temperature1",
+   "before": "120",
+   "after": "127",
+   "start": 749315,
+   "end": 749318,
+   "lineNo": "[TBA]"
+  }
+ ],
+ "refused": [
+  {
+   "ciiNode": "110",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "2780",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "790",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "670",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "230",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "420",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "3440",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "2920",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "2540",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "1350",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "2650",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "200",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "1150",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "3230",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "450",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "2750",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "2310",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "250",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "1840",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "1710",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "1980",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "3380",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "2180",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "580",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "1520",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "3120",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "3010",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "1250",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "1060",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "890",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "1810",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "2280",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "2450",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "1610",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "920",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "2070",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "300",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "3130",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "240",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "260",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "ciiNode": "1380",
+   "code": "U2D_NODE_AMBIGUOUS",
+   "detail": "several PSI116 records at this point"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110028-93833-01/B4",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110005-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110010-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110008-93833-01/B4",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-B4110001-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-B4110004-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110030-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-B4110008-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110018-93833-01/B3",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110020-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110023-93833-01/B3",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-B4110009-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110025-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110018-93833-01/B4",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-8\"-B4110003-13451-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-8\"-B4110003-13451-01/B3",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110013-93833-01/B3",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110023-93833-01/B4",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110015-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110028-93833-01/B3",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-B4110001-93833-01/B2",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-B4110006-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-B4110005-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110008-93833-01/B3",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-6\"-P4110001-93833-01/B2",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-6\"-P4110001-93833-01/B6",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110013-93833-01/B4",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-B4110007-93833-01/B1",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  },
+  {
+   "branch": "/GLRD-1000-2\"-P4110003-93833-01/B8",
+   "code": "U2D_MATERIAL_CARRIED",
+   "detail": "the CII material equals the one carried in; the branch may have none of its own"
+  }
+ ],
+ "summary": {
+  "pairs": 643,
+  "ciiElements": 433,
+  "edits": 10,
+  "byField": {
+   "Node/NodeName": 7,
+   "Branch/FluidDensity": 1,
+   "Branch/MaterialNumber": 1,
+   "Branch/Temperature/Temperature1": 1
+  },
+  "refused": {
+   "U2D_NODE_AMBIGUOUS": 41,
+   "U2D_MATERIAL_CARRIED": 29
+  }
+ }
+}

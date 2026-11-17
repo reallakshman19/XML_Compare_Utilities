@@ -132,8 +132,35 @@
       <div class="scroll"><table id="engTable"></table></div>
     </div>
   </section>
+  <section id="transfer">
+    <h2>5. Property transfer under locks</h2>
+    <p class="muted">Open the Enriched XML a transfer wrote to and its transfer receipt. The transferred values are locked; the
+      supports and engineering stage then runs (with the staged JSON, config and material rows chosen in section 4) and every
+      value it was stopped from changing is listed. The final XML keeps the protection note that today's step 10 reads.</p>
+    <div class="row">
+      <label for="trXml">Enriched XML (the transfer's target)</label><input type="file" id="trXml" accept=".xml">
+      <label for="trReceipt">Transfer receipt</label><input type="file" id="trReceipt" accept=".json">
+    </div>
+    <div class="row">
+      <button class="primary" id="trRun">Run the transfer under locks</button>
+      <button id="trSample">Use the BM2 transfer sample</button>
+    </div>
+    <div id="trMessage"></div>
+    <div id="trResult" hidden>
+      <div id="trSummary" class="counts"></div>
+      <h3>Transferred and locked</h3>
+      <div class="scroll" id="trMoved"></div>
+      <h3>Stopped by a lock</h3>
+      <div class="scroll" id="trConflicts"></div>
+      <div class="row" style="margin-top:10px">
+        <button id="trDlXml">Download the final XML</button>
+        <button id="trDlDelta">Download the transfer delta</button>
+      </div>
+    </div>
+  </section>
 </main>
 <script type="module" src="./UxmlV2ReviewPage.js"></script>
 <script type="module" src="./UxmlV2SupportsReview.js"></script>
+<script type="module" src="./UxmlV2TransferReview.js"></script>
 </body>
 </html>
