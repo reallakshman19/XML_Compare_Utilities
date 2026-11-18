@@ -80,7 +80,11 @@ function render() {
   $('trSupports').replaceChildren(sup.rows.length
     ? table(['Branch', 'Node', 'Change', 'In the XML', 'In CAESAR II'], sup.rows)
     : el('div', {className: 'muted', textContent: sup.none}),
-  ...(sup.refused.length ? [el('h4', {textContent: 'Support differences not listed'}), table(['Where', 'Why'], sup.refused)] : []));
+  ...(sup.refused.length ? [el('h4', {textContent: 'Support differences not listed'}), table(['Where', 'Why'], sup.refused)] : []),
+  // Support locks in step 10 (Owner 18 Nov): a node the protection note cannot name is said, never protected silently.
+  ...((out.supportsNotKeyed || []).length ? [el('div', {className: 'notice', textContent: `${out.supportsNotKeyed.length} node(s) keep their transferred supports here, `
+    + 'but the protection note in the file cannot name them, so step 10 will not protect them: '
+    + out.supportsNotKeyed.map(u => `${u.branchName} node ${u.nodeNumber} (${u.why})`).join('; ')})] : []));
   $('trResult').hidden = false;
   $('trDlReceipt').hidden = $('trDlU2dXml').hidden = !u2d;
   say('');

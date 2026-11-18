@@ -10,9 +10,9 @@ import {pathToFileURL} from 'node:url';
 import {runStage, sha256Hex, undoDelta} from '../uxml/v2/UxmlV2Kernel.js';
 import {readPsi116V2} from '../uxml/v2/UxmlV2Psi116Reader.js';
 import {runSupportsStage} from '../uxml/v2/supports/SupportsStage.js';
-import {transferStage} from '../uxml/v2/transfer/TransferStage.js';
+import {noteLockStage, transferStage} from '../uxml/v2/transfer/TransferStage.js';
 import {runEngineeringUnderLocks} from '../uxml/v2/transfer/LockedEngineering.js';
-import {readTransferNote} from '../uxml/v2/transfer/TransferNote.js';
+import {readTransferNote, supportNoteKeys} from '../uxml/v2/transfer/TransferNote.js';
 import {transferCiiIntoXml} from '../uxml/v2/transfer/U2dInBrowser.js';
 
 const ROOT = new URL('../', import.meta.url);
@@ -100,11 +100,39 @@ test('a stage that sets a transferred stiffness back is stopped by the lock', ()
   assert.equal(restraintsOf(read(locked.xmlText), 50)[0].Stiffness, '2.000000E+12');
 });
 
-test('undo gives the opened XML back; the note today\'s step 10 reads lists no support locks', () => {
-  const {doc, transfer, locked} = applied();
+test('undo gives the opened XML back', () => {
+  const {doc, transfer} = applied();
   const back = undoDelta(transfer.uxml, transfer.delta).uxml;
   assert.deepEqual(back.pipelines, doc.pipelines);
-  assert.equal(readTransferNote(locked.xmlText), null);  // no value changes in this receipt, so no note at all
+});
+
+// Support locks in step 10, step 1 (Owner 18 Nov 2026): the protection note names the nodes whose supports were transferred.
+test('the note step 10 reads names the three nodes, after any value fields; no value changes means empty branches and nodes', () => {
+  const {doc, locked} = applied();
+  const branch = nodeAt(doc, 50).ref.branchName;
+  assert.deepEqual(readTransferNote(locked.xmlText).note, {v: 1, branches: {}, nodes: {}, supports: [`${branch}|50`, `${branch}|90`, `${branch}|240`]});
+  assert.deepEqual(locked.supportsNotKeyed, []);
+});
+
+test('a file with that note, opened again, gets the support locks back and keeps node 90 without its support', () => {
+  const {locked} = applied();
+  const reopened = read(locked.xmlText);
+  const note = readTransferNote(locked.xmlText);
+  const relocked = runStage(noteLockStage, reopened, {note: note.note, noteSha256: sha256Hex(note.raw)});
+  for (const n of [50, 90, 240]) assert.equal(nodeAt(relocked.uxml, n).comp.values.NodeNumber.lock.supports, true, `node ${n}`);
+  const again = runEngineeringUnderLocks(relocked.uxml, putBack);
+  assert.deepEqual(again.conflicts.filter(c => c.key === 'Supports').map(c => c.node), ['90']);
+  assert.deepEqual(restraintsOf(read(again.xmlText), 90), []);
+});
+
+test('a node the note cannot name (its number used twice in the branch) is listed, not protected silently', () => {
+  const {transfer} = applied();
+  const u = structuredClone(transfer.uxml);
+  const {comp} = nodeAt(u, 50);
+  const twin = u.pipelines.find(p => p.components.includes(comp)).components.find(c => c !== comp);
+  twin.values.NodeNumber = {...twin.values.NodeNumber, v: 50, text: '50'};
+  assert.deepEqual(supportNoteKeys(u).unkeyed.map(x => [x.nodeNumber, x.why]), [['50', 'another node in the branch has the same number']]);
+  assert.equal(supportNoteKeys(u).keys.length, 2);
 });
 
 test('a receipt that saw other supports on the node is refused, nothing applied', () => {
