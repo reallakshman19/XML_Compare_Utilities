@@ -18,7 +18,7 @@
 import {runStage, sha256Hex, UxmlRefusal, LAYERS} from '../UxmlV2Kernel.js';
 import {readPsi116V2} from '../UxmlV2Psi116Reader.js';
 import {writePsi116FromUxmlV2} from '../UxmlV2Psi116Writer.js';
-import {noteFromLocks, withTransferNote, withoutTransferNote} from './TransferNote.js';
+import {noteFromLocks, supportNoteKeys, withTransferNote, withoutTransferNote} from './TransferNote.js';
 
 export const UXML_LOCKED_ENGINEERING_RULES = 'uxml-locked-engineering/1';
 const fail = (code, details = {}) => { throw new UxmlRefusal(code, details); };
@@ -103,5 +103,5 @@ export function runEngineeringUnderLocks(doc, runText, {stageId = 'engineering',
     kept: values.get(c.uid)?.[c.key]?.text ?? null, stageWanted: wanted.get(c.uid + '|' + c.key) ?? null, lock: c.lock}))
     .concat(supportConflicts);
   const xmlText = withTransferNote(writePsi116FromUxmlV2(result.uxml).text, noteFromLocks(result.uxml));
-  return {uxml: result.uxml, delta: result.delta, conflicts, xmlText, stageXmlText};
+  return {uxml: result.uxml, delta: result.delta, conflicts, xmlText, stageXmlText, supportsNotKeyed: supportNoteKeys(result.uxml).unkeyed};
 }

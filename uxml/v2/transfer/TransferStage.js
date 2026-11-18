@@ -17,7 +17,8 @@
  * add, with the texts the receipt saw). They are applied, every value of an edited or added restraint is
  * locked, and the node's NodeNumber gets a supports lock (`supports: true`): the supports stage run after
  * may not add, remove or edit any restraint on that node (LockedEngineering.js lists such an attempt as
- * stopped by a lock). Support locks are not written to the TOPOFIX-TRANSFER-PROTECT note.
+ * stopped by a lock). The note names these nodes in its `supports` list (TransferNote.js), and
+ * noteLockStage puts the supports lock back from it.
  *
  * noteLockStage: the same locks from a TOPOFIX-TRANSFER-PROTECT note (a file the transfer already
  * wrote), keyed as today: unique Branchname, unique NodeNumber inside the branch.
@@ -184,18 +185,41 @@ function noteTargets(doc, note) {
   return out;
 }
 
+/** Components the note's `supports` list names, keyed like today's step 10 (shared names / numbers are skipped). */
+function supportNoteTargets(doc, note) {
+  const byName = new Map();
+  for (const p of doc.pipelines) {
+    const name = textOf(p.values?.Branchname);
+    byName.set(name, byName.has(name) ? null : p);
+  }
+  const out = [];
+  for (const nameNumber of Array.isArray(note.supports) ? note.supports : []) {
+    const cut = String(nameNumber).lastIndexOf('|');
+    const p = byName.get(String(nameNumber).slice(0, cut));
+    const hits = p ? p.components.filter(c => String(c.values?.NodeNumber?.text ?? textOf(c.values?.NodeNumber)) === String(nameNumber).slice(cut + 1)) : [];
+    if (hits.length === 1 && !out.includes(hits[0])) out.push(hits[0]);
+  }
+  return out;
+}
+
 /** Stage inputs {note (parsed v1 note), noteSha256}: locks what the note lists, material follows. */
 export const noteLockStage = Object.freeze({
   id: 'transfer-note', rulesVersion: UXML_TRANSFER_RULES, reads: ['names', 'engineering'], writes: ['names', 'engineering'],
   run(doc, {note, noteSha256} = {}) {
     if (note?.v !== 1) fail('UXML_TRANSFER_NOTE_VERSION', {found: note?.v ?? null});
     const ops = [];
-    noteTargets(doc, note).forEach(({pipeline, entity, field}, order) => {
+    const targets = noteTargets(doc, note);
+    targets.forEach(({pipeline, entity, field}, order) => {
       const {key} = fieldKey(field);
       if (!entity.values?.[key]) return; // today: a field absent in the file is not protected
       const lock = {by: 'transfer', receipt: noteSha256 || '', order, field};
       ops.push(...lockOnly(entity.uid, key, lock));
       if (field === MATERIAL_FIELD) ops.push(...materialFollowOps(pipeline, textOf(entity.values[key]), lock));
+    });
+    // Support locks in step 10, step 1: the note's `supports` nodes get the supports lock again (keyed as `nodes`).
+    supportNoteTargets(doc, note).forEach((comp, k) => {
+      if (comp.values?.NodeNumber?.lock) return; // a NodeNumber already locked keeps its lock
+      ops.push(...lockOnly(comp.uid, 'NodeNumber', {by: 'transfer', receipt: noteSha256 || '', order: targets.length + k, field: SUPPORTS_FIELD, supports: true}));
     });
     return {ops, diagnostics: []};
   },
