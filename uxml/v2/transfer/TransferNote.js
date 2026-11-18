@@ -30,7 +30,8 @@ function transferLocks(doc) {
     if (kind === 'restraint') continue;
     for (const [key, value] of Object.entries(entity.values || {})) {
       const lock = value?.lock;
-      if (lock?.by !== 'transfer' || lock.follows) continue;
+      // Support locks (step 3 of supports from CAESAR II) stay inside UXML: today's note has no place for them.
+      if (lock?.by !== 'transfer' || lock.follows || lock.supports) continue;
       const pipeline = kind === 'pipeline' ? entity : parent;
       out.push({order: lock.order, scope: kind === 'pipeline' ? 'branch' : 'node', path: key.replace(/\./g, '/'),
         branchName: String(pipeline.values?.Branchname?.v ?? ''), nodeNumber: String(entity.values?.NodeNumber?.v ?? '')});

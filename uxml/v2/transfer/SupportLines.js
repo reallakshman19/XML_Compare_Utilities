@@ -1,7 +1,7 @@
 /**
  * Supports from CAESAR II (Owner 18 Nov 2026), section 5's words for them. Pure functions over the receipt
- * written by prototypes/u2d-cii-source (summary.supports and the supports block). Nothing here applies a
- * support to the XML; step 3 does that under locks.
+ * written by prototypes/u2d-cii-source (summary.supports and the supports block). Step 3 (Owner 18 Nov:
+ * "Yes, allow and lock"): TransferStage.js applies the listed changes and locks them; this file only words them.
  */
 const PLAIN = {
   U2D_SUPPORT_NEW_NODE: 'on a node the XML does not have',
@@ -17,7 +17,7 @@ const where = r => (r.ref ? `${r.ref.branchName} node ${r.ref.nodeNumber}` : `CI
 export function supportsLine(s) {
   const left = Object.entries(s.refused || {})
     .map(([code, n]) => `${n} ${n === 1 ? 'support' : 'supports'} ${PLAIN[code] || code}`).join(', ') || 'none';
-  return `Supports (listed below, not applied to the XML yet): ${s.pointsSame} points the same, ${s.changes} changed in CAESAR II, `
+  return `Supports (applied and locked, listed below): ${s.pointsSame} points the same, ${s.changes} changed in CAESAR II, `
     + `${s.step10Anchors} open-end anchors step 10 adds; not compared: ${left}.`;
 }
 

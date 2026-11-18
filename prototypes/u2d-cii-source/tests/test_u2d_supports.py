@@ -128,6 +128,66 @@ class SupportsOnEf05(unittest.TestCase):
         self.assertFalse(any(x["code"].startswith("U2D_SUPPORT") for x in receipt["refused"]))
 
 
+def apply_restraint_ops(xml_bytes: bytes, changes: list) -> bytes:
+    """Test helper: each change's <Restraint> edits applied to the XML (ElementTree), as section 5 applies them."""
+    import xml.etree.ElementTree as ET
+    root = ET.fromstring(xml_bytes)
+    ns = root.tag[:root.tag.index("}") + 1] if root.tag.startswith("{") else ""
+    branches = [b for p in root if p.tag == ns + "Pipe" for b in p if b.tag == ns + "Branch"] or [b for b in root if b.tag == ns + "Branch"]
+    for c in changes:
+        node = [n for n in branches[c["ref"]["branchOrdinal"]] if n.tag == ns + "Node"][c["ref"]["nodeOrdinal"]]
+        old = [r for r in node if r.tag == ns + "Restraint"]
+        assert len(old) == c["restraintCount"]
+        for op in c["restraints"]:
+            if op["op"] == "remove":
+                node.remove(old[op["index"]])
+            elif op["op"] in ("edit", "add"):
+                r = old[op["index"]] if op["op"] == "edit" else ET.SubElement(node, ns + "Restraint")
+                for k in list(r):
+                    r.remove(k)
+                for k, v in op["after"].items():
+                    ET.SubElement(r, ns + k).text = v
+    return ET.tostring(root, encoding="utf-8")
+
+
+class SupportEditsApplied(unittest.TestCase):
+    """Step 3 (Owner 18 Nov: "Yes, allow and lock"): the EF-05 four-edit CII (fixtures/uxml-v2-transfer/EF05/
+    supports-edits.cii). Each change carries the exact <Restraint> edits; applied, CAESAR II and the XML agree."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.xml = (EF05 / "base.xml").read_bytes()
+        cls.cii = (EF05 / "supports-edits.cii").read_text(encoding="utf-8")
+        cls.match = match_for(EF05 / "base.xml", cls.cii)
+        cls.report = support_report(cls.xml, cls.cii, cls.match)
+
+    def test_three_changes_and_one_new_node_refused(self):
+        s = self.report["summary"]
+        self.assertEqual(s["byKind"], {"edited": 1, "removed": 1, "added": 1})
+        self.assertEqual(s["refused"], {"U2D_SUPPORT_NEW_NODE": 1, "U2D_SUPPORT_NOT_IN_CII": 11})
+        self.assertEqual(s["step10Anchors"], 30)          # never "added"
+
+    def test_the_edits_are_exact_and_keep_unchanged_texts(self):
+        ops = {c["ciiNode"]: c["restraints"] for c in self.report["changes"]}
+        self.assertEqual([o["op"] for o in ops["50"]], ["edit"])
+        self.assertEqual({k: v for k, v in ops["50"][0]["after"].items() if ops["50"][0]["before"][k] != v}, {"Stiffness": "2.000000E+12"})
+        self.assertEqual([o["op"] for o in ops["90"]], ["remove"])
+        self.assertEqual(ops["240"], [{"op": "add", "after": {"Type": "GUI", "Stiffness": "1.751270E+12", "Gap": "0", "Friction": "0"}}])
+
+    def test_applied_the_xml_matches_caesar_ii(self):
+        revised = apply_restraint_ops(self.xml, self.report["changes"])
+        s = support_report(revised, self.cii, self.match)["summary"]
+        self.assertEqual(s["changes"], 0, s)
+        self.assertEqual(s["refused"], {"U2D_SUPPORT_NEW_NODE": 1, "U2D_SUPPORT_NOT_IN_CII": 11})
+
+    def test_a_bare_axis_type_edited_keeps_its_letter_when_it_still_fits(self):
+        from u2d_supports import restraint_texts, support
+        old = {"Type": "Y", "Stiffness": "1.751270E+12", "Gap": "0", "Friction": "0.3",
+               "DirectionCosineX": "0.000000000", "DirectionCosineY": "1.000000000", "DirectionCosineZ": "0.000000000"}
+        c = support(3, 1.75127e12, 0.0, 0.3, (0.0, 1.0, 0.0))
+        self.assertEqual(restraint_texts(c, {"stiffness": 1.75127e12, "gap": 0.0, "friction": 0.3, "direction": (0.0, 1.0, 0.0)}, old), old)
+
+
 class SupportRules(unittest.TestCase):
     def test_a_negative_friction_counts_as_zero(self):
         self.assertEqual(support(8, 1.75127e12, 5.0, -1.0101, None), support(8, 1.75127e12, 5.0, 0.0, None))

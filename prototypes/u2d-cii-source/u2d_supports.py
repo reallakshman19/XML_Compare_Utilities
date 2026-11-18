@@ -3,8 +3,9 @@ removed or edited in CAESAR II come back onto existing nodes ... supports on new
 
 Read-only. Compares the supports (CII RESTRANT records) with the XML's <Restraint> entries on the
 matcher's node pairs. Step 2: each change names the one XML node it belongs to (ref) and says
-before/after in plain words, and the receipt lists them. Nothing is applied to the XML yet (step 3
-applies them under locks).
+before/after in plain words, and the receipt lists them. Step 3 (Owner 18 Nov: "Yes, allow and lock"):
+each change also carries `restraints`, the exact <Restraint> edits on that node (keep / edit / remove /
+add, with the texts before and after), which section 5 applies and locks (uxml/v2/transfer/TransferStage.js).
 
 Rules, from 3D_Converters' step 10 writer (converters/scripts/xml_to_cii2019.py):
 - A CII point takes the supports of every XML record paired to it, without repeats: step 10 merges
@@ -111,6 +112,80 @@ def xml_node_refs(xml_bytes: bytes) -> dict:
             for bi, b in enumerate(branches) for ni, n in enumerate([c for c in b if local(c.tag) == "Node"])}
 
 
+RESTRAINT_TAGS = ("Type", "Stiffness", "Gap", "Friction", "DirectionCosineX", "DirectionCosineY", "DirectionCosineZ")
+COSINES = RESTRAINT_TAGS[4:]
+
+
+def xml_restraint_texts(xml_bytes: bytes) -> dict:
+    """(branchOrdinal, nodeOrdinal) -> [{tag: text}] for each <Restraint>, in file order (every child tag)."""
+    root = ET.fromstring(xml_bytes)
+    branches = [b for p in root if local(p.tag) == "Pipe" for b in p if local(b.tag) == "Branch"]         or [b for b in root if local(b.tag) == "Branch"]
+    return {(bi, ni): [{local(c.tag): (c.text or "").strip() for c in r} for r in n if local(r.tag) == "Restraint"]
+            for bi, b in enumerate(branches) for ni, n in enumerate([c for c in b if local(c.tag) == "Node"])}
+
+
+def matches(x: tuple, c: tuple) -> bool:
+    """An XML support equals a CII one as same_supports compares them."""
+    return x[:4] == c[:4] and (x[4] is None or c[4] == x[4])
+
+
+def restraint_texts(c: tuple, raw: dict, old: dict | None) -> dict:
+    """The <Restraint> texts for CII support `c`; a field that already equals CAESAR II keeps its XML text."""
+    old = old or {}
+    direction = c[4]
+    old_dir = unit([num(old.get(k)) for k in COSINES]) if all(num(old.get(k)) is not None for k in COSINES) else None
+    out = {}
+    if old.get("Type") and type_code(old["Type"], direction) == c[0]:
+        out["Type"] = old["Type"]
+    elif c[0] in CII_AXIS_CODES.values():
+        axis = next(a for a, v in CII_AXIS_CODES.items() if v == c[0])
+        out["Type"] = next(x for x, y in PSI116_TO_CII_AXIS.items() if y == axis)
+    else:
+        out["Type"] = CODE_NAMES[c[0]]
+    s = num(old.get("Stiffness"))
+    out["Stiffness"] = old["Stiffness"] if s is not None and float(f"{s:.5g}") == c[1] else f"{raw['stiffness']:.6E}"
+    g = num(old.get("Gap"))
+    out["Gap"] = old["Gap"] if g is not None and round(g, 4) == c[2] else f"{raw['gap']:g}"
+    f = num(old.get("Friction"))
+    out["Friction"] = old["Friction"] if f is not None and round(f if f >= 0 else 0.0, 4) == c[3] else f"{max(raw['friction'], 0.0):g}"
+    if direction is not None:
+        same = old_dir is not None and tuple(round(x, 4) for x in old_dir) == direction
+        for k, x in zip(COSINES, raw["direction"]):
+            out[k] = old[k] if same else f"{x:.9f}"
+    for k, v in old.items():           # tags this module does not model stay as they are
+        if k not in RESTRAINT_TAGS:
+            out[k] = v
+    return out
+
+
+def restraint_ops(xml_list: list, texts: list, after: list) -> list:
+    """The <Restraint> edits that turn one XML node's supports into CAESAR II's.
+
+    xml_list[i] is the compared form of the node's i-th <Restraint>, texts[i] its tag texts; after is
+    [(support, raw)] from the CII. A restraint already equal to a CII support is kept; the others are
+    edited into the remaining CII supports (same type first), removed, or the CII support is added."""
+    ops, free, todo = [], list(range(len(xml_list))), []
+    for c, raw in after:
+        hit = next((i for i in free if matches(xml_list[i], c)), None)
+        if hit is None:
+            todo.append((c, raw))
+        else:
+            free.remove(hit)
+            ops.append({"op": "keep", "index": hit, "before": texts[hit]})
+    for i in [i for i in free if any(matches(xml_list[i], c) for c, _ in after)]:
+        free.remove(i)                 # a repeat of a kept support (step 10 merges repeats)
+        ops.append({"op": "keep", "index": i, "before": texts[i]})
+    for c, raw in todo:
+        i = next((i for i in free if xml_list[i][0] == c[0]), free[0] if free else None)
+        if i is None:
+            ops.append({"op": "add", "after": restraint_texts(c, raw, None)})
+        else:
+            free.remove(i)
+            ops.append({"op": "edit", "index": i, "before": texts[i], "after": restraint_texts(c, raw, texts[i])})
+    ops += [{"op": "remove", "index": i, "before": texts[i]} for i in free]
+    return sorted(ops, key=lambda o: (o["op"] == "add", o.get("index", 0)))
+
+
 CODE_NAMES = {**{v: k for k, v in reversed(list(TYPE_CODES.items()))}, **{v: k for k, v in CII_AXIS_CODES.items()}, 1: "ANC"}
 
 
@@ -135,7 +210,7 @@ def target_of(kind: str, node: str, records: list, xml: dict, refs: dict):
 
 
 def cii_supports(cii_text: str) -> dict:
-    """CII node (text, as the matcher names it) -> [(support, is step 10's open-end anchor)]."""
+    """CII node (text, as the matcher names it) -> [(support, is step 10's open-end anchor, raw values)]."""
     rows = sections_of(cii_text).get("RESTRANT", [])
     out = {}
     for b in range(0, len(rows) - RECORD_LINES + 1, RECORD_LINES):
@@ -147,7 +222,8 @@ def cii_supports(cii_text: str) -> dict:
         direction = unit([num(x) for x in d[:3]]) if len(d) >= 3 else None
         own = code == 1 and stiffness is not None and stiffness >= 0.99 * OPEN_END_STIFFNESS
         key = str(int(node)) if node == int(node) else str(node)
-        out.setdefault(key, []).append((support(code, stiffness, gap, friction, direction), own))
+        raw = {"stiffness": stiffness or 0.0, "gap": gap or 0.0, "friction": friction or 0.0, "direction": direction}
+        out.setdefault(key, []).append((support(code, stiffness, gap, friction, direction), own, raw))
     return out
 
 
@@ -172,6 +248,7 @@ def support_report(target_bytes: bytes, cii_text: str, match: dict) -> dict:
     """What differs between the CII's supports and the XML's, on the matcher's pairs. Read-only."""
     xml, unknown = xml_supports(target_bytes)
     refs = xml_node_refs(target_bytes)
+    texts = xml_restraint_texts(target_bytes)
     not_written = sorted(k for k in xml if (num(refs[k]["nodeNumber"]) or 0) <= 0)
     for k in not_written:          # step 10 skips every node numbered 0 or less, with its supports
         xml.pop(k)
@@ -186,8 +263,11 @@ def support_report(target_bytes: bytes, cii_text: str, match: dict) -> dict:
     changes, refused = [], []
     for node in sorted(set(pairs) | set(cii), key=lambda n: (num(n) is None, num(n) or 0, n)):
         here = cii.get(node, [])
-        own = [s for s, o in here if o]
-        theirs = [s for s, o in here if not o]
+        own = [s for s, o, _ in here if o]
+        theirs = [s for s, o, _ in here if not o]
+        raws = {}
+        for s, _, raw in here:
+            raws.setdefault(s, raw)
         records = pairs.get(node, [])
         want = sorted({s for k in records for s in xml.get(k, [])}, key=str)
         if own and not want:
@@ -217,6 +297,8 @@ def support_report(target_bytes: bytes, cii_text: str, match: dict) -> dict:
                             "before": [text_of(s) for s in want], "after": [text_of(s) for s in after]})
             continue
         changes.append({"ciiNode": node, "kind": kind, "ref": refs[target],
+                        "restraintCount": len(texts[target]),
+                        "restraints": restraint_ops(xml.get(target, []), texts[target], [(s, raws[s]) for s in after]),
                         "before": [describe(s) for s in want], "after": [describe(s) for s in after],
                         "beforeText": "; ".join(map(text_of, want)) or "none", "afterText": "; ".join(map(text_of, after)) or "none"})
     for k in sorted(set(xml) - paired_xml):
