@@ -162,8 +162,9 @@ export function closeLoops(elements) {
 }
 
 // Owner (14 Nov): COORDS start points of one connected piece may disagree with the element
-// lengths by up to 6 mm by default; the tolerance may be set from 6 to 25 mm.
-export const SEED_TOLERANCE_MM = Object.freeze({ min: 6, max: 25, default: 6 });
+// lengths; the tolerance may be set from 6 to 25 mm. Owner (18 Nov): "+- 6+1 mm is also ok",
+// "set default to 7 mm" (6 mm plus the 1 mm node-pairing limit).
+export const SEED_TOLERANCE_MM = Object.freeze({ min: 6, max: 25, default: 7 });
 
 /**
  * Keep the first COORDS start point of each connected piece; every further start point of the
