@@ -12,10 +12,17 @@
  * writer reads node codes first) and clears a non-empty node MaterialName (it named the master's
  * material). These follow-up values are locked too, with `follows` naming the branch field.
  *
+ * Supports from CAESAR II, step 3 (Owner 18 Nov 2026: "Yes, allow and lock"): each support change in
+ * `receipt.supports.changes` carries the exact <Restraint> edits on its one node (keep / edit / remove /
+ * add, with the texts the receipt saw). They are applied, every value of an edited or added restraint is
+ * locked, and the node's NodeNumber gets a supports lock (`supports: true`): the supports stage run after
+ * may not add, remove or edit any restraint on that node (LockedEngineering.js lists such an attempt as
+ * stopped by a lock). Support locks are not written to the TOPOFIX-TRANSFER-PROTECT note.
+ *
  * noteLockStage: the same locks from a TOPOFIX-TRANSFER-PROTECT note (a file the transfer already
  * wrote), keyed as today: unique Branchname, unique NodeNumber inside the branch.
  */
-import {sha256Hex, UxmlRefusal} from '../UxmlV2Kernel.js';
+import {sha256Hex, stageUid, UxmlRefusal} from '../UxmlV2Kernel.js';
 import {parseLiteral} from '../UxmlV2Psi116Reader.js';
 
 export const UXML_TRANSFER_RULES = 'uxml-transfer/1';
@@ -66,6 +73,65 @@ function targetOf(doc, change) {
   return {pipeline, entity, key};
 }
 
+export const SUPPORTS_FIELD = 'Node/Supports';
+const COSINE = /^DirectionCosine[XYZ]$/;
+const leafTexts = r => Object.fromEntries(Object.entries(r.values || {}).map(([k, v]) => [k, String(v?.text ?? v?.v ?? '')]));
+const sameTexts = (a, b) => JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b || {}).sort());
+
+/** The node a support change names, holding exactly the restraints the receipt saw. */
+function supportNodeOf(doc, change) {
+  const {ref = {}} = change;
+  const where = {branch: ref.branchName, nodeNumber: ref.nodeNumber, ciiNode: change.ciiNode};
+  const pipeline = doc.pipelines[ref.branchOrdinal];
+  const comp = pipeline && textOf(pipeline.values?.Branchname) === String(ref.branchName) ? pipeline.components[ref.nodeOrdinal] : null;
+  if (!comp || textOf(comp.values?.NodeNumber) !== String(ref.nodeNumber)) fail('UXML_TRANSFER_TARGET_MISMATCH', {field: SUPPORTS_FIELD, ...where});
+  if (!comp.values?.NodeNumber) fail('UXML_TRANSFER_FIELD_MISSING', {field: SUPPORTS_FIELD, ...where});
+  if (comp.values.NodeNumber.lock) fail('UXML_TRANSFER_SUPPORT_NODE_LOCKED', where);
+  if (comp.restraints.length !== change.restraintCount) fail('UXML_TRANSFER_BEFORE_MISMATCH', {field: SUPPORTS_FIELD, ...where, found: comp.restraints.length, receipt: change.restraintCount});
+  for (const op of change.restraints || []) {
+    if (op.op === 'add') continue;
+    const r = comp.restraints[op.index];
+    if (!r || !sameTexts(leafTexts(r), op.before)) fail('UXML_TRANSFER_BEFORE_MISMATCH', {field: SUPPORTS_FIELD, ...where, restraint: op.index});
+  }
+  return comp;
+}
+
+/** One support change -> kernel ops: restraint edits, removes and adds, each value locked, plus the node's supports lock. */
+function supportOps(doc, change, lock) {
+  const comp = supportNodeOf(doc, change);
+  const ops = [];
+  const rule = 'u2d:' + SUPPORTS_FIELD;
+  const value = text => ({v: parseLiteral(String(text)), text: String(text), src: 'transfer', rule});
+  let last = comp.restraints.at(-1)?.uid ?? null;
+  (change.restraints || []).forEach((op, k) => {
+    if (op.op === 'keep') return;
+    if (op.op === 'remove') { ops.push({op: 'remove', uid: comp.restraints[op.index].uid}); return; }
+    if (op.op === 'edit') {
+      const r = comp.restraints[op.index];
+      for (const tag of new Set([...Object.keys(op.before), ...Object.keys(op.after)])) {
+        if (op.before[tag] === op.after[tag]) continue;
+        ops.push({op: 'set', uid: r.uid, path: 'values.' + tag, after: op.after[tag] === undefined ? null : value(op.after[tag])});
+      }
+      const frame = Object.keys(op.after).some(t => COSINE.test(t)) ? (r.frame ?? 'CII_XYZ') : null;
+      if ((r.frame ?? null) !== frame) ops.push({op: 'set', uid: r.uid, path: 'frame', after: frame});
+      for (const tag of Object.keys(op.after)) ops.push({op: 'lock', uid: r.uid, path: 'values.' + tag, after: lock});
+      return;
+    }
+    const keys = Object.keys(op.after);
+    const uid = stageUid(doc.revision.id, 'transfer', rule, [comp.uid], k);
+    ops.push({op: 'add', uid, parent: comp.uid, after: last, kind: 'restraint', entity: {
+      kind: 'restraint', sourceKey: comp.sourceKey + ':T' + k,
+      lineage: {op: 'add', from: [comp.uid], stage: 'transfer', rule},
+      fieldOrder: keys, values: Object.fromEntries(keys.map(t => [t, value(op.after[t])])),
+      ...(keys.some(t => COSINE.test(t)) ? {frame: 'CII_XYZ'} : {}),
+    }});
+    for (const tag of keys) ops.push({op: 'lock', uid, path: 'values.' + tag, after: lock});
+    last = uid;
+  });
+  ops.push({op: 'lock', uid: comp.uid, path: 'values.NodeNumber', after: lock});
+  return ops;
+}
+
 /** Checks the receipt is a successful U2d receipt for exactly this document's source file. */
 function checkReceipt(doc, receipt) {
   if (receipt?.format !== 'u2.transfer-receipt' || receipt.version !== 1 || receipt.ok !== true)
@@ -77,7 +143,7 @@ function checkReceipt(doc, receipt) {
 
 /** Stage inputs {receipt, receiptSha256}; settings {materialFollows (default true)}. */
 export const transferStage = Object.freeze({
-  id: 'transfer', rulesVersion: UXML_TRANSFER_RULES, reads: ['names', 'engineering'], writes: ['names', 'engineering'],
+  id: 'transfer', rulesVersion: UXML_TRANSFER_RULES, reads: ['names', 'engineering', 'supports'], writes: ['names', 'engineering', 'supports'],
   run(doc, {receipt, receiptSha256} = {}, {materialFollows = true} = {}) {
     checkReceipt(doc, receipt);
     const ops = [];
@@ -86,6 +152,11 @@ export const transferStage = Object.freeze({
       const lock = {by: 'transfer', receipt: receiptSha256 || sha256Hex(JSON.stringify(receipt)), order, field: change.field};
       ops.push(...setAndLock(entity.uid, key, change.after, lock));
       if (materialFollows && change.field === MATERIAL_FIELD) ops.push(...materialFollowOps(pipeline, String(change.after), lock));
+    });
+    const receiptId = receiptSha256 || sha256Hex(JSON.stringify(receipt));
+    const base = (receipt.changes || []).length;
+    (receipt.supports?.changes || []).forEach((change, k) => {
+      ops.push(...supportOps(doc, change, {by: 'transfer', receipt: receiptId, order: base + k, field: SUPPORTS_FIELD, supports: true, ciiNode: change.ciiNode}));
     });
     const diagnostics = (receipt.refused || []).map(r => ({code: r.code, ciiNode: r.ciiNode ?? null, detail: r.detail ?? ''}));
     return {ops, diagnostics};

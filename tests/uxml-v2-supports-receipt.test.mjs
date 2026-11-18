@@ -26,7 +26,7 @@ test('refusals show where and why; supports step 10 never writes are left to the
 
 test('the summary line counts in plain words, with no codes', () => {
   const line = supportsLine({pointsSame: 162, changes: 1, step10Anchors: 30, refused: {U2D_SUPPORT_NOT_IN_CII: 11, U2D_SUPPORT_NEW_NODE: 1}});
-  assert.equal(line, 'Supports (listed below, not applied to the XML yet): 162 points the same, 1 changed in CAESAR II, '
+  assert.equal(line, 'Supports (applied and locked, listed below): 162 points the same, 1 changed in CAESAR II, '
     + '30 open-end anchors step 10 adds; not compared: 11 supports in the XML that step 10 does not write, 1 support on a node the XML does not have.');
   assert.doesNotMatch(line, /U2D_/);
 });

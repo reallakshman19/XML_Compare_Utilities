@@ -1,5 +1,6 @@
 /**
  * Review page section 5 (UXML plan step 6, Owner 17 Nov): a property transfer as a UXML change with locks.
+ * Supports from CAESAR II, step 3 (Owner 18 Nov): the receipt's support changes are applied and locked too.
  * Open the Enriched XML the transfer wrote to (its target) and the transfer receipt (U2d); the page applies the receipt
  * as locked values, runs the supports + engineering stage under those locks, and lists every transferred value and
  * every value the masters were stopped from changing. Uses the staged JSON, support config and material map rows
@@ -65,6 +66,7 @@ function render() {
   $('trSummary').replaceChildren(
     el('span', {textContent: `${moved.length} value(s) transferred and locked`}),
     el('span', {textContent: `${follows} node material value(s) follow the branch material`}),
+    el('span', {textContent: `${receipt.supports?.changes.length ?? 0} support change(s) transferred and locked`}),
     el('span', {textContent: `${transfer.diagnostics.length} refused by the transfer`}),
     el('span', {textContent: `${delta.ops.length} value(s) changed by the stage`}),
     el('span', {textContent: `${conflicts.length} change(s) stopped by a lock`}));
