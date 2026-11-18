@@ -12,6 +12,7 @@ import {runSupportsStage} from './supports/SupportsStage.js';
 import {transferStage} from './transfer/TransferStage.js';
 import {runUnderLocksOrExplain, NOT_THROUGH_STEP_10} from './transfer/NotThroughStep10.js';
 import {transferCiiIntoXml} from './transfer/U2dInBrowser.js';
+import {supportRows, supportsLine} from './transfer/SupportLines.js';
 
 const $ = id => document.getElementById(id);
 const BENCH = '../../fixtures/';
@@ -71,6 +72,11 @@ function render() {
   $('trConflicts').replaceChildren(conflicts.length
     ? table(['Branch', 'Node', 'Field', 'Kept (transfer)', 'The stage wanted'], conflicts.map(c => [c.branch, c.node ?? 'branch', c.key.replace(/\./g, '/'), c.kept, c.stageWanted]))
     : el('div', {className: 'muted', textContent: 'The stage did not try to change any transferred value.'}));
+  const sup = supportRows(receipt.supports);
+  $('trSupports').replaceChildren(sup.rows.length
+    ? table(['Branch', 'Node', 'Change', 'In the XML', 'In CAESAR II'], sup.rows)
+    : el('div', {className: 'muted', textContent: sup.none}),
+  ...(sup.refused.length ? [el('h4', {textContent: 'Support differences not listed'}), table(['Where', 'Why'], sup.refused)] : []));
   $('trResult').hidden = false;
   $('trDlReceipt').hidden = $('trDlU2dXml').hidden = !u2d;
   say('');
@@ -107,15 +113,6 @@ async function fromCii(xmlFile = $('trXml').files[0], ciiFile = $('trCii').files
   if (summary.supports) $('trU2d').textContent += ' ' + supportsLine(summary.supports);
   run({xmlText: decodeXml(targetBytes), receiptText: u2d.receiptText, stagedJsonText: await fileText('supStaged'),
     configText: await fileText('supConfig'), rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
-}
-
-/** Supports from CAESAR II, step 1 (Owner 18 Nov 2026): what the CII's supports say, compared with the XML's. Nothing is transferred yet. */
-export function supportsLine(s) {
-  const plain = {U2D_SUPPORT_NEW_NODE: 'on a node the XML does not have', U2D_SUPPORT_AMBIGUOUS: 'at a point with several nodes',
-    U2D_SUPPORT_NOT_PAIRED: 'in the XML with no CII node at its point', U2D_SUPPORT_NOT_IN_CII: 'in the XML that step 10 does not write'};
-  const left = Object.entries(s.refused || {}).map(([code, n]) => `${n} ${n === 1 ? 'support' : 'supports'} ${plain[code] || code}`).join(', ') || 'none';
-  return `Supports (read only, not transferred yet): ${s.pointsSame} points the same, ${s.changes} changed in CAESAR II, `
-    + `${s.step10Anchors} open-end anchors step 10 adds; not compared: ${left}.`;
 }
 
 function wire() {

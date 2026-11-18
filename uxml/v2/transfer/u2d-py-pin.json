@@ -7,11 +7,11 @@
  "files": {
   "prototypes/u2d-cii-source/u2d.py": {
    "to": "u2d-cii-source/u2d.py",
-   "sha256": "3913692ebf0a4b87b5097d51e2606216510740a71658f567d56dc6c4ebe57dcb"
+   "sha256": "ff0d30895fb518b9ee065d4c41e763e4fa27b188620985717a2c1e124d572748"
   },
   "prototypes/u2d-cii-source/u2d_plan.py": {
    "to": "u2d-cii-source/u2d_plan.py",
-   "sha256": "91c2a2dba6d93d234c88f04dc906e50ff48dd8490c4449eb04c69e96afa08ede"
+   "sha256": "8c025775a99ce164af3b6f27486f3d2d71430c6cdc71b2e909ffefe0cb6ea314"
   },
   "prototypes/u2d-cii-source/u2d_browser.py": {
    "to": "u2d-cii-source/u2d_browser.py",
@@ -19,7 +19,7 @@
   },
   "prototypes/u2d-cii-source/u2d_supports.py": {
    "to": "u2d-cii-source/u2d_supports.py",
-   "sha256": "62f3fea73fd7f9b717e575ec0f0496804a550f9c09fbb19ae3f3b24c6b6f4ff1"
+   "sha256": "2420fcfe74253be6574609751a0f206f98c98e33034549eef3b61a31f664dce7"
   },
   "prototypes/u3b-cii-check/u3b_core.py": {
    "to": "u3b-cii-check/u3b_core.py",
