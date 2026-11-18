@@ -125,7 +125,11 @@ test('P1.2e COORDS start points: within 6-25 mm drift is reported, beyond refuse
   const ok = reconcileSeeds(els, seeds(3.2));
   assert.equal(ok.drifts.length, 1); assert.ok(Math.abs(ok.drifts[0].missMm - 3.2) < 1e-9);
   assert.deepEqual(ok.seeds.map(s=>s.node), ['10']);
-  assert.throws(() => reconcileSeeds(els, seeds(6.5)), /MAP_COORDS_SEED_DRIFT/);
+  // Owner 18 Nov: the default is 7 mm (6 + 1); 6.5 mm is reported, 7.5 mm refuses, and 6 mm can still be asked for.
+  assert.equal(reconcileSeeds(els, seeds(6.5)).drifts.length, 1);
+  assert.equal(reconcileSeeds(els, seeds(7)).drifts.length, 1);
+  assert.throws(() => reconcileSeeds(els, seeds(7.5)), /MAP_COORDS_SEED_DRIFT/);
+  assert.throws(() => reconcileSeeds(els, seeds(6.5), 6), /MAP_COORDS_SEED_DRIFT/);
   assert.equal(reconcileSeeds(els, seeds(20), 25).drifts.length, 1);
   assert.throws(() => reconcileSeeds(els, seeds(0), 5), /MAP_SEED_TOLERANCE_INVALID/);
   assert.throws(() => reconcileSeeds(els, seeds(0), 26), /MAP_SEED_TOLERANCE_INVALID/);
