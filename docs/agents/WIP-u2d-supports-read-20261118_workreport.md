@@ -51,6 +51,7 @@ The plan is in `topofix-agents/roadmap/UXML-SUPPORTS-FROM-CII-PLAN.md`.
 **Tests:**
 - Python, `prototypes/u2d-cii-source/tests`: 26 of 26 pass, with `U3B_3DC` set to the 3D_Converters worktree.
 - Node, with Pyodide: in-app 3/3, EF-05 sample 5/5 and locks 7/7, all passing. The BM2 receipt still equals the command line's.
+- Full Node suite (`tests/*.test.mjs`, with Pyodide): 2015 tests, 1946 passed and 67 failed. Main 84d49ee6 gives the same 67, in the same tests (the revision-compare, sequential-edit and topology-scoped-edit files). This branch adds no failure.
 
 **Browser (local server, review page):**
 - EF-05 sample: 41 values transferred, as before. The supports line reads: 162 the same, 0 changed, 30 open-end anchors, 11 not written by step 10.
