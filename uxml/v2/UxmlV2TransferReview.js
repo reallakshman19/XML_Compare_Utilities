@@ -20,6 +20,8 @@ const BENCH = '../../fixtures/';
 const SAMPLE = {xml: 'uxml-v2-transfer/BM2/base.xml', receipt: 'uxml-v2-transfer/BM2/receipt.json', cii: 'uxml-v2-transfer/BM2/source.cii'};
 // EF-05 (Owner 18 Nov): step 10's Enriched XML and its CII with Temperature 1 raised by 10 on every element (fixtures/uxml-v2-transfer/EF05/README.md).
 const SAMPLE_EF05 = {xml: 'uxml-v2-transfer/EF05/base.xml', cii: 'uxml-v2-transfer/EF05/source.cii'};
+// Supports from CAESAR II, step 4 (Owner 18 Nov): the same CII with four scripted support edits (EF05/README.md).
+const SAMPLE_EF05_SUPPORTS = {xml: SAMPLE_EF05.xml, cii: 'uxml-v2-transfer/EF05/supports-edits.cii'};
 const DEFAULT_ROWS = 'uxml-v2-supports/bench/default-material-map-rows.json';
 let out = null, name = 'model', u2d = null;
 
@@ -139,6 +141,9 @@ function wire() {
   }));
   $('trCiiSampleEf05').addEventListener('click', () => guarded(async () => {
     await fromCii(await file(SAMPLE_EF05.xml, 'EF-05-step10-enriched.xml'), await file(SAMPLE_EF05.cii, 'EF-05-step10-T1plus10.cii'));
+  }));
+  $('trCiiSampleEf05Supports').addEventListener('click', () => guarded(async () => {
+    await fromCii(await file(SAMPLE_EF05_SUPPORTS.xml, 'EF-05-step10-enriched.xml'), await file(SAMPLE_EF05_SUPPORTS.cii, 'EF-05-supports-edits.cii'));
   }));
   $('trSample').addEventListener('click', () => guarded(async () => {
     u2d = null;
