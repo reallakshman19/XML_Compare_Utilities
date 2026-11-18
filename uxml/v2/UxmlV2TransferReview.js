@@ -10,12 +10,14 @@ import {runStage, sha256Hex} from './UxmlV2Kernel.js';
 import {readPsi116V2} from './UxmlV2Psi116Reader.js';
 import {runSupportsStage} from './supports/SupportsStage.js';
 import {transferStage} from './transfer/TransferStage.js';
-import {runEngineeringUnderLocks} from './transfer/LockedEngineering.js';
+import {runUnderLocksOrExplain, NOT_THROUGH_STEP_10} from './transfer/NotThroughStep10.js';
 import {transferCiiIntoXml} from './transfer/U2dInBrowser.js';
 
 const $ = id => document.getElementById(id);
 const BENCH = '../../fixtures/';
 const SAMPLE = {xml: 'uxml-v2-transfer/BM2/base.xml', receipt: 'uxml-v2-transfer/BM2/receipt.json', cii: 'uxml-v2-transfer/BM2/source.cii'};
+// EF-05 (Owner 18 Nov): step 10's Enriched XML and its CII with Temperature 1 raised by 10 on every element (fixtures/uxml-v2-transfer/EF05/README.md).
+const SAMPLE_EF05 = {xml: 'uxml-v2-transfer/EF05/base.xml', cii: 'uxml-v2-transfer/EF05/source.cii'};
 const DEFAULT_ROWS = 'uxml-v2-supports/bench/default-material-map-rows.json';
 let out = null, name = 'model', u2d = null;
 
@@ -50,7 +52,8 @@ function run({xmlText, receiptText, stagedJsonText, configText, rowsText}) {
   const doc = readPsi116V2(xmlText, {fileSha256: sha256Hex(xmlText)});
   const transfer = runStage(transferStage, doc, {receipt, receiptSha256: sha256Hex(receiptText)});
   const stage = text => runSupportsStage({xmlText: text, stagedJsonText, supportConfig, masters: {materialMapRows}}).xmlText;
-  out = {transfer, receipt, ...runEngineeringUnderLocks(transfer.uxml, stage)};
+  // An XML that has not been through step 10 gets a plain refusal, not a structure code (Owner 18 Nov).
+  out = {transfer, receipt, ...runUnderLocksOrExplain(transfer.uxml, doc, stage)};
   render();
 }
 
@@ -81,7 +84,10 @@ function download(text, file, type) {
 
 async function guarded(fn) {
   say('Running the transfer and the stage under its locks…', false);
-  try { await fn(); } catch (error) { $('trResult').hidden = true; say('Could not run: ' + String(error?.message || error) + (error?.details && Object.keys(error.details).length ? ' ' + JSON.stringify(error.details) : '')); }
+  try { await fn(); } catch (error) {
+    $('trResult').hidden = true;
+    if (error?.code === NOT_THROUGH_STEP_10) { u2d = null; $('trU2d').replaceChildren(); }
+    say('Could not run: ' + String(error?.message || error) + (error?.details && Object.keys(error.details).length ? ' ' + JSON.stringify(error.details) : '')); }
 }
 
 /** Section 5 without a receipt: the page runs the transfer from the CAESAR II file, then the usual run under locks. */
@@ -114,13 +120,16 @@ function wire() {
       rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
   }));
   $('trFromCii').addEventListener('click', () => guarded(() => fromCii()));
+  const file = async (path, fileName) => {
+    const res = await fetch(BENCH + path);
+    if (!res.ok) throw new Error(`could not load ${path} (${res.status})`);
+    return new File([await res.arrayBuffer()], fileName);
+  };
   $('trCiiSample').addEventListener('click', () => guarded(async () => {
-    const file = async (path, fileName) => {
-      const res = await fetch(BENCH + path);
-      if (!res.ok) throw new Error(`could not load ${path} (${res.status})`);
-      return new File([await res.arrayBuffer()], fileName);
-    };
     await fromCii(await file(SAMPLE.xml, 'BM2-transfer.xml'), await file(SAMPLE.cii, 'BM2.cii'));
+  }));
+  $('trCiiSampleEf05').addEventListener('click', () => guarded(async () => {
+    await fromCii(await file(SAMPLE_EF05.xml, 'EF-05-step10-enriched.xml'), await file(SAMPLE_EF05.cii, 'EF-05-step10-T1plus10.cii'));
   }));
   $('trSample').addEventListener('click', () => guarded(async () => {
     u2d = null;
