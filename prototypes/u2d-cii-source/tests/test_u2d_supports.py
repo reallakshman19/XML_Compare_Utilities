@@ -100,6 +100,33 @@ class SupportsOnEf05(unittest.TestCase):
         self.assertFalse(any("Restraint" in e["field"] for e in r["edits"]))
         self.assertFalse(any(x["code"].startswith("U2D_SUPPORT") for x in r["refused"]))
 
+    # ---- step 2: each change names its XML node and says before/after in plain words; the receipt lists them
+    def test_a_change_names_its_xml_node_and_plain_before_after(self):
+        cii = restrant_edit(self.cii, "        50.0000      14.0000 1.751270E+12", "        50.0000      14.0000 2.000000E+12")
+        c = self.report(cii)["changes"][0]
+        self.assertEqual(c["ref"]["nodeNumber"], "50")
+        self.assertTrue(c["ref"]["branchName"])
+        self.assertEqual(c["beforeText"], "+Y, stiffness 1.7513E+12, friction 0.3")
+        self.assertEqual(c["afterText"], "+Y, stiffness 2E+12, friction 0.3")
+
+    def test_an_added_support_goes_on_the_node_numbered_like_the_cii_node(self):
+        text = self.xml.decode("utf-8")
+        m = re.search(r"<NodeNumber>90</NodeNumber>.*?(<Restraint>.*?</Restraint>\s*)", text, re.S)
+        c = self.report(xml=(text[:m.start(1)] + text[m.end(1):]).encode("utf-8"))["changes"][0]
+        self.assertEqual((c["kind"], c["ref"]["nodeNumber"], c["beforeText"]), ("added", "90", "none"))
+
+    def test_the_receipt_lists_the_support_changes_and_keeps_its_value_changes(self):
+        from u2d import build_receipt
+        from u2d_plan import plan
+        cii = restrant_edit(self.cii, "        90.0000      14.0000", "       0.000000     0.000000")
+        r = plan(self.xml, cii, self.match, 10.0)
+        u1 = {"sha256After": "0" * 64, "changes": []}
+        receipt = build_receipt(names=("a.cii", "b.xml", "c.xml"), cii_bytes=b"", target=self.xml, revised=self.xml, u1=u1,
+                                items=["name"], weight_scale=10.0, result=r, created_at="2026-11-18T00:00:00+00:00")
+        self.assertEqual([(c["kind"], c["ref"]["nodeNumber"]) for c in receipt["supports"]["changes"]], [("removed", "90")])
+        self.assertEqual(receipt["changes"], [])                      # nothing applied: value changes untouched
+        self.assertFalse(any(x["code"].startswith("U2D_SUPPORT") for x in receipt["refused"]))
+
 
 class SupportRules(unittest.TestCase):
     def test_a_negative_friction_counts_as_zero(self):

@@ -1,9 +1,10 @@
-"""Supports from CAESAR II, step 1 (Owner 18 Nov 2026: "Supports from CAESAR II: restraints added,
+"""Supports from CAESAR II, steps 1-2 (Owner 18 Nov 2026: "Supports from CAESAR II: restraints added,
 removed or edited in CAESAR II come back onto existing nodes ... supports on new nodes are refused").
 
 Read-only. Compares the supports (CII RESTRANT records) with the XML's <Restraint> entries on the
-matcher's node pairs and reports what differs. Nothing is transferred yet (step 2 adds the changes
-to the receipt, step 3 applies them under locks).
+matcher's node pairs. Step 2: each change names the one XML node it belongs to (ref) and says
+before/after in plain words, and the receipt lists them. Nothing is applied to the XML yet (step 3
+applies them under locks).
 
 Rules, from 3D_Converters' step 10 writer (converters/scripts/xml_to_cii2019.py):
 - A CII point takes the supports of every XML record paired to it, without repeats: step 10 merges
@@ -100,12 +101,37 @@ def xml_supports(xml_bytes: bytes) -> tuple[dict, list]:
     return out, unknown
 
 
-def xml_node_numbers(xml_bytes: bytes) -> dict:
+def xml_node_refs(xml_bytes: bytes) -> dict:
+    """(branchOrdinal, nodeOrdinal) -> the receipt's node ref (as u2d_plan.read_target names nodes)."""
     root = ET.fromstring(xml_bytes)
     branches = [b for p in root if local(p.tag) == "Pipe" for b in p if local(b.tag) == "Branch"] \
         or [b for b in root if local(b.tag) == "Branch"]
-    return {(bi, ni): child(n, "NodeNumber") for bi, b in enumerate(branches)
-            for ni, n in enumerate([c for c in b if local(c.tag) == "Node"])}
+    return {(bi, ni): {"branchOrdinal": bi, "branchName": child(b, "Branchname"), "nodeOrdinal": ni,
+                       "nodeNumber": child(n, "NodeNumber"), "componentRefNo": child(n, "ComponentRefNo")}
+            for bi, b in enumerate(branches) for ni, n in enumerate([c for c in b if local(c.tag) == "Node"])}
+
+
+CODE_NAMES = {**{v: k for k, v in reversed(list(TYPE_CODES.items()))}, **{v: k for k, v in CII_AXIS_CODES.items()}, 1: "ANC"}
+
+
+def text_of(s: tuple) -> str:
+    """One support in plain words: 'GUI, stiffness 1.7513E+12, gap 5, friction 0.3'."""
+    words = [CODE_NAMES.get(s[0], f"type {s[0]}"), f"stiffness {s[1]:.5G}"]
+    words += [f"gap {s[2]:g}"] if s[2] else []
+    words += [f"friction {s[3]:g}"] if s[3] else []
+    return ", ".join(words)
+
+
+def target_of(kind: str, node: str, records: list, xml: dict, refs: dict):
+    """The one XML node a change belongs to, or (None, reason). Edited/removed: the node that holds the
+    supports at this point; added: the node numbered like the CII node, else the only numbered node there."""
+    if kind != "added":
+        holders = [k for k in records if xml.get(k)]
+        return (holders[0], None) if len(holders) == 1 else (None, "the supports at this point sit on more than one XML node")
+    exact = [k for k in records if num(refs[k]["nodeNumber"]) == num(node)]
+    numbered = [k for k in records if (num(refs[k]["nodeNumber"]) or 0) > 0]
+    pick = exact if len(exact) == 1 else numbered
+    return (pick[0], None) if len(pick) == 1 else (None, "several XML nodes at this point could take the new support")
 
 
 def cii_supports(cii_text: str) -> dict:
@@ -145,8 +171,8 @@ def describe(s: tuple) -> dict:
 def support_report(target_bytes: bytes, cii_text: str, match: dict) -> dict:
     """What differs between the CII's supports and the XML's, on the matcher's pairs. Read-only."""
     xml, unknown = xml_supports(target_bytes)
-    numbers = xml_node_numbers(target_bytes)
-    not_written = sorted(k for k in xml if (num(numbers.get(k)) or 0) <= 0)
+    refs = xml_node_refs(target_bytes)
+    not_written = sorted(k for k in xml if (num(refs[k]["nodeNumber"]) or 0) <= 0)
     for k in not_written:          # step 10 skips every node numbered 0 or less, with its supports
         xml.pop(k)
     cii = cii_supports(cii_text)
@@ -172,11 +198,11 @@ def support_report(target_bytes: bytes, cii_text: str, match: dict) -> dict:
             if theirs and node in crowded_cii:
                 refused.append({"code": "U2D_SUPPORT_AMBIGUOUS", "ciiNode": node,
                                 "detail": "several nodes sit at this support's point; it is not clear which one it belongs to",
-                                "supports": [describe(s) for s in theirs]})
+                                "supports": [text_of(s) for s in theirs]})
             elif theirs:
                 refused.append({"code": "U2D_SUPPORT_NEW_NODE", "ciiNode": node,
                                 "detail": "this support is on a node the XML does not have",
-                                "supports": [describe(s) for s in theirs]})
+                                "supports": [text_of(s) for s in theirs]})
             continue
         if not want and not theirs:
             continue
@@ -184,17 +210,24 @@ def support_report(target_bytes: bytes, cii_text: str, match: dict) -> dict:
             counts["pointsSame"] += 1
             continue
         kind = "added" if not want else "removed" if not theirs else "edited"
-        changes.append({"ciiNode": node, "kind": kind, "xmlRecords": [list(k) for k in records],
-                        "before": [describe(s) for s in want], "after": [describe(s) for s in sorted(set(theirs), key=str)]})
+        after = sorted(set(theirs), key=str)
+        target, why = target_of(kind, node, records, xml, refs)
+        if target is None:
+            refused.append({"code": "U2D_SUPPORT_TARGET_UNCLEAR", "ciiNode": node, "kind": kind, "detail": why,
+                            "before": [text_of(s) for s in want], "after": [text_of(s) for s in after]})
+            continue
+        changes.append({"ciiNode": node, "kind": kind, "ref": refs[target],
+                        "before": [describe(s) for s in want], "after": [describe(s) for s in after],
+                        "beforeText": "; ".join(map(text_of, want)) or "none", "afterText": "; ".join(map(text_of, after)) or "none"})
     for k in sorted(set(xml) - paired_xml):
         if k in crowded_xml:
-            refused.append({"code": "U2D_SUPPORT_AMBIGUOUS", "xml": list(k),
+            refused.append({"code": "U2D_SUPPORT_AMBIGUOUS", "ref": refs[k],
                             "detail": "several nodes sit at this support's point; it is not clear which one it belongs to"})
         else:
-            refused.append({"code": "U2D_SUPPORT_NOT_PAIRED", "xml": list(k),
+            refused.append({"code": "U2D_SUPPORT_NOT_PAIRED", "ref": refs[k],
                             "detail": "this XML support's node has no CII node at its position"})
     for k in not_written:
-        refused.append({"code": "U2D_SUPPORT_NOT_IN_CII", "xml": list(k), "nodeNumber": numbers.get(k),
+        refused.append({"code": "U2D_SUPPORT_NOT_IN_CII", "ref": refs[k],
                         "detail": "step 10 does not write supports on a node numbered 0 or less, so CAESAR II never had it"})
     counts["changes"] = len(changes)
     by_kind = {}

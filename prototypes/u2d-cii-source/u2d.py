@@ -103,7 +103,9 @@ def build_receipt(*, names, cii_bytes, target, revised, u1, items, weight_scale,
             "revised": {"fileName": out_name, "sha256": sha256(revised), "u1Sha256": u1["sha256After"]},
             "options": {"items": items, "weightScale": weight_scale, "densityFactor": 1e-6},
             "changes": [{**c, "lineNo": "[TBA]"} for c in u1["changes"]],
-            "refused": result["refused"], "summary": result["summary"]}
+            "refused": result["refused"], "summary": result["summary"],
+            # Supports from CAESAR II (Owner 18 Nov 2026): listed only; TransferStage does not apply them yet.
+            "supports": result.get("supports", {"changes": [], "refused": []})}
 
 
 def main(argv=None) -> int:

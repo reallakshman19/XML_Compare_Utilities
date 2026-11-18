@@ -239,8 +239,9 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
     codes = {}
     for r in refused:
         codes[r["code"]] = codes.get(r["code"], 0) + 1
-    # Supports from CAESAR II, step 1 (Owner 18 Nov 2026): read and compared only; nothing is transferred yet.
-    supports = support_report(target_bytes, cii_text, match)["summary"]
+    # Supports from CAESAR II (Owner 18 Nov 2026): listed in the receipt (step 2); not applied to the XML yet.
+    supports = support_report(target_bytes, cii_text, match)
     return {"ok": True, "edits": edits, "refused": refused,
+            "supports": {"changes": supports["changes"], "refused": supports["refused"]},
             "summary": {"pairs": len(match.get("nodePairs", [])), "ciiElements": len(cii["elements"]),
-                        "edits": len(edits), "byField": by, "refused": codes, "supports": supports}}
+                        "edits": len(edits), "byField": by, "refused": codes, "supports": supports["summary"]}}
