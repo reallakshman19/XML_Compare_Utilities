@@ -10,6 +10,7 @@ const files = {
   'prototypes/u2d-cii-source/u2d.py': 'u2d-cii-source/u2d.py',
   'prototypes/u2d-cii-source/u2d_plan.py': 'u2d-cii-source/u2d_plan.py',
   'prototypes/u2d-cii-source/u2d_browser.py': 'u2d-cii-source/u2d_browser.py',
+  'prototypes/u2d-cii-source/u2d_supports.py': 'u2d-cii-source/u2d_supports.py',
   'prototypes/u3b-cii-check/u3b_core.py': 'u3b-cii-check/u3b_core.py',
 };
 for (const f of readdirSync(VENDOR).filter(f => f.endsWith('.py')).sort()) files[`${VENDOR}/${f}`] = `cii-v11-v14/${f}`;

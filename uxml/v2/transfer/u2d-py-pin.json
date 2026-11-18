@@ -11,11 +11,15 @@
   },
   "prototypes/u2d-cii-source/u2d_plan.py": {
    "to": "u2d-cii-source/u2d_plan.py",
-   "sha256": "bb8db9e50ff0a9dec2bb41ccdc256c11d4f45c7c312057fb723a220cda56a2ec"
+   "sha256": "91c2a2dba6d93d234c88f04dc906e50ff48dd8490c4449eb04c69e96afa08ede"
   },
   "prototypes/u2d-cii-source/u2d_browser.py": {
    "to": "u2d-cii-source/u2d_browser.py",
    "sha256": "e404d8646a9ecba8eeb7a1089e77f1ce5926f6b5f78f425fbda7846500b9c49e"
+  },
+  "prototypes/u2d-cii-source/u2d_supports.py": {
+   "to": "u2d-cii-source/u2d_supports.py",
+   "sha256": "62f3fea73fd7f9b717e575ec0f0496804a550f9c09fbb19ae3f3b24c6b6f4ff1"
   },
   "prototypes/u3b-cii-check/u3b_core.py": {
    "to": "u3b-cii-check/u3b_core.py",

@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "u3b-cii-check"))
 from u3b_core import num, parse_cii, same  # noqa: E402
+from u2d_supports import support_report  # noqa: E402
 
 NAME_LIMIT = 25          # CII NODENAME keeps 25 characters
 DENSITY_FACTOR = 1e-6    # converter writes kg/m3 as kg/cm3
@@ -238,6 +239,8 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
     codes = {}
     for r in refused:
         codes[r["code"]] = codes.get(r["code"], 0) + 1
+    # Supports from CAESAR II, step 1 (Owner 18 Nov 2026): read and compared only; nothing is transferred yet.
+    supports = support_report(target_bytes, cii_text, match)["summary"]
     return {"ok": True, "edits": edits, "refused": refused,
             "summary": {"pairs": len(match.get("nodePairs", [])), "ciiElements": len(cii["elements"]),
-                        "edits": len(edits), "byField": by, "refused": codes}}
+                        "edits": len(edits), "byField": by, "refused": codes, "supports": supports}}
