@@ -45,8 +45,14 @@ export function runRecordFacts(record) {
     : 'The UXML XML was released to the CII engine (this record does not say whether the engine then wrote the CII).',
     `${record.model}, run ${record.createdAt} with ${record.stage}`,
     `parity ${p.ok ? 'PASS' : 'HELD'} (${p.comparisons ?? '?'} comparisons, ${p.mismatches ?? '?'} mismatches)`,
-    record.compare?.equal ? 'XML equal to today\'s route' : `differs from today's route on ${record.compare?.nodesDiffer ?? '?'} node(s): ${Object.keys(record.compare?.fields || {}).join(', ') || 'branch values'}`];
+    record.compare?.equal ? 'XML equal to today\'s route' : `differs from today's route on ${record.compare?.nodesDiffer ?? '?'} node(s): ${Object.keys(record.compare?.fields || {}).join(', ') || 'branch values'}`,
+    ...(record.document ? [`UXML document: the source was read once (revision ${String(record.document.sourceRevision).slice(0, 12)}); `
+      + `the gasket drop removed ${record.document.removed.length} node(s) before the supports stage (revision ${String(record.document.revision).slice(0, 12)}).`] : [])];
 }
+
+/** The step-10 UXML document's node removals (end-to-end plan E1) as table rows; [] for records before 19 Nov 2026. */
+export const documentRemovedRows = record => (record.document?.removed || []).map(r => [r.branchName ?? '', r.NodeNumber ?? '',
+  r.NodeName ?? '', record.document.stage]);
 
 /** Transfer-protected values as table rows; [] when the file had no transfer note. */
 export const transferKeptRows = record => (record.transferProtected?.values || []).map(v => [v.branchName, v.nodeNumber ?? 'branch',

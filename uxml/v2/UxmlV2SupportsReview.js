@@ -7,7 +7,7 @@
 import {runSupportsStage} from './supports/SupportsStage.js';
 import {provenanceTableRows, provenanceCsv, PROVENANCE_COLUMNS} from './supports/SupportProvenanceRows.js';
 import {showEngineering} from './UxmlV2EngineeringReview.js';
-import {asStageResult, readRunRecordFile, runOutcome, runRecordFacts, runRecordXmlMatch, transferKeptRows} from './UxmlV2RunRecord.js';
+import {asStageResult, documentRemovedRows, readRunRecordFile, runOutcome, runRecordFacts, runRecordXmlMatch, transferKeptRows} from './UxmlV2RunRecord.js';
 
 const $ = id => document.getElementById(id);
 const SHOW_AT_MOST = 400;
@@ -70,10 +70,13 @@ async function showRecord(index) {
       // Review note N1.2: a branch-subset Run hashes only the branches it ran, so the full model file differs too.
       : 'The model XML opened is not the input file or the CII input XML of this Run (its hash differs). If the Run used only some branches, the full model file differs as well.';
   const kept = transferKeptRows(record);
+  const removed = documentRemovedRows(record);
   $('supRecordInfo').replaceChildren(...runRecordFacts(record).map(t => el('div', {className: 'muted', textContent: t})),
     el('div', {className: match === null ? 'notice' : 'muted', textContent: check}),
     kept.length ? el('div', {}, el('h3', {textContent: `Transfer-protected values (${kept.filter(r => r[5] === 'kept').length} of ${kept.length} kept)`}),
-      table(['Branch', 'Node', 'Field', 'Transferred', runOutcome(record) === 'held' ? 'In the held XML' : 'In the CII input XML', ''], kept)) : '');
+      table(['Branch', 'Node', 'Field', 'Transferred', runOutcome(record) === 'held' ? 'In the held XML' : 'In the CII input XML', ''], kept)) : '',
+    removed.length ? el('div', {}, el('h3', {textContent: `Nodes the UXML document removed before the supports stage (${removed.length})`}),
+      table(['Branch', 'Node number', 'Node name', 'Stage'], removed)) : '');
   show(asStageResult(record), Boolean(record.hashes?.stagedJson));
 }
 
