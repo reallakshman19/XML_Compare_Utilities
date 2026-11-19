@@ -67,7 +67,7 @@ function render() {
   // Where a value came from in CAESAR II (Owner 19 Nov 2026: "more traceable"): its CII elements, and how many of them had
   // the line number left empty by CAESAR II (read as the element's it was written on).
   const from = c => !c.cii ? '' : `${c.cii.elements.length} element(s), ${c.cii.elements.slice(0, 2).join(', ')}${c.cii.elements.length > 2 ? '…' : ''}`
-    + (Object.keys(c.cii.lineNumberCarried).length ? `; line number carried on ${Object.keys(c.cii.lineNumberCarried).length} (written on ${[...new Set(Object.values(c.cii.lineNumberCarried))].slice(0, 2).join(', ')})` : '');
+    + (Object.keys(c.cii.lineNumberCarried || {}).length ? `; line number carried on ${Object.keys(c.cii.lineNumberCarried || {}).length} (written on ${[...new Set(Object.values(c.cii.lineNumberCarried || {}))].slice(0, 2).join(', ')})` : '');
   const moved = receipt.changes.map(c => [c.ref?.branchName, c.ref?.nodeNumber, c.field, c.before, c.after, from(c)]);
   const follows = transfer.delta.ops.filter(o => o.op === 'set' && o.after?.rule === 'material-follows-branch').length;
   $('trSummary').replaceChildren(

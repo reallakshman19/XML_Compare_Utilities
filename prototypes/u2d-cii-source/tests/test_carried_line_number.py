@@ -35,6 +35,20 @@ class CarriedLineNumber(unittest.TestCase):
         self.assertIsNone(els[0]["lineNumberOn"])
         self.assertIsNone(element_branch(els[0]))
 
+    def test_carried_across_a_jump_is_marked(self):
+        # Review of PR 296 (S1): CAESAR II carries across a jump to a tee run 20-500, 500-510; it is marked so the
+        # transfer takes it for branch A only if both ends are on A.
+        els = [el(10, 20, NAMED), el(20, 30, EMPTY), el(20, 500, EMPTY), el(500, 510, EMPTY),
+               el(500, 520, "           6 /T/B1                 ")]
+        carry_line_numbers(els)
+        self.assertEqual([e["lineNumber"] for e in els], ['/GF30-01-8"-P0001-A1A/B1'] * 4 + ["/T/B1"])
+        self.assertEqual([e["lineNumberAcrossJump"] for e in els], [False, False, True, True, False])
+
+    def test_unreadable_field_is_no_line_number_and_breaks_the_carry(self):
+        els = [el(10, 20, NAMED), el(20, 30, "          1B                    "), el(30, 40, EMPTY)]
+        carry_line_numbers(els)
+        self.assertEqual([e["lineNumber"] for e in els], ['/GF30-01-8"-P0001-A1A/B1', "", ""])
+
     def test_source_lists_carried_elements_only(self):
         self.assertEqual(cii_source([["10-20", "10-20"], ["20-30", "10-20"]]),
                          {"elements": ["10-20", "20-30"], "lineNumberCarried": {"20-30": "10-20"}})

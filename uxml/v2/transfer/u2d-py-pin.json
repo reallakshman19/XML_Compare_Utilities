@@ -11,7 +11,7 @@
   },
   "prototypes/u2d-cii-source/u2d_plan.py": {
    "to": "u2d-cii-source/u2d_plan.py",
-   "sha256": "9f40525282aa16f74fd3fd4b67fc4d7f9015518b7405fbe8447ba81239680f54"
+   "sha256": "7dcd9cade95c65fd019add8df7e3c935fa1dea4dddfed0d01c584956f601c070"
   },
   "prototypes/u2d-cii-source/u2d_browser.py": {
    "to": "u2d-cii-source/u2d_browser.py",
@@ -23,7 +23,7 @@
   },
   "prototypes/u3b-cii-check/u3b_core.py": {
    "to": "u3b-cii-check/u3b_core.py",
-   "sha256": "2a171268663bf2624b1d6858bbd17756798c7b8d97db1b26a588e986821cedf1"
+   "sha256": "e0feda826f623c03b59d5fec145c7bc1ba7e1f170e7426516af3df3606af3d88"
   },
   "uxml/v2/vendor/cii-v11-v14/cii2019_section_rules.py": {
    "to": "cii-v11-v14/cii2019_section_rules.py",

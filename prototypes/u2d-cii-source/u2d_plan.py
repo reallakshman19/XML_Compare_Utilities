@@ -124,6 +124,9 @@ def paired_into(el: dict, bi: int, pairs: dict, nodes: dict) -> bool:
     this XML by position (match-psi116 pairs; a point with several PSI116 records still matched), with
     at least one matched record in that branch (a branch's first node may sit on its parent branch)."""
     ends = [pairs.get(node_key(el["E"][0][i]), []) for i in (0, 1)]
+    if el.get("lineNumberAcrossJump"):
+        # Its line number was carried across a jump (u3b_core.carry_line_numbers): both ends must be on the branch.
+        return all(ends) and all(any(k[0] == bi for k in e) for e in ends)
     return all(ends) and any(k[0] == bi for e in ends for k in e)
 
 
@@ -167,6 +170,17 @@ def branch_values(cii: dict, brs: dict, pairs: dict, nodes: dict, sources: dict 
                 carried.setdefault(bi, []).append(same(el["material"], prev))
         if el["material"] is not None:
             prev = el["material"]
+    missing = [element_label(el) for el in cii["elements"] if not el["lineNumber"]]
+    if missing:
+        refused.append({"code": "U2D_LINE_NUMBER_MISSING", "elements": len(missing), "first": missing[:5],
+                        "detail": "CII elements with no line number (none written before them, or unreadable): "
+                                  "their branch values are not taken"})
+    jumped = [element_label(el) for el in cii["elements"] if el.get("lineNumberAcrossJump")
+              and len(by_name.get(element_branch(el), [])) == 1 and not paired_into(el, by_name[element_branch(el)][0], pairs, nodes)]
+    if jumped:
+        refused.append({"code": "U2D_LINE_NUMBER_ACROSS_JUMP", "elements": len(jumped), "first": jumped[:5],
+                        "detail": "CII elements whose line number CAESAR II carried across a jump, with an end off that "
+                                  "branch (a tee run): their values are not taken for it"})
     for bi in sorted(named - used):
         refused.append({"code": "U2D_BRANCH_NOT_PAIRED", "branch": brs[bi]["name"],
                         "detail": "no CII element of this branch matched the XML's nodes; its values are not taken"})

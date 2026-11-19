@@ -165,15 +165,25 @@ def carry_line_numbers(elements: list[dict]) -> None:
     """CAESAR II writes an element's line number (the A100 text in row 11) only where it changes and leaves it empty
     (length 0) on the elements after: an empty field is the previous element's (measured on CAESAR II's own exports,
     19 Nov 2026: 25 of 786 elements written). Each element gets the explicit value, "lineNumber", and the element it
-    was written on, "lineNumberOn" (its own label when written there; None before any line number). Owner 19 Nov
-    2026: "populating each sentinel values back to UXML so that it will be more traceable"."""
-    current, written_on = "", None
+    was written on, "lineNumberOn" (its own label when written there; None when there is none). Owner 19 Nov
+    2026: "populating each sentinel values back to UXML so that it will be more traceable".
+    CAESAR II carries it in element order, across a jump to a new run too (its own exports: 42 of 786 and 45 of 108
+    elements get it across a jump). Such an element is marked "lineNumberAcrossJump": the transfer then takes it for
+    that branch only if both its ends lie on the branch (review of PR 296: a tee run off the branch before it). A field
+    that cannot be read gives no line number and breaks the carry."""
+    current, written_on, prev_to, jumped = "", None, None, False
     for el in elements:
-        m = re.match(r"\s*(\d+) (.*)", el["E"][10])
-        text = m.group(2)[:int(m.group(1))] if m else ""
+        m = re.match(r"\s*(\d+)( (.*))?$", el["E"][10].rstrip("\r\n"))
+        text = (m.group(3) or "")[:int(m.group(1))].rstrip() if m and int(m.group(1)) else ""
+        connected = prev_to is not None and num(el["E"][0][0]) == prev_to
         if text:
-            current, written_on = text, element_label(el)
-        el["lineNumber"], el["lineNumberOn"] = current, written_on
+            current, written_on, jumped = text, element_label(el), False
+        elif not m:
+            current, written_on, jumped = "", None, False
+        elif not connected:
+            jumped = True
+        el["lineNumber"], el["lineNumberOn"], el["lineNumberAcrossJump"] = current, written_on, bool(current) and jumped
+        prev_to = num(el["E"][0][1])
 
 
 # ---------------------------------------------------------------- XML identity
