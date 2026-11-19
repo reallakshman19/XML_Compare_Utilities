@@ -7,6 +7,9 @@ compares the supports of the CII it writes with the supports of the edited CII, 
 - A direction counts only where the edited CII gives one, as support_report compares them.
 
     python -E -s supports_roundtrip.py <revised.xml> <edited.cii> --converter <3D_Converters>/converters/scripts
+    python -E -s supports_roundtrip.py <revised.xml> <edited.cii> --step10-cii <CII from the full step 10>
+
+The second form compares a CII the full step 10 workflow already wrote (support locks step 4, run in the browser).
 
 Prints JSON: {"nodes": n, "differ": [{"node", "step10", "edited"}]}. A support the transfer refused
 (for example on a node the XML does not have) shows up in `differ`.
@@ -43,11 +46,8 @@ def same(step10: list, edited: list) -> bool:
     return True
 
 
-def roundtrip(revised_xml: Path, edited_cii_text: str, converter: Path) -> dict:
-    with tempfile.TemporaryDirectory(prefix="u2d-rt-") as t:
-        out = Path(t) / "step10.cii"
-        convert(converter.resolve(), revised_xml.resolve(), out, Path(t) / "edges.json")
-        got = model_supports(out.read_text(encoding="utf-8"))
+def compare(step10_cii_text: str, edited_cii_text: str) -> dict:
+    got = model_supports(step10_cii_text)
     want = model_supports(edited_cii_text)
     differ = [{"node": n, "step10": [text_of(s) for s in got.get(n, [])], "edited": [text_of(s) for s in want.get(n, [])]}
               for n in sorted(set(got) | set(want), key=lambda n: (float(n), n))
@@ -55,13 +55,25 @@ def roundtrip(revised_xml: Path, edited_cii_text: str, converter: Path) -> dict:
     return {"nodes": len(set(got) | set(want)), "differ": differ}
 
 
+def roundtrip(revised_xml: Path, edited_cii_text: str, converter: Path) -> dict:
+    with tempfile.TemporaryDirectory(prefix="u2d-rt-") as t:
+        out = Path(t) / "step10.cii"
+        convert(converter.resolve(), revised_xml.resolve(), out, Path(t) / "edges.json")
+        return compare(out.read_text(encoding="utf-8"), edited_cii_text)
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("revised_xml", type=Path)
     p.add_argument("edited_cii", type=Path)
-    p.add_argument("--converter", required=True, type=Path)
+    how = p.add_mutually_exclusive_group(required=True)
+    how.add_argument("--converter", type=Path)
+    how.add_argument("--step10-cii", type=Path)
     a = p.parse_args(argv)
-    print(json.dumps(roundtrip(a.revised_xml, a.edited_cii.read_text(encoding="utf-8"), a.converter)))
+    edited = a.edited_cii.read_text(encoding="utf-8")
+    out = (compare(a.step10_cii.read_text(encoding="utf-8"), edited) if a.step10_cii
+           else roundtrip(a.revised_xml, edited, a.converter))
+    print(json.dumps(out))
     return 0
 
 
