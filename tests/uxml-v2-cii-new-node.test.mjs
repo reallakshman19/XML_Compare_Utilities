@@ -70,6 +70,18 @@ test('a pipe broken at its midpoint gives one new node, on the line, written bet
   assert.doesNotMatch(added, /<Restraint>|=1006649732/);
 });
 
+test('a new node inside a valve, flange, reducer, instrument or rigid is refused, never split', () => {
+  const doc = read();
+  for (const [a, b, type] of [['308', '309', 'VALV'], ['400', '409', 'FLAN'], ['20', '30', 'REDU'], ['1138', '1139', 'INST'],
+    ['909', '910', 'VALV'], ['290', '300', 'FLAN']]) {
+    const ends = doc.pipelines.flatMap(p => p.components).filter(c => [a, b].includes(num(c))).map(xyz);
+    const mid = ends[0].map((v, k) => (v + ends[1][k]) / 2);
+    const found = findCiiNewNodes(doc, matchWith(doc, [{id: '9901', at: mid}], {ends: [a, b]}));
+    assert.deepEqual([found.splits.length, found.refused[0]?.code], [0, 'UXML_CII_NEW_NODE_INSIDE_COMPONENT'], `${a} -> ${b}`);
+    assert.match(found.refused[0].detail, new RegExp(`${a} and ${b} are the two ends of one ${type}`));
+  }
+});
+
 test('two new nodes on one pipe go in along the pipe, each after the one before', () => {
   const doc = read(), at = pipe(doc);
   const found = findCiiNewNodes(doc, matchWith(doc, [{id: '2500', at: along(at, 0.25)}, {id: '2510', at: along(at, 0.75)}]));

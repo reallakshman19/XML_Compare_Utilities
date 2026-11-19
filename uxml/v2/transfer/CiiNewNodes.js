@@ -86,6 +86,14 @@ export function findCiiNewNodes(doc, match) {
     const x = pipe.p.components[pipe.x], y = pipe.p.components[pipe.x + 1];
     const branch = textOf(pipe.p.values?.Branchname);
     const between = [x, y].map(c => textOf(c.values?.NodeNumber));
+    // Both neighbours are the two ends of one component (valve, flange, reducer, bend, instrument, rigid...): CAESAR II's
+    // node is inside that component, not on a pipe; splitting it would put an ATTA inside the component (review 19 Nov).
+    const ref = textOf(x.values?.ComponentRefNo);
+    if (ref && ref === textOf(y.values?.ComponentRefNo)) {
+      refused.push({code: 'UXML_CII_NEW_NODE_INSIDE_COMPONENT', ciiNodes: nodes, branch, between,
+        detail: `nodes ${between.join(' and ')} are the two ends of one ${textOf(x.values?.ComponentType) || 'component'} (${ref}), not a pipe`});
+      continue;
+    }
     // Walk the chain from the end at the XML node it follows.
     const ordered = [];
     for (let prev = pipe.from, cur = (next.get(pipe.from) || []).find(n => chain.includes(n)); cur; ) {
