@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -143,6 +144,7 @@ def parse_cii(text: str) -> dict:
             "rigidRows": [cells(l) for l in rows],
             "material": num(materials[i]),
         })
+    carry_line_numbers(elements)
     other = {k: v for k, v in s.items() if k not in ("CONTROL", "ELEMENTS", "NODENAME", "RIGID", "MISCEL_1")}
     other = {k: (v if k not in ROW_SECTIONS else [cells(l) for l in v]) for k, v in other.items()}
     other["MISCEL_1(tail)"] = s["MISCEL_1"][mat_rows:]
@@ -152,6 +154,26 @@ def parse_cii(text: str) -> dict:
     rest = s.get("RESTRANT", [])
     restraint_nodes = {k + 1: num((cells(rest[k * per["RESTRANT"]]) or [None])[0]) for k in range(counts["RESTRANT"])}         if per["RESTRANT"] else {}
     return {"control": control, "elements": elements, "other": other, "per": per, "restraintNodes": restraint_nodes}
+
+
+def element_label(el: dict) -> str:
+    """'from-to' node numbers of a parsed CII element, e.g. '2490-2500'."""
+    return "-".join(f"{num(c):g}" if num(c) is not None else str(c) for c in el["E"][0][:2])
+
+
+def carry_line_numbers(elements: list[dict]) -> None:
+    """CAESAR II writes an element's line number (the A100 text in row 11) only where it changes and leaves it empty
+    (length 0) on the elements after: an empty field is the previous element's (measured on CAESAR II's own exports,
+    19 Nov 2026: 25 of 786 elements written). Each element gets the explicit value, "lineNumber", and the element it
+    was written on, "lineNumberOn" (its own label when written there; None before any line number). Owner 19 Nov
+    2026: "populating each sentinel values back to UXML so that it will be more traceable"."""
+    current, written_on = "", None
+    for el in elements:
+        m = re.match(r"\s*(\d+) (.*)", el["E"][10])
+        text = m.group(2)[:int(m.group(1))] if m else ""
+        if text:
+            current, written_on = text, element_label(el)
+        el["lineNumber"], el["lineNumberOn"] = current, written_on
 
 
 # ---------------------------------------------------------------- XML identity

@@ -93,6 +93,15 @@ def u1_envelope(target: bytes, result: dict) -> dict:
             "edits": [{k: e[k] for k in ("ref", "field", "before", "after")} for e in result["edits"]]}
 
 
+def source_of(change: dict, result: dict) -> dict:
+    """{"cii": ...} from the plan's edit for the same ref and field (U1 keeps only ref, field, before, after)."""
+    key = (json.dumps(change["ref"], sort_keys=True), change["field"])
+    for e in result.get("edits", []):
+        if (json.dumps(e["ref"], sort_keys=True), e["field"]) == key and "cii" in e:
+            return {"cii": e["cii"]}
+    return {}
+
+
 def build_receipt(*, names, cii_bytes, target, revised, u1, items, weight_scale, result, created_at=None) -> dict:
     """The u2.transfer-receipt; names = (CII file, target file, revised file)."""
     cii_name, target_name, out_name = names
@@ -102,7 +111,7 @@ def build_receipt(*, names, cii_bytes, target, revised, u1, items, weight_scale,
             "base": {"fileName": target_name, "sha256": sha256(target)},
             "revised": {"fileName": out_name, "sha256": sha256(revised), "u1Sha256": u1["sha256After"]},
             "options": {"items": items, "weightScale": weight_scale, "densityFactor": 1e-6},
-            "changes": [{**c, "lineNo": "[TBA]"} for c in u1["changes"]],
+            "changes": [{**c, "lineNo": "[TBA]", **source_of(c, result)} for c in u1["changes"]],
             "refused": result["refused"], "summary": result["summary"],
             # Supports from CAESAR II (Owner 18 Nov 2026): listed only; TransferStage does not apply them yet.
             "supports": result.get("supports", {"changes": [], "refused": []})}
