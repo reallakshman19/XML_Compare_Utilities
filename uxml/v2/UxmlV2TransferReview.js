@@ -14,6 +14,7 @@ import {transferStage} from './transfer/TransferStage.js';
 import {runUnderLocksOrExplain, NOT_THROUGH_STEP_10} from './transfer/NotThroughStep10.js';
 import {transferCiiIntoXml} from './transfer/U2dInBrowser.js';
 import {supportRows, supportsLine} from './transfer/SupportLines.js';
+import {materialFollowRows} from './transfer/MaterialFollowRows.js';
 
 const $ = id => document.getElementById(id);
 const BENCH = '../../fixtures/';
@@ -57,22 +58,26 @@ function run({xmlText, receiptText, stagedJsonText, configText, rowsText}) {
   const transfer = runStage(transferStage, doc, {receipt, receiptSha256: sha256Hex(receiptText)});
   const stage = text => runSupportsStage({xmlText: text, stagedJsonText, supportConfig, masters: {materialMapRows}}).xmlText;
   // An XML that has not been through step 10 gets a plain refusal, not a structure code (Owner 18 Nov).
-  out = {transfer, receipt, ...runUnderLocksOrExplain(transfer.uxml, doc, stage)};
+  out = {transfer, receipt, ownMaterial: materialFollowRows(doc, receipt), ...runUnderLocksOrExplain(transfer.uxml, doc, stage)};
   render();
 }
 
 function render() {
-  const {transfer, receipt, conflicts, delta} = out;
+  const {transfer, receipt, conflicts, delta, ownMaterial} = out;
   const moved = receipt.changes.map(c => [c.ref?.branchName, c.ref?.nodeNumber, c.field, c.before, c.after]);
   const follows = transfer.delta.ops.filter(o => o.op === 'set' && o.after?.rule === 'material-follows-branch').length;
   $('trSummary').replaceChildren(
     el('span', {textContent: `${moved.length} value(s) transferred and locked`}),
     el('span', {textContent: `${follows} node material value(s) follow the branch material`}),
+    el('span', {textContent: `${ownMaterial.length} node(s) had their own material, now the branch's (listed below)`}),
     el('span', {textContent: `${receipt.supports?.changes.length ?? 0} support change(s) transferred and locked`}),
     el('span', {textContent: `${transfer.diagnostics.length} refused by the transfer`}),
     el('span', {textContent: `${delta.ops.length} value(s) changed by the stage`}),
     el('span', {textContent: `${conflicts.length} change(s) stopped by a lock`}));
   $('trMoved').replaceChildren(table(['Branch', 'Node', 'Field', 'Before', 'Transferred'], moved));
+  $('trOwnMaterial').replaceChildren(ownMaterial.length
+    ? table(['Branch', 'Node', 'Node material before', 'Branch material before', 'Now (branch)'], ownMaterial)
+    : el('div', {className: 'muted', textContent: 'No node had a material of its own: every node material followed the branch as before.'}));
   $('trConflicts').replaceChildren(conflicts.length
     ? table(['Branch', 'Node', 'Field', 'Kept (transfer)', 'The stage wanted'], conflicts.map(c => [c.branch, c.node ?? 'branch', c.key.replace(/\./g, '/'), c.kept, c.stageWanted]))
     : el('div', {className: 'muted', textContent: 'The stage did not try to change any transferred value.'}));
