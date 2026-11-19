@@ -109,7 +109,10 @@ export async function matchForU2d(targetBytes, v14Bytes, ciiName) {
   const m = matchPsi116Cii(xml, cii, {toleranceMm: MATCH_TOLERANCE_MM});
   const r = m.summary ? {...m, seedDrifts: cii.seedDrifts, summary: {...m.summary, frame: xml.frame, seedDrifts: cii.seedDrifts.length,
     maxSeedDriftMm: Math.max(0, ...cii.seedDrifts.map(d => d.missMm))}} : m;
-  return {ok: true, ...r};
+  // Group 2 (Owner 19 Nov): the CII points and elements, for a pipe broken in CAESAR II (CiiNewNodes.js). Not sent to Python.
+  Object.defineProperty(r, 'ciiGraph', {value: {nodes: cii.nodes.map(n => ({id: String(n.id), xyz: n.xyz})),
+    elements: (cii.ciiElements || []).map(e => ({from: String(e.from), to: String(e.to)}))}, enumerable: false});
+  return Object.defineProperty({ok: true, ...r}, 'ciiGraph', {value: r.ciiGraph, enumerable: false});
 }
 
 /**
@@ -134,5 +137,5 @@ export async function transferCiiIntoXml({targetBytes, ciiBytes, names, weightSc
     JSON.stringify([names.cii, names.target, names.revised]), weightScale, items, createdAt ?? null));
   const [revised, receiptText] = out.toJs();
   out.destroy?.();
-  return {revisedBytes: revised, receiptText, receipt: JSON.parse(receiptText), match: match.summary, ms: Date.now() - started};
+  return {revisedBytes: revised, receiptText, receipt: JSON.parse(receiptText), match: match.summary, matchFull: {...match, ciiNodes: match.ciiGraph.nodes, ciiElements: match.ciiGraph.elements}, ms: Date.now() - started};
 }

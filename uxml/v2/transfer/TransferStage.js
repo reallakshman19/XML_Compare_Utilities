@@ -25,6 +25,7 @@
  */
 import {sha256Hex, stageUid, UxmlRefusal} from '../UxmlV2Kernel.js';
 import {parseLiteral} from '../UxmlV2Psi116Reader.js';
+import {writePsi116FromUxmlV2} from '../UxmlV2Psi116Writer.js';
 
 export const UXML_TRANSFER_RULES = 'uxml-transfer/1';
 const fail = (code, details = {}) => { throw new UxmlRefusal(code, details); };
@@ -139,7 +140,9 @@ function supportOps(doc, change, lock) {
 function checkReceipt(doc, receipt) {
   if (receipt?.format !== 'u2.transfer-receipt' || receipt.version !== 1 || receipt.ok !== true)
     fail('UXML_TRANSFER_RECEIPT_UNSUPPORTED', {format: receipt?.format ?? null, version: receipt?.version ?? null});
-  const sha = doc.sources?.[0]?.sha256;
+  // Group 2 (Owner 19 Nov): a document a stage changed (a pipe broken in CAESAR II got its new node) is named by the
+  // XML written from it, which the transfer ran on; never by its source file, whose node order may differ.
+  const sha = doc.revision?.seq ? sha256Hex(writePsi116FromUxmlV2(doc).text) : doc.sources?.[0]?.sha256;
   if (String(receipt.base?.sha256 || '').toLowerCase() !== sha)
     fail('UXML_TRANSFER_BASE_MISMATCH', {receipt: receipt.base?.sha256 ?? null, document: sha ?? null});
 }

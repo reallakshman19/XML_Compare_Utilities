@@ -6,13 +6,16 @@
  * every value the masters were stopped from changing. Uses the staged JSON, support config and material map rows
  * chosen in section 4. Downloads: the final XML (with the protection note today's step 10 reads) and the transfer delta.
  * Nothing is uploaded.
+ * Group 2 (Owner 19 Nov): a pipe broken in CAESAR II first becomes a new XML node (transfer/CiiNewNodes.js), then the
+ * transfer runs node-wise; the page lists each new node's values and where each came from.
  */
 import {runStage, sha256Hex} from './UxmlV2Kernel.js';
 import {readPsi116V2} from './UxmlV2Psi116Reader.js';
 import {runSupportsStage} from './supports/SupportsStage.js';
 import {transferStage} from './transfer/TransferStage.js';
 import {runUnderLocksOrExplain, NOT_THROUGH_STEP_10} from './transfer/NotThroughStep10.js';
-import {transferCiiIntoXml} from './transfer/U2dInBrowser.js';
+import {transferWithNewNodes} from './transfer/TransferWithNewNodes.js';
+import {newNodeValueRows} from './transfer/CiiNewNodes.js';
 import {supportRows, supportsLine} from './transfer/SupportLines.js';
 import {materialFollowRows} from './transfer/MaterialFollowRows.js';
 
@@ -23,6 +26,8 @@ const SAMPLE = {xml: 'uxml-v2-transfer/BM2/base.xml', receipt: 'uxml-v2-transfer
 const SAMPLE_EF05 = {xml: 'uxml-v2-transfer/EF05/base.xml', cii: 'uxml-v2-transfer/EF05/source.cii'};
 // Supports from CAESAR II, step 4 (Owner 18 Nov): the same CII with four scripted support edits (EF05/README.md).
 const SAMPLE_EF05_SUPPORTS = {xml: SAMPLE_EF05.xml, cii: 'uxml-v2-transfer/EF05/supports-edits.cii'};
+// Group 2 (Owner 19 Nov): step 10's CII of the same XML with pipe 2490 -> 2520 broken at its midpoint, node 2505 with +Y (EF05/README.md).
+const SAMPLE_EF05_BROKEN = {xml: SAMPLE_EF05.xml, cii: 'uxml-v2-transfer/EF05/broken-pipe.cii'};
 const DEFAULT_ROWS = 'uxml-v2-supports/bench/default-material-map-rows.json';
 let out = null, name = 'model', u2d = null;
 
@@ -50,20 +55,21 @@ const table = (head, rows) => el('table', {}, el('tr', {}, ...head.map(h => el('
   ...rows.map(r => el('tr', {}, ...r.map(c => el('td', {textContent: c ?? ''})))));
 
 /** Receipt -> locked revision -> stage under locks. */
-function run({xmlText, receiptText, stagedJsonText, configText, rowsText}) {
+function run({xmlText, receiptText, stagedJsonText, configText, rowsText, doc: given, newNodes = null}) {
   const receipt = parseJson(receiptText, 'transfer receipt');
   const supportConfig = parseJson(configText, 'support config') || {};
   const materialMapRows = parseJson(rowsText, 'material map rows');
-  const doc = readPsi116V2(xmlText, {fileSha256: sha256Hex(xmlText)});
+  const doc = given || readPsi116V2(xmlText, {fileSha256: sha256Hex(xmlText)});
   const transfer = runStage(transferStage, doc, {receipt, receiptSha256: sha256Hex(receiptText)});
   const stage = text => runSupportsStage({xmlText: text, stagedJsonText, supportConfig, masters: {materialMapRows}}).xmlText;
   // An XML that has not been through step 10 gets a plain refusal, not a structure code (Owner 18 Nov).
-  out = {transfer, receipt, ownMaterial: materialFollowRows(doc, receipt), ...runUnderLocksOrExplain(transfer.uxml, doc, stage)};
+  out = {transfer, receipt, newNodes, ownMaterial: materialFollowRows(doc, receipt), ...runUnderLocksOrExplain(transfer.uxml, doc, stage)};
   render();
 }
 
 function render() {
-  const {transfer, receipt, conflicts, delta, ownMaterial} = out;
+  const {transfer, receipt, conflicts, delta, ownMaterial, newNodes} = out;
+  const splits = newNodes?.splits || [], notMade = newNodes?.refused || [];
   // Where a value came from in CAESAR II (Owner 19 Nov 2026: "more traceable"): its CII elements, and how many of them had
   // the line number left empty by CAESAR II (read as the element's it was written on).
   const from = c => !c.cii ? '' : `${c.cii.elements.length} element(s), ${c.cii.elements.slice(0, 2).join(', ')}${c.cii.elements.length > 2 ? '…' : ''}`
@@ -71,6 +77,7 @@ function render() {
   const moved = receipt.changes.map(c => [c.ref?.branchName, c.ref?.nodeNumber, c.field, c.before, c.after, from(c)]);
   const follows = transfer.delta.ops.filter(o => o.op === 'set' && o.after?.rule === 'material-follows-branch').length;
   $('trSummary').replaceChildren(
+    el('span', {textContent: `${splits.length} new node(s) from a pipe broken in CAESAR II`}),
     el('span', {textContent: `${moved.length} value(s) transferred and locked`}),
     el('span', {textContent: `${follows} node material value(s) follow the branch material`}),
     el('span', {textContent: `${ownMaterial.length} node(s) had their own material, now the branch's (listed below)`}),
@@ -78,6 +85,12 @@ function render() {
     el('span', {textContent: `${transfer.diagnostics.length} refused by the transfer`}),
     el('span', {textContent: `${delta.ops.length} value(s) changed by the stage`}),
     el('span', {textContent: `${conflicts.length} change(s) stopped by a lock`}));
+  $('trNewNodes').replaceChildren(splits.length
+    ? el('div', {}, el('div', {className: 'muted', textContent: splits.map(s => `Node ${s.ciiNode} on ${s.branch}, pipe ${s.between.join(' -> ')}: `
+      + `${s.alongMm.toFixed(1)} of ${s.lengthMm.toFixed(1)} mm along, CAESAR II's point ${s.offMm.toFixed(1)} mm off the line (put on it).`).join(' ')}),
+    table(['Branch', 'Node', 'Pipe', 'Field', 'Value', 'Came from'], newNodeValueRows(out.uxml || transfer.uxml, splits)))
+    : el('div', {className: 'muted', textContent: newNodes ? 'CAESAR II broke no pipe of this XML.' : 'Only a transfer from the CAESAR II file can add nodes.'}),
+  ...(notMade.length ? [el('h4', {textContent: 'New CAESAR II nodes not made'}), table(['Nodes', 'Why'], notMade.map(r => [r.ciiNodes.join(', '), r.detail]))] : []));
   $('trMoved').replaceChildren(table(['Branch', 'Node', 'Field', 'Before', 'Transferred', 'From CAESAR II'], moved));
   $('trOwnMaterial').replaceChildren(ownMaterial.length
     ? table(['Branch', 'Node', 'Node material before', 'Branch material before', 'Now (branch)'], ownMaterial)
@@ -121,14 +134,15 @@ async function fromCii(xmlFile = $('trXml').files[0], ciiFile = $('trCii').files
   if (!$('trScale').value) throw new Error('choose the unit of the CII weights first (N for a file from the XML to CII tab)');
   name = xmlFile.name.replace(/\.[^.]+$/, '');
   const targetBytes = new Uint8Array(await xmlFile.arrayBuffer());
-  u2d = await transferCiiIntoXml({targetBytes, ciiBytes: new Uint8Array(await ciiFile.arrayBuffer()), weightScale: Number($('trScale').value),
+  const made = await transferWithNewNodes({targetBytes, ciiBytes: new Uint8Array(await ciiFile.arrayBuffer()), weightScale: Number($('trScale').value),
     names: {cii: ciiFile.name, target: xmlFile.name, revised: `${name}_transferred.xml`}, onStatus: text => say(text, false)});
+  u2d = made.u2d;
   const {summary} = u2d.receipt;
   const refused = Object.entries(summary.refused).map(([code, n]) => `${code} ${n}`).join(', ') || 'none';
   $('trU2d').textContent = `Transfer from ${ciiFile.name}: ${summary.edits} value(s) differ and were transferred, ${summary.pairs} node pairs, `
     + `${summary.ciiElements} CII elements; refused: ${refused}. ${(u2d.ms / 1000).toFixed(1)} s in this browser.`;
   if (summary.supports) $('trU2d').textContent += ' ' + supportsLine(summary.supports);
-  run({xmlText: decodeXml(targetBytes), receiptText: u2d.receiptText, stagedJsonText: await fileText('supStaged'),
+  run({xmlText: made.xmlText, doc: made.doc, newNodes: made.newNodes, receiptText: u2d.receiptText, stagedJsonText: await fileText('supStaged'),
     configText: await fileText('supConfig'), rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
 }
 
@@ -157,6 +171,9 @@ function wire() {
   }));
   $('trCiiSampleEf05Supports').addEventListener('click', () => guarded(async () => {
     await fromCii(await file(SAMPLE_EF05_SUPPORTS.xml, 'EF-05-step10-enriched.xml'), await file(SAMPLE_EF05_SUPPORTS.cii, 'EF-05-supports-edits.cii'));
+  }));
+  $('trCiiSampleEf05Broken').addEventListener('click', () => guarded(async () => {
+    await fromCii(await file(SAMPLE_EF05_BROKEN.xml, 'EF-05-step10-enriched.xml'), await file(SAMPLE_EF05_BROKEN.cii, 'EF-05-broken-pipe.cii'));
   }));
   $('trSample').addEventListener('click', () => guarded(async () => {
     u2d = null;
