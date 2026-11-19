@@ -7,11 +7,11 @@
  "files": {
   "prototypes/u2d-cii-source/u2d.py": {
    "to": "u2d-cii-source/u2d.py",
-   "sha256": "ff0d30895fb518b9ee065d4c41e763e4fa27b188620985717a2c1e124d572748"
+   "sha256": "30594df16cdf81a920c800cadc2efc8feb0e7bad9372f8cb29d701edb5cd8ea9"
   },
   "prototypes/u2d-cii-source/u2d_plan.py": {
    "to": "u2d-cii-source/u2d_plan.py",
-   "sha256": "8c025775a99ce164af3b6f27486f3d2d71430c6cdc71b2e909ffefe0cb6ea314"
+   "sha256": "7dcd9cade95c65fd019add8df7e3c935fa1dea4dddfed0d01c584956f601c070"
   },
   "prototypes/u2d-cii-source/u2d_browser.py": {
    "to": "u2d-cii-source/u2d_browser.py",
@@ -23,7 +23,7 @@
   },
   "prototypes/u3b-cii-check/u3b_core.py": {
    "to": "u3b-cii-check/u3b_core.py",
-   "sha256": "747c839955489b388c241778ae70e008711347889fd4c004adc7ca0309e55ba0"
+   "sha256": "e0feda826f623c03b59d5fec145c7bc1ba7e1f170e7426516af3df3606af3d88"
   },
   "uxml/v2/vendor/cii-v11-v14/cii2019_section_rules.py": {
    "to": "cii-v11-v14/cii2019_section_rules.py",

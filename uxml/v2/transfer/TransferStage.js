@@ -38,8 +38,10 @@ export function fieldKey(field) {
 }
 const textOf = value => String(value?.v ?? '');
 const valueOf = (text, rule) => ({v: parseLiteral(String(text)), text: String(text), src: 'transfer', rule});
-const setAndLock = (uid, key, text, lock) => [
-  {op: 'set', uid, path: 'values.' + key, after: valueOf(text, lock.follows ? 'material-follows-branch' : 'u2d:' + lock.field)},
+// A value from CAESAR II names its CII elements and, where CAESAR II left an element's line number empty, the element it
+// was written on (receipt change `cii`; Owner 19 Nov 2026: "populating each sentinel values back to UXML").
+const setAndLock = (uid, key, text, lock, cii) => [
+  {op: 'set', uid, path: 'values.' + key, after: {...valueOf(text, lock.follows ? 'material-follows-branch' : 'u2d:' + lock.field), ...(cii ? {cii} : {})}},
   {op: 'lock', uid, path: 'values.' + key, after: lock},
 ];
 const lockOnly = (uid, key, lock) => [{op: 'lock', uid, path: 'values.' + key, after: lock}];
@@ -151,7 +153,7 @@ export const transferStage = Object.freeze({
     (receipt.changes || []).forEach((change, order) => {
       const {pipeline, entity, key} = targetOf(doc, change);
       const lock = {by: 'transfer', receipt: receiptSha256 || sha256Hex(JSON.stringify(receipt)), order, field: change.field};
-      ops.push(...setAndLock(entity.uid, key, change.after, lock));
+      ops.push(...setAndLock(entity.uid, key, change.after, lock, change.cii));
       if (materialFollows && change.field === MATERIAL_FIELD) ops.push(...materialFollowOps(pipeline, String(change.after), lock));
     });
     const receiptId = receiptSha256 || sha256Hex(JSON.stringify(receipt));

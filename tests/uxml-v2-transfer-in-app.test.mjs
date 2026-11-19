@@ -40,7 +40,9 @@ test('BM2: the page transfer gives the receipt and values of the command-line tr
   assert.equal(r.receipt.base.sha256, cli.base.sha256);
   assert.equal(r.receipt.source.sha256, cli.source.sha256);
   assert.equal(r.receipt.revised.sha256, cli.revised.sha256, 'transferred XML (with its protection note) is byte-identical');
-  assert.deepEqual(r.receipt.changes, cli.changes);
+  // The committed receipt predates the per-value CII source (19 Nov 2026, `cii`): compare without it, then check it.
+  assert.deepEqual(r.receipt.changes.map(({cii, ...c}) => c), cli.changes);
+  for (const c of r.receipt.changes.filter(x => x.field.startsWith('Branch/'))) assert.ok(c.cii?.elements.length, `${c.field} names its CII elements`);
   assert.equal(r.receipt.summary.edits, cli.summary.edits);
   assert.deepEqual(r.receipt.summary.byField, cli.summary.byField);
   // The committed receipt predates the Owner's 17 Nov rule (branch values only from paired elements): two BM2 branches

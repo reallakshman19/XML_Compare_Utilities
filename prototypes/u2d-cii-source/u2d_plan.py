@@ -13,7 +13,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "u3b-cii-check"))
-from u3b_core import num, parse_cii, same  # noqa: E402
+from u3b_core import element_label, num, parse_cii, same  # noqa: E402
 from u2d_supports import support_report  # noqa: E402
 
 NAME_LIMIT = 25          # CII NODENAME keeps 25 characters
@@ -114,9 +114,9 @@ def key(ref: dict) -> tuple[int, int]:
 
 
 def element_branch(el: dict) -> str | None:
-    """Branch name from the element's line-number field ('  NN name')."""
-    m = re.match(r"\s*(\d+) (.*)", el["E"][10])
-    return m.group(2)[:int(m.group(1))] if m else None
+    """Branch name: the element's line number, carried from the element it was written on when CAESAR II left it
+    empty (u3b_core.carry_line_numbers)."""
+    return el["lineNumber"] or None
 
 
 def paired_into(el: dict, bi: int, pairs: dict, nodes: dict) -> bool:
@@ -124,15 +124,19 @@ def paired_into(el: dict, bi: int, pairs: dict, nodes: dict) -> bool:
     this XML by position (match-psi116 pairs; a point with several PSI116 records still matched), with
     at least one matched record in that branch (a branch's first node may sit on its parent branch)."""
     ends = [pairs.get(node_key(el["E"][0][i]), []) for i in (0, 1)]
+    if el.get("lineNumberAcrossJump"):
+        # Its line number was carried across a jump (u3b_core.carry_line_numbers): both ends must be on the branch.
+        return all(ends) and all(any(k[0] == bi for k in e) for e in ends)
     return all(ends) and any(k[0] == bi for e in ends for k in e)
 
 
-def branch_values(cii: dict, brs: dict, pairs: dict, nodes: dict) -> tuple[dict, list]:
+def branch_values(cii: dict, brs: dict, pairs: dict, nodes: dict, sources: dict | None = None) -> tuple[dict, list]:
     """(branchOrdinal, field) -> set of texts from every element whose line-number field names
     the branch and whose ends matched this XML (paired_into). A branch named by CII elements none
     of which matched is refused (U2D_BRANCH_NOT_PAIRED). A CII temperature 0 is the converter's
     'unset' (-100000). A material equal to the one carried in from the previous element is not
-    taken as the branch's own."""
+    taken as the branch's own. sources, when given, gets (branchOrdinal, field) -> [[element, element its line number
+    was written on], ...]: the CII elements each value came from."""
     by_name = {}
     for bi, b in brs.items():
         by_name.setdefault(b["name"], []).append(bi)
@@ -157,11 +161,26 @@ def branch_values(cii: dict, brs: dict, pairs: dict, nodes: dict) -> tuple[dict,
                     v = v / DENSITY_FACTOR
                 text = "-100000" if field.startswith("Branch/Temperature/") and same(v, 0.0) else text_number(v)
                 want.setdefault((bi, field), set()).add(text)
+                if sources is not None:
+                    sources.setdefault((bi, field), []).append([element_label(el), el["lineNumberOn"]])
             if el["material"] is not None:
                 want.setdefault((bi, "Branch/MaterialNumber"), set()).add(text_number(el["material"]))
+                if sources is not None:
+                    sources.setdefault((bi, "Branch/MaterialNumber"), []).append([element_label(el), el["lineNumberOn"]])
                 carried.setdefault(bi, []).append(same(el["material"], prev))
         if el["material"] is not None:
             prev = el["material"]
+    missing = [element_label(el) for el in cii["elements"] if not el["lineNumber"]]
+    if missing:
+        refused.append({"code": "U2D_LINE_NUMBER_MISSING", "elements": len(missing), "first": missing[:5],
+                        "detail": "CII elements with no line number (none written before them, or unreadable): "
+                                  "their branch values are not taken"})
+    jumped = [element_label(el) for el in cii["elements"] if el.get("lineNumberAcrossJump")
+              and len(by_name.get(element_branch(el), [])) == 1 and not paired_into(el, by_name[element_branch(el)][0], pairs, nodes)]
+    if jumped:
+        refused.append({"code": "U2D_LINE_NUMBER_ACROSS_JUMP", "elements": len(jumped), "first": jumped[:5],
+                        "detail": "CII elements whose line number CAESAR II carried across a jump, with an end off that "
+                                  "branch (a tee run): their values are not taken for it"})
     for bi in sorted(named - used):
         refused.append({"code": "U2D_BRANCH_NOT_PAIRED", "branch": brs[bi]["name"],
                         "detail": "no CII element of this branch matched the XML's nodes; its values are not taken"})
@@ -171,6 +190,12 @@ def branch_values(cii: dict, brs: dict, pairs: dict, nodes: dict) -> tuple[dict,
             refused.append({"code": "U2D_MATERIAL_CARRIED", "branch": brs[bi]["name"],
                             "detail": "the CII material equals the one carried in; the branch may have none of its own"})
     return want, refused
+
+
+def cii_source(rows: list) -> dict:
+    """Where a branch value came from in the CII: its elements, and for each element whose line number CAESAR II left
+    empty, the element it was written on."""
+    return {"elements": [e for e, _ in rows], "lineNumberCarried": {e: on for e, on in rows if on != e}}
 
 
 def differs(field: str, before, after: str) -> bool:
@@ -222,7 +247,8 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
         first = {}
         for k in sorted(nodes):
             first.setdefault(k[0], nodes[k]["ref"])
-        bv, refused_branches = branch_values(cii, brs, pairs, nodes)
+        sources = {}
+        bv, refused_branches = branch_values(cii, brs, pairs, nodes, sources)
         refused += [dict(t) for t in sorted({tuple(sorted((k, str(v)) for k, v in r.items())) for r in refused_branches})]
         for (bi, field), texts in sorted(bv.items()):
             before = brs[bi]["values"].get(field)
@@ -231,7 +257,8 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
             elif before is None:
                 refused.append({"code": "U2D_FIELD_UNAVAILABLE", "branch": brs[bi]["name"], "field": field})
             elif differs(field, before, next(iter(texts))):
-                edits.append({"ref": first[bi], "field": field, "before": before, "after": next(iter(texts)), "lineNo": "[TBA]"})
+                edits.append({"ref": first[bi], "field": field, "before": before, "after": next(iter(texts)), "lineNo": "[TBA]",
+                              "cii": cii_source(sources[(bi, field)])})
     check_weight_scale(edits, weight_scale)
     by = {}
     for e in edits:
