@@ -12,3 +12,5 @@ Expected result in section 5, with the CII weights in N:
 - the transfer pairs all 617 CII nodes and transfers 41 values, the Temperature 1 of each of the 41 branches, each 10 above the base;
 - the run under locks completes, and every temperature the stage tried to reset keeps the transferred value;
 - the restraint count of the final XML equals that of `base.xml`.
+
+**Made with the step 10 of 18 Nov 2026 (before 3D_Converters PR 433).** That step 10 did not write the supports on the 11 unnumbered EF-05 ATTA points (NodeNumber -2), so these files and the section 5 line "11 supports in the XML that step 10 does not write" stay true for them. Step 10 from PR 433 on writes those 11 supports (raw EF-05 CII f514e024), so a new step 10 CII shows 0 such supports.

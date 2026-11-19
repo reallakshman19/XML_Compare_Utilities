@@ -67,7 +67,8 @@ async function showRecord(index) {
   const match = xmlText ? runRecordXmlMatch(record, xmlText) : undefined;
   const check = match === undefined ? 'Open the model XML too to check this record is for it.'
     : match ? `The model XML opened is the Run's ${match === 'source' ? 'input file' : 'CII input XML'}.`
-      : 'The model XML opened is NOT the file of this Run record (its hash differs).';
+      // Review note N1.2: a branch-subset Run hashes only the branches it ran, so the full model file differs too.
+      : 'The model XML opened is not the input file or the CII input XML of this Run (its hash differs). If the Run used only some branches, the full model file differs as well.';
   const kept = transferKeptRows(record);
   $('supRecordInfo').replaceChildren(...runRecordFacts(record).map(t => el('div', {className: 'muted', textContent: t})),
     el('div', {className: match === null ? 'notice' : 'muted', textContent: check}),

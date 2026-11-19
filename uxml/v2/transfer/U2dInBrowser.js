@@ -44,6 +44,21 @@ export async function loadPinnedPython(root = ROOT, pinUrl = PIN_URL) {
   return {pin, files};
 }
 
+/**
+ * The Pyodide core files at `base` against pin.pyodideFiles (review note N2.5, Owner 19 Nov 2026): throws
+ * U2D_PYODIDE_PIN_MISMATCH when one differs, so the page never runs a changed Pyodide. The page's own JS comes from the
+ * same deployment as the pin file, so pinning it would check nothing.
+ */
+export async function checkPinnedPyodide(base, pin) {
+  const files = Object.entries(pin.pyodideFiles || {});
+  if (!files.length) throw new Error('U2D_PYODIDE_PIN_MISMATCH: the pin lists no Pyodide files');
+  for (const [file, sha256] of files) {
+    const got = await sha256Hex(await readUrl(new URL(file, base)));
+    if (got !== sha256) throw new Error(`U2D_PYODIDE_PIN_MISMATCH: Pyodide ${file} is not the tested file (${got.slice(0, 12)} vs ${sha256.slice(0, 12)})`);
+  }
+  return files.length;
+}
+
 let ready = null;
 /**
  * Pyodide with the pinned files under /u2d/ and u2d_browser imported. loadPyodide is passed in (browser: the pinned CDN
@@ -54,9 +69,14 @@ export function prepareU2d({loadPyodide, indexURL, onStatus = () => {}} = {}) {
     const started = Date.now();
     const {pin, files} = await loadPinnedPython();
     onStatus(`Loading Python (Pyodide ${pin.pyodide}); the first time takes a while…`);
-    let load = loadPyodide;
-    if (!load) load = (await import(/* webpackIgnore: true */ `https://cdn.jsdelivr.net/pyodide/v${pin.pyodide}/full/pyodide.mjs`)).loadPyodide;
-    const py = await load(indexURL ? {indexURL} : {});
+    let load = loadPyodide, base = indexURL;
+    if (!load) {
+      // Browser: the pinned CDN build, checked file by file first. (Node checks pass their own local build.)
+      base = indexURL || `https://cdn.jsdelivr.net/pyodide/v${pin.pyodide}/full/`;
+      onStatus(`Checking Pyodide against the pin (${await checkPinnedPyodide(base, pin)} files)…`);
+      load = (await import(/* webpackIgnore: true */ new URL('pyodide.mjs', base).href)).loadPyodide;
+    }
+    const py = await load(base ? {indexURL: base} : {});
     for (const {to, bytes} of files) {
       const dir = '/u2d/' + to.split('/').slice(0, -1).join('/');
       py.FS.mkdirTree(dir);
