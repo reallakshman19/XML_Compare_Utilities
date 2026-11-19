@@ -46,7 +46,8 @@ export function runRecordFacts(record) {
     `${record.model}, run ${record.createdAt} with ${record.stage}`,
     `parity ${p.ok ? 'PASS' : 'HELD'} (${p.comparisons ?? '?'} comparisons, ${p.mismatches ?? '?'} mismatches)`,
     record.compare?.equal ? 'XML equal to today\'s route' : `differs from today's route on ${record.compare?.nodesDiffer ?? '?'} node(s): ${Object.keys(record.compare?.fields || {}).join(', ') || 'branch values'}`,
-    ...(record.document ? [`UXML document: the source was read once (revision ${String(record.document.sourceRevision).slice(0, 12)}); `
+    ...(record.document?.refusal ? [`UXML document not made (${record.document.refusal}): today's gasket drop ran on the XML text.`] : []),
+    ...(record.document?.removed ? [`UXML document: the source was read once (revision ${String(record.document.sourceRevision).slice(0, 12)}); `
       + `the gasket drop removed ${record.document.removed.length} node(s) before the supports stage (revision ${String(record.document.revision).slice(0, 12)}).`] : [])];
 }
 

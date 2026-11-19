@@ -47,3 +47,9 @@ test('the Run record keeps the removals and the review page lists them', () => {
   assert.match(runRecordFacts(record).at(-1), /gasket drop removed 40 node\(s\)/);
   assert.deepEqual(documentRemovedRows({}), []);
 });
+
+test('a file the UXML reader refuses: the Run record says so, and lists no removals', () => {
+  const record = {document: {made: false, refusal: 'PSI116_VERIFIED_NAMESPACE_REQUIRED'}, parity: {}, compare: {}};
+  assert.match(runRecordFacts(record).at(-1), /UXML document not made \(PSI116_VERIFIED_NAMESPACE_REQUIRED\)/);
+  assert.deepEqual(documentRemovedRows(record), []);
+});
