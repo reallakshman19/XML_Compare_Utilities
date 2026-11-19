@@ -53,3 +53,13 @@ test('a file the UXML reader refuses: the Run record says so, and lists no remov
   assert.match(runRecordFacts(record).at(-1), /UXML document not made \(PSI116_VERIFIED_NAMESPACE_REQUIRED\)/);
   assert.deepEqual(documentRemovedRows(record), []);
 });
+
+test('content between nodes in a branch with a gasket: refused with a UXML_ code (never silently lost)', () => {
+  const NS = ' xmlns="http://aveva.com/pipeStress116.xsd"';
+  const node = (id, type) => `<Node><NodeNumber>${id}</NodeNumber><ComponentType>${type}</ComponentType></Node>`;
+  const xml = gap => `<?xml version="1.0"?>\n<PipeStressExport${NS}><Pipe><Branch><Branchname>/G/B1</Branchname>`
+    + `${node(10, 'PIPE')}${node(-1, 'GASK')}${gap}${node(20, 'PIPE')}</Branch></Pipe></PipeStressExport>`;
+  assert.throws(() => step10Document(xml('<Extra>keep</Extra>')), e => e.code === 'UXML_GASKET_DROP_GAP_CONTENT');
+  assert.equal(step10Document(xml('\n  ')).removed.length, 1, 'whitespace gaps are fine');
+  assert.equal(step10Document(xml('<Extra>keep</Extra>'), {drop: false}).removed.length, 0, 'nothing removed: nothing lost');
+});
