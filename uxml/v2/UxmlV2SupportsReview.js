@@ -8,7 +8,8 @@ import {runSupportsStage} from './supports/SupportsStage.js';
 import {provenanceTableRows, provenanceCsv, PROVENANCE_COLUMNS} from './supports/SupportProvenanceRows.js';
 import {showEngineering} from './UxmlV2EngineeringReview.js';
 import {asStageResult, documentRemovedRows, readRunRecordFile, runOutcome, runRecordFacts, runRecordXmlMatch, transferKeptRows} from './UxmlV2RunRecord.js';
-import {addedSupportRows, CHANGE_STEP_COLUMNS, changeLines, changeStepRows, removedNodeRows, rewrittenSupportRows} from './UxmlV2RunRecordChanges.js';
+import {addedNodeRows, addedSupportRows, CHANGE_STEP_COLUMNS, changeLines, changeStepRows, removedNodeRows, removedSupportRows,
+  rewrittenSupportRows} from './UxmlV2RunRecordChanges.js';
 
 const $ = id => document.getElementById(id);
 const SHOW_AT_MOST = 400;
@@ -72,8 +73,10 @@ function changesSection(record) {
     ...lines.map(l => el('div', {className: l.notice ? 'notice' : 'muted', textContent: l.text})),
     steps.length ? table(CHANGE_STEP_COLUMNS, steps) : '',
     listed('Nodes removed', ['Branch', 'Node', 'Node name', 'AVEVA reference', 'Sub-step'], removedNodeRows(record)),
+    listed('Nodes added', ['Branch', 'Node', 'Node name', 'AVEVA reference', 'Sub-step'], addedNodeRows(record)),
     listed('Supports added', ['Branch', 'Node', 'Node name', 'Type', 'Sub-step'], addedSupportRows(record)),
-    listed('Supports rewritten', ['Branch', 'Node', 'Node name', 'Was', 'Now', 'Sub-step'], rewrittenSupportRows(record)));
+    listed('Supports rewritten', ['Branch', 'Node', 'Node name', 'Was', 'Now', 'Sub-step'], rewrittenSupportRows(record)),
+    listed('Supports removed', ['Branch', 'Node', 'Node name', 'Type', 'Sub-step'], removedSupportRows(record)));
 }
 
 /** A Run record from 3D_Converters step 10: that Run's own provenance (nothing is re-run). */
