@@ -12,6 +12,10 @@
 // today; the XML output must be that XML except, on each kept node of a duplicate group today thinned, its NodeName and
 // ComponentRefNo: the kept node's then the removed nodes' joined with "|" (once when the same on all). The groups are
 // worked out here without ids: today's groups (xmlPositionKey, tolerance 1), the kept one by the name today still has.
+// The second run (Owner 20 Nov, "Read it as history"): every case whose XML output has "|" names is run again from that
+// output (its note read back as locks, as step 10 does). The CII engine's XML must be today's route on the plain first
+// run (the engine XML), and the output must carry each node's whole history again. Control no-name-history (the "|"
+// left in the input names) must fail.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,7 +35,8 @@ const at = (...p) => path.join(ROOT, ...p);
 const args = process.argv.slice(2);
 const control = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--json') || null;
 const jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
-const CONTROLS = ['ignore-value-locks', 'take-locked-supports', 'join-stage-wins', 'keep-locked-node', 'remove-locked-node', 'no-join-names', 'names-in-engine'];
+const CONTROLS = ['ignore-value-locks', 'take-locked-supports', 'join-stage-wins', 'keep-locked-node', 'remove-locked-node', 'no-join-names', 'names-in-engine', 'no-name-history'];
+const HISTORY = control === 'no-name-history' ? { nameHistory: false } : {};
 const NAMES = control === 'no-join-names' ? { names: false } : {};
 /** The XML the CII engine gets (names-in-engine control: the one with the "|" names). */
 const engineOf = (got) => (control === 'names-in-engine' ? got.xmlText : got.engineXmlText);
@@ -193,6 +198,39 @@ function checkNames(got, expect) {
 }
 
 const key = (c) => [c.branch, c.node, c.key, c.kept, c.stageWanted].join(' | ');
+/** A step 10 input read as the route reads it: the protection note, if any, as locks. */
+function docOf(text) {
+  const found = readTransferNote(text), doc = read(text);
+  return found?.note ? runStage(noteLockStage, doc, { note: found.note, noteSha256: sha256Hex(found.raw) }).uxml : doc;
+}
+/** Each node's "|" history in an XML output, by branch and the plain (first) name and reference. */
+function historyOf(xmlText) {
+  const out = new Map(), first = (t) => t.split('|')[0];
+  for (const p of read(withoutTransferNote(xmlText)).pipelines) for (const c of p.components) {
+    if (!tx(c, 'NodeName').includes('|') && !tx(c, 'ComponentRefNo').includes('|')) continue;
+    const k = tx(p, 'Branchname') + '\u0000' + first(tx(c, 'NodeName')) + '\u0000' + first(tx(c, 'ComponentRefNo'));
+    if (out.has(k)) throw new Error(`gate: two nodes with history share ${k}`);
+    out.set(k, { NodeName: tx(c, 'NodeName'), ComponentRefNo: tx(c, 'ComponentRefNo') });
+  }
+  return out;
+}
+/** The second run from the first run's XML output; null when it has no "|" names, else the problem or 'PASS'. */
+function secondRun(got, full) {
+  const history = historyOf(got.xmlText);
+  if (!history.size) return null;
+  let seen = null, today;
+  try { today = runEngineeringUnderLocks(docOf(got.engineXmlText), (t) => { const r = full(t); seen ??= { t, branchPass: r.stages['branch-pass'] }; return r.xmlText; }); } catch (e) { return { what: 'second run: no oracle', refused: e.code || e.message }; }
+  let again;
+  try { again = runSupportsUnderLocks(docOf(got.xmlText), full, { ...NAMES, ...HISTORY }); } catch (e) { return { refused: e.code || e.message }; }
+  const engine = engineOf(again);
+  if (engine !== today.xmlText) { let i = 0; while (engine[i] === today.xmlText[i]) i += 1; return { what: 'second run: XML differs', at: i, got: engine.slice(i - 60, i + 60), want: today.xmlText.slice(i - 60, i + 60) }; }
+  const fresh = expectedNames(seen.t, seen.branchPass);
+  if (fresh.size) return { what: 'second run: new joins too; the gate does not combine them with history', fresh: fresh.size };
+  const names = checkNames(again, history);
+  if (names) return { secondRun: names };
+  if (JSON.stringify(again.conflicts.map(key)) !== JSON.stringify(today.conflicts.map(key))) return { what: 'second run: conflicts differ' };
+  return 'PASS';
+}
 function spoiled(doc, full) {
   if (control === 'ignore-value-locks') {
     // The wrong route: value locks dropped (by kernel unlock ops, so the document stays sealed), supports locks kept.
@@ -224,6 +262,8 @@ for (const c of cases()) {
   if (JSON.stringify(a) !== JSON.stringify(b)) { say(c.id, { what: 'conflicts differ', got: a, want: b }); continue; }
   if (got.conflicts.some((x) => !x.step)) { say(c.id, { what: 'a conflict names no sub-step' }); continue; }
   say(c.id + (expect.size ? ` (${expect.size} kept nodes with "|" names)` : ''), null);
+  const second = secondRun(got, c.full);
+  if (second) say(`${c.id}, run again from its output (${historyOf(got.xmlText).size} nodes with history)`, second === 'PASS' ? null : second);
 }
 const JOIN_OPTIONS = { 'join-stage-wins': { joinStageWins: true }, 'keep-locked-node': { noJoin: true }, 'remove-locked-node': { noJoin: true, removeLockedNodes: true } };
 /** A join case: the result must equal today's unlocked output except the expected lines, and list the join. */
@@ -248,7 +288,9 @@ function checkJoin(id, c, expect) {
   if (got.conflicts.length) return say(id, { what: 'conflicts listed', conflicts: got.conflicts.map(key) });
   const names = checkNames(got, c.names);
   if (names) return say(id, names);
-  return say(`${id} (${c.names.size} kept nodes with "|" names)`, null);
+  say(`${id} (${c.names.size} kept nodes with "|" names)`, null);
+  const second = secondRun(got, c.full);
+  if (second) say(`${id}, run again from its output (${historyOf(got.xmlText).size} nodes with history)`, second === 'PASS' ? null : second);
 }
 {
   const stiff = joinCase('EF05', (v) => lockValue(v.restraints[0].uid, 'Stiffness', '2.000000E+12'));

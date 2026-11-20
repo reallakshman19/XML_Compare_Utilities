@@ -165,6 +165,44 @@ test('the "|" names go into the XML output and the document, never into the XML 
   assert.equal(off.engineXmlText, got.engineXmlText);
 });
 
+test('"Read it as history" (Owner 20 Nov): a "|" in an input name is history; today and the CII get the first part', () => {
+  const doc = read(xml(node(10) + node(20, R('+Y')) + node(40, '', 'PIPE', 100))
+    .replace('<NodeName>N10</NodeName>', '<NodeName>N10|OLD</NodeName>').replace('=1/10<', '=1/10|=1/OLD<')
+    .replace('<NodeName>N40</NodeName>', '<NodeName>N40|P</NodeName>'));
+  const seen = [];
+  const got = runSupportsUnderLocks(doc, (t) => { seen.push(t); return dropping(10)(t); });
+  assert.ok(seen.every((t) => !t.includes('|')), "today's code never sees a \"|\"");
+  assert.ok(!got.engineXmlText.includes('|'), 'nor does the CII engine');
+  assert.match(got.xmlText, /<NodeName>N20\|N10\|OLD<\/NodeName>/, 'the removed node brings its whole history');
+  assert.match(got.xmlText, /<ComponentRefNo>=1\/20\|=1\/10\|=1\/OLD<\/ComponentRefNo>/);
+  assert.match(got.xmlText, /<NodeName>N40\|P<\/NodeName>/, 'a node with history and no new join keeps it');
+  assert.deepEqual(got.names.map((n) => [n.nodeNumber, n.from.length, n.written]), [['20', 1, ['NodeName', 'ComponentRefNo']], ['40', 0, ['NodeName']]]);
+  assert.equal(got.deltas[0].stage, 'supports:name-history');
+  const left = runSupportsUnderLocks(doc, dropping(10), { nameHistory: false });
+  assert.match(left.engineXmlText, /N40\|P/, 'control: without the reading the "|" reaches the CII engine');
+  const n40 = doc.pipelines[0].components[2];
+  const locked = runStage(stageOf([{ op: 'lock', uid: n40.uid, path: 'values.NodeName', after: { field: 'Node/NodeName' } }]), doc).uxml;
+  const kept = runSupportsUnderLocks(locked, dropping(10));
+  assert.match(kept.engineXmlText, /<NodeName>N40\|P<\/NodeName>/, 'a name the transfer locked stays as the transfer set it');
+  assert.ok(!kept.names.some((x) => x.nodeNumber === '40'), 'and is not read as history');
+});
+
+test('PR 302 review B1: names are values, escaped once; a second run changes nothing', () => {
+  const doc = read(xml(node(10) + node(20, R('+Y')) + node(40, '', 'PIPE', 100))
+    .replace('<NodeName>N10</NodeName>', '<NodeName>A&amp;B</NodeName>')
+    .replace('<NodeName>N40</NodeName>', '<NodeName> K&amp;L|N&lt;9 </NodeName>'));
+  const seen = [];
+  const got = runSupportsUnderLocks(doc, (t) => { seen.push(t); return dropping(10)(t); });
+  assert.ok(seen.every((t) => t.includes('<NodeName>K&amp;L</NodeName>')), "today's code gets the first part, escaped once");
+  assert.match(got.engineXmlText, /<NodeName>K&amp;L<\/NodeName>/);
+  assert.match(got.xmlText, /<NodeName>N20\|A&amp;B<\/NodeName>/);
+  assert.match(got.xmlText, /<NodeName>K&amp;L\|N&lt;9<\/NodeName>/);
+  assert.deepEqual(got.names.map((n) => n.NodeName), [['N20', 'A&B'], ['K&L', 'N<9']], 'the list holds values, not literals');
+  const again = runSupportsUnderLocks(read(got.xmlText), dropping());
+  assert.equal(again.xmlText, got.xmlText, 'run again from its own output: the same XML');
+  assert.equal(again.engineXmlText, got.engineXmlText);
+});
+
 test("PR 301 review B1: the names group with today's own coordinate tolerance, not 1; a caller's other value is refused", () => {
   const doc = read(xml(node(10, R('+Y')) + node(20, '', 'ATTA', 4) + node(40, '', 'PIPE', 100)));
   const wide = (t) => ({ ...dropping(20)(t), config: { coordinateTolerance: 10 } });
@@ -181,6 +219,8 @@ test('gate: same XML, note and conflicts as today on the locked samples; the joi
   assert.match(ok.stdout, /PASS EF-05 join: a locked support stiffness moves to the kept node/);
   assert.match(ok.stdout, /PASS EF-05 join: .* \(89 kept nodes with "\|" names\)/);
   assert.match(ok.stdout, /PASS RMS-BLOW-1 join: .* \(17 kept nodes with "\|" names\)/);
+  assert.match(ok.stdout, /PASS EF-05 join: .*, run again from its output \(89 nodes with history\)/);
+  assert.match(ok.stdout, /PASS RMS-BLOW-1 join: .*, run again from its output \(17 nodes with history\)/);
   // Each gate run takes minutes: the suite runs the join's own wrong control and the value-lock one; the others are run
   // by hand (scripts/uxml-v2-supports-locks-gate.mjs <control>), see the PR.
   assert.equal(run('join-stage-wins').status, 1);
