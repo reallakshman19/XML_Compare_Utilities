@@ -8,6 +8,8 @@ import {runSupportsStage} from './supports/SupportsStage.js';
 import {provenanceTableRows, provenanceCsv, PROVENANCE_COLUMNS} from './supports/SupportProvenanceRows.js';
 import {showEngineering} from './UxmlV2EngineeringReview.js';
 import {asStageResult, documentRemovedRows, readRunRecordFile, runOutcome, runRecordFacts, runRecordXmlMatch, transferKeptRows} from './UxmlV2RunRecord.js';
+import {addedNodeRows, addedSupportRows, CHANGE_STEP_COLUMNS, changeLines, changeStepRows, removedNodeRows, removedSupportRows,
+  rewrittenSupportRows} from './UxmlV2RunRecordChanges.js';
 
 const $ = id => document.getElementById(id);
 const SHOW_AT_MOST = 400;
@@ -59,6 +61,24 @@ function show(stageResult, staged) {
 const table = (head, body) => el('table', {}, el('tr', {}, ...head.map(h => el('th', {textContent: h}))),
   ...body.map(r => el('tr', {}, ...r.map(c => el('td', {textContent: c ?? ''})))));
 
+/** A list of rows behind a summary line (closed until clicked). */
+const listed = (title, head, body) => (body.length ? el('details', {}, el('summary', {textContent: `${title} (${body.length})`}), table(head, body)) : '');
+
+/** E2c step 3 (Owner 20 Nov): what step 10 recorded on the UXML document, per sub-step and rule. */
+function changesSection(record) {
+  const lines = changeLines(record);
+  if (!lines.length) return '';
+  const steps = changeStepRows(record);
+  return el('div', {}, el('h3', {textContent: 'Changes step 10 recorded on the UXML document'}),
+    ...lines.map(l => el('div', {className: l.notice ? 'notice' : 'muted', textContent: l.text})),
+    steps.length ? table(CHANGE_STEP_COLUMNS, steps) : '',
+    listed('Nodes removed', ['Branch', 'Node', 'Node name', 'AVEVA reference', 'Sub-step'], removedNodeRows(record)),
+    listed('Nodes added', ['Branch', 'Node', 'Node name', 'AVEVA reference', 'Sub-step'], addedNodeRows(record)),
+    listed('Supports added', ['Branch', 'Node', 'Node name', 'Type', 'Sub-step'], addedSupportRows(record)),
+    listed('Supports rewritten', ['Branch', 'Node', 'Node name', 'Was', 'Now', 'Sub-step'], rewrittenSupportRows(record)),
+    listed('Supports removed', ['Branch', 'Node', 'Node name', 'Type', 'Sub-step'], removedSupportRows(record)));
+}
+
 /** A Run record from 3D_Converters step 10: that Run's own provenance (nothing is re-run). */
 async function showRecord(index) {
   const record = records[index];
@@ -76,7 +96,8 @@ async function showRecord(index) {
     kept.length ? el('div', {}, el('h3', {textContent: `Transfer-protected values (${kept.filter(r => r[5] === 'kept').length} of ${kept.length} kept)`}),
       table(['Branch', 'Node', 'Field', 'Transferred', runOutcome(record) === 'held' ? 'In the held XML' : 'In the CII input XML', ''], kept)) : '',
     removed.length ? el('div', {}, el('h3', {textContent: `Nodes the UXML document removed before the supports stage (${removed.length})`}),
-      table(['Branch', 'Node number', 'Node name', 'Stage'], removed)) : '');
+      table(['Branch', 'Node number', 'Node name', 'Stage'], removed)) : '',
+    changesSection(record));
   show(asStageResult(record), Boolean(record.hashes?.stagedJson));
 }
 
