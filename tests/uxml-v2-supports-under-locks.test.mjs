@@ -165,6 +165,14 @@ test('the "|" names go into the XML output and the document, never into the XML 
   assert.equal(off.engineXmlText, got.engineXmlText);
 });
 
+test("PR 301 review B1: the names group with today's own coordinate tolerance, not 1; a caller's other value is refused", () => {
+  const doc = read(xml(node(10, R('+Y')) + node(20, '', 'ATTA', 4) + node(40, '', 'PIPE', 100)));
+  const wide = (t) => ({ ...dropping(20)(t), config: { coordinateTolerance: 10 } });
+  const got = runSupportsUnderLocks(doc, wide);
+  assert.match(got.xmlText, /<NodeName>N10\|N20<\/NodeName>/, 'node 20 is 4 mm off: one group at tolerance 10');
+  assert.throws(() => runSupportsUnderLocks(doc, wide, { tolerance: 1 }), (e) => e.code === 'UXML_SUPPORTS_TOLERANCE_DIFFERS');
+});
+
 test('gate: same XML, note and conflicts as today on the locked samples; the join cases and the "|" names; three wrong controls fail', () => {
   const gate = fileURLToPath(new URL('../scripts/uxml-v2-supports-locks-gate.mjs', import.meta.url));
   const run = (...a) => spawnSync(process.execPath, [gate, ...a], { encoding: 'utf8' });

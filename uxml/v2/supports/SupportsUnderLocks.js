@@ -29,6 +29,7 @@ import {changesFromXml, readIds, tagIds, withoutIds, SUPPORTS_AS_CHANGES_RULES, 
 import {readPsi116V2} from '../UxmlV2Psi116Reader.js';
 import {joinDuplicates, joinPlan} from './JoinDuplicates.js';
 import {joinNames, joinNamesPlan} from './JoinNames.js';
+import {toFiniteNumber} from './config/EnrichmentConfig.js';
 
 export const SUPPORTS_UNDER_LOCKS_RULES = 'supports-under-locks/1';
 const txt = (e, k) => String(e?.values?.[k]?.text ?? '');
@@ -52,6 +53,13 @@ function nodesOf(doc) {
 }
 const lockOf = c => Object.values(c.values || {}).find(v => v?.lock)?.lock
   ?? c.restraints.flatMap(r => Object.values(r.values || {})).find(v => v?.lock)?.lock ?? null;
+/** Today's own coordinate tolerance, as its run used it (SupportsStage.js: config.coordinateTolerance, default 1), so
+ * the join and the names group exactly as today did (PR 301 review B1). A caller's different value is refused. */
+function todayTolerance(run, options) {
+  const own = run.config ? toFiniteNumber(run.config.coordinateTolerance, 1) : null;
+  if (own != null && options.tolerance != null && Number(options.tolerance) !== own) refuse('UXML_SUPPORTS_TOLERANCE_DIFFERS', {today: own, given: options.tolerance});
+  return own ?? options.tolerance ?? 1;
+}
 const supportsLocked = c => !!c.values?.NodeNumber?.lock?.supports;
 
 /**
@@ -113,9 +121,10 @@ function residualConflicts(doc, todayXml, firstStep, options) {
 export function runSupportsUnderLocks(doc, runStageFull, options = {}) {
   const input = withoutTransferNote(writePsi116FromUxmlV2(doc).text);
   const tagged = runStageFull(tagIds(doc, input)); // today's stage, the document's ids carried through it
+  const tolerance = todayTolerance(tagged, options);
   const today = {xmlText: withoutIds(tagged.xmlText), stages: Object.fromEntries(Object.entries(tagged.stages).map(([k, v]) => [k, withoutIds(v)]))};
   if (!options.noJoin && !options.joinedFrom) {
-    const plan = joinPlan(doc, tagged.stages['branch-pass'], {tolerance: options.tolerance});
+    const plan = joinPlan(doc, tagged.stages['branch-pass'], {tolerance});
     if (plan.length) {
       const join = joinDuplicates(doc, plan, {stageWins: !!options.joinStageWins, xmlAxisToCiiAxis: options.xmlAxisToCiiAxis});
       const again = runSupportsUnderLocks(join.uxml, runStageFull, {...options, joinedFrom: join});
@@ -138,7 +147,7 @@ export function runSupportsUnderLocks(doc, runStageFull, options = {}) {
   const engineXmlText = withNote(uxml);
   let names = [];
   if (options.names !== false) {
-    const step = joinNames(uxml, joinNamesPlan(doc, tagged.stages['branch-pass'], {tolerance: options.tolerance}));
+    const step = joinNames(uxml, joinNamesPlan(doc, tagged.stages['branch-pass'], {tolerance}));
     uxml = step.uxml;
     names = step.names;
     if (step.delta) deltas.push(step.delta);
