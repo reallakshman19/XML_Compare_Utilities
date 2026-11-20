@@ -1,20 +1,24 @@
 /**
- * End-to-end plan E2a (Owner 19 Nov 2026, "Yes, build E2a"): today's supports stage as recorded changes on the step-10
- * UXML document.
+ * End-to-end plan E2, rebuilt on ids (Owner 20 Nov 2026: "something fundamentally wrong, just round and round forever";
+ * "Support ID should be child of Node id"; "Yes, Build"): today's supports stage as recorded changes on the UXML
+ * document, with nothing guessed.
  *
- * Today's supports code (SupportsStage.js) stays the oracle and keeps running on PSI116 text. Each sub-step's output XML
- * is read back and matched to the document, and every difference becomes a kernel op that names the sub-step:
- *   - a node is matched by Position, ComponentRefNo and ComponentType, in order (measured 19 Nov: every output node of
- *     the 5 benchmarks has one input node; none is added); where input nodes tie on that key, NodeName too, else refused. An input node with no output node is a `remove` op (today:
- *     duplicate ATTA attachments at a kept ATTA's point). An output node with no input node is refused.
+ * Today's supports code (SupportsStage.js) stays the oracle and keeps running on PSI116 text. Before it runs, each
+ * <Branch> and <Node> element gets the document's uid as an attribute (tagIds); today's code carries it through every
+ * sub-step (measured 20 Nov on all 7 models, step7/e2c/uid-probe*.log: same element, no id twice, output byte-equal to
+ * today's once the ids are taken out). Each sub-step's output is read back by those ids:
+ *   - a node is the node with its id: an input node whose id is gone is a `remove` op (today: duplicate ATTA nodes at a
+ *     kept ATTA's point); an output node with no id, an id out of order or from another branch is refused.
  *   - a value that changed or is new is a `set` op; a new key carries `afterKey` (the key before it in today's output),
  *     so the writer puts it where today's text has it. A value today drops is a `set` to null.
- *   - supports are paired by content, never by place (pairSupports): a rewritten support (PSI116 Z to CAESAR II Y,
- *     direction cosines added) is `set` ops on that support, which keeps its uid and any lock; a new support is an `add`
- *     op. The document keeps its own support order (Owner 20 Nov: order does not matter).
+ *   - a support is "node N, support k" (today's support mapper rebuilds a node's supports, so a support has no identity
+ *     of its own): support k of the output is `set` ops on support k of the node, an extra one an `add`, a missing one a
+ *     `remove`. When today rebuilds support k with its tags in another order, an unlocked support k is replaced (remove
+ *     and add), so the writer gives today's bytes.
  *
- *   changesFromXml(doc, xmlText, rule) -> ops
- *   supportsAsChanges(doc, steps:[{id, xmlText}]) -> {uxml, deltas, counts}   one runStage per sub-step, in order
+ *   tagIds(doc, xmlText) -> xmlText with ids;  readIds(xmlText) -> {text (ids taken out), branches:[{uid, nodes:[uid]}]}
+ *   changesFromXml(doc, xmlTextWithIds, rule) -> ops
+ *   supportsAsChanges(doc, steps:[{id, xmlText (with ids)}]) -> {uxml, deltas, counts}   one runStage per sub-step
  *   engineXml(uxml) -> the XML the CII engine gets: written from the document, laid out as today's supports output.
  */
 import {runStage, sha256Hex} from '../UxmlV2Kernel.js';
@@ -22,13 +26,13 @@ import {readPsi116V2} from '../UxmlV2Psi116Reader.js';
 import {writePsi116FromUxmlV2} from '../UxmlV2Psi116Writer.js';
 import {parsePlainXml, serializePlainXml} from './PlainDom.js';
 
-export const SUPPORTS_AS_CHANGES_RULES = 'supports-as-changes/1';
+export const SUPPORTS_AS_CHANGES_RULES = 'supports-as-changes/2';
 /** Today's supports sub-steps, in order (SupportsStage.js `stages`). */
 export const SUPPORTS_STEPS = ['branch-pass', '01-parent-enrichment', '02-dtxr-enrichment', '02b-process-parity', '03-atta-default', '04-mds-closure'];
 const LAYERS = ['topology', 'engineering', 'supports', 'names', 'other'];
+const ID = 'uxid';
 
 const text = (entity, key) => String(entity?.values?.[key]?.text ?? '').trim();
-const nodeKey = c => [text(c, 'Position'), text(c, 'ComponentRefNo'), text(c, 'ComponentType')].join('|');
 
 function refuse(code, details) {
   const error = new Error(`${code}: ${JSON.stringify(details)}`);
@@ -37,23 +41,38 @@ function refuse(code, details) {
   throw error;
 }
 
-/** Longest common subsequence of two key lists: matched index pairs and the input indexes with no match. */
-export function alignNodes(inKeys, outKeys) {
-  const n = inKeys.length, m = outKeys.length;
-  const L = Array.from({length: n + 1}, () => new Int32Array(m + 1));
-  for (let i = n - 1; i >= 0; i -= 1) for (let j = m - 1; j >= 0; j -= 1)
-    L[i][j] = inKeys[i] === outKeys[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
-  const pairs = [], removed = [], unmatched = [];
-  let i = 0, j = 0;
-  while (i < n && j < m) {
-    if (inKeys[i] === outKeys[j]) pairs.push([i++, j++]);
-    else if (L[i + 1][j] >= L[i][j + 1]) removed.push(i++);
-    else unmatched.push(j++);
-  }
-  while (i < n) removed.push(i++);
-  while (j < m) unmatched.push(j++);
-  return {pairs, removed, unmatched};
+/** Put ids on every <Branch> and <Node> start tag, in document order: branches [{uid, nodes:[uid]}]. */
+export function placeIds(xmlText, branches) {
+  if (/<(Branch|Node)\s/.test(xmlText)) refuse('UXML_SUPPORTS_IDS_NOT_PLACED', {why: 'a Branch or Node element already has attributes'});
+  let b = -1, n = 0;
+  const out = xmlText.replace(/<(Branch|Node)>/g, (m, tag) => {
+    if (tag === 'Branch') { b += 1; n = 0; if (!branches[b]) refuse('UXML_SUPPORTS_IDS_NOT_PLACED', {branch: b}); return `<Branch ${ID}="${branches[b].uid}">`; }
+    const uid = branches[b]?.nodes[n++];
+    if (!uid) refuse('UXML_SUPPORTS_IDS_NOT_PLACED', {branch: b, node: n - 1});
+    return `<Node ${ID}="${uid}">`;
+  });
+  if (b + 1 !== branches.length) refuse('UXML_SUPPORTS_IDS_NOT_PLACED', {branches: [branches.length, b + 1]});
+  return out;
 }
+/** The document's branch and node uids on its PSI116 text (the text must be the document's, in its order). */
+export function tagIds(doc, xmlText) {
+  const branches = doc.pipelines.map(p => ({uid: p.uid, nodes: p.components.map(c => c.uid)}));
+  const out = placeIds(xmlText, branches);
+  const back = readIds(out).branches;
+  if (back.some((b, i) => b.nodes.length !== branches[i].nodes.length)) refuse('UXML_SUPPORTS_IDS_NOT_PLACED', {why: 'node count differs from the document'});
+  return out;
+}
+
+/** The ids in a text, in order, and the text with them taken out. A node with no id has uid null. */
+export function readIds(xmlText) {
+  const branches = [];
+  for (const m of xmlText.matchAll(/<(Branch|Node)(?: uxid="([^"]*)")?>/g)) {
+    if (m[1] === 'Branch') branches.push({uid: m[2] ?? null, nodes: []});
+    else if (branches.length) branches.at(-1).nodes.push(m[2] ?? null);
+  }
+  return {text: xmlText.replace(/<(Branch|Node) uxid="[^"]*">/g, '<$1>'), branches};
+}
+export const withoutIds = xmlText => readIds(xmlText).text;
 
 const plain = (value, rule) => {
   const out = {...value, src: 'stage', rule};
@@ -78,99 +97,64 @@ function valueOps(from, to, rule) {
   return ops;
 }
 
-/** PSI116 vertical axis to CAESAR II's (today's parent enrichment rewrites Z supports as Y; measured 20 Nov: the only
- * type change of a kept support on the 7 models). */
-const AXIS = {Z: 'Y', '+Z': '+Y', '-Z': '-Y'};
-const supportText = r => Object.keys(r.values).sort().map(k => `${k}=${r.values[k].text}`).join(' ') + `|${r.frame || ''}`;
-
-/**
- * Pair one node's supports by what they are, never by their place (Owner 20 Nov: support order does not matter):
- *   1. identical content (identical twins pair in order: nothing tells them apart);
- *   2. the same Type, a PSI116 Z Type counting as its CAESAR II Y: a Type with more than one candidate left on either
- *      side is refused (UXML_SUPPORTS_SUPPORT_AMBIGUOUS), never guessed (E2b: a Z and a Y that could both be one Y);
- *   3. one support left on each side: paired, its Type changed (E2b: so a lock on it stays, the kernel keeps a locked
- *      Type), never a removal plus a new support.
- * Returns [inputIndex, outputIndex] pairs. `byPlace` (gate control only) pairs by index, the old wrong way.
- */
-export function pairSupports(have, want, {byPlace = false} = {}) {
-  if (byPlace) return Array.from({length: Math.min(have.length, want.length)}, (_, k) => [k, k]);
-  const pairs = [], freeIn = new Set(have.keys()), freeOut = new Set(want.keys());
-  const take = (i, j) => { pairs.push([i, j]); freeIn.delete(i); freeOut.delete(j); };
-  for (const j of [...freeOut]) {
-    const i = [...freeIn].find(k => supportText(have[k]) === supportText(want[j]));
-    if (i != null) take(i, j);
-  }
-  const groups = new Map();
-  const group = t => { if (!groups.has(t)) groups.set(t, [[], []]); return groups.get(t); };
-  for (const i of freeIn) { const t = text(have[i], 'Type'); group(AXIS[t] ?? t)[0].push(i); }
-  for (const j of freeOut) group(text(want[j], 'Type'))[1].push(j);
-  for (const [type, [ins, outs]] of groups) {
-    if (!ins.length || !outs.length) continue;
-    if (ins.length > 1 || outs.length > 1) refuse('UXML_SUPPORTS_SUPPORT_AMBIGUOUS', {type, candidates: [ins.length, outs.length]});
-    take(ins[0], outs[0]);
-  }
-  if (freeIn.size === 1 && freeOut.size === 1) take([...freeIn][0], [...freeOut][0]);
-  return pairs.sort((a, b) => a[0] - b[0]);
+const hasLock = e => Object.values(e.values || {}).some(v => v?.lock);
+const keysOf = e => e.fieldOrder || Object.keys(e.values);
+/** The keys both have come in the same order in each. */
+function sameOrder(a, b) {
+  const inA = new Set(keysOf(a)), inB = new Set(keysOf(b));
+  return keysOf(a).filter(k => inB.has(k)).join('|') === keysOf(b).filter(k => inA.has(k)).join('|');
+}
+function addOp(c, r, k, after, rule) {
+  const uid = 'u:s' + sha256Hex(`${c.uid}|${rule}|support|${k}`).slice(0, 15);
+  const values = Object.fromEntries(Object.entries(r.values).map(([key, v]) => [key, plain(v, rule)]));
+  return {op: 'add', kind: 'restraint', uid, parent: c.uid, after, rule,
+    entity: {kind: 'restraint', fieldOrder: [...keysOf(r)], values, ...(r.frame ? {frame: r.frame} : {}), lineage: {from: [c.uid], rule}}};
 }
 
-/** Ops for one node's supports: paired ones as set ops (same uid, so a lock stays on its support), unpaired input
- * ones removed, unpaired output ones added after the node's last kept support. */
-function supportOps(c, d, rule, options) {
-  const ops = [], pairs = pairSupports(c.restraints, d.restraints, options);
-  const pairedIn = new Set(pairs.map(([i]) => i)), pairedOut = new Set(pairs.map(([, j]) => j));
-  for (const [i, j] of pairs) ops.push(...valueOps(c.restraints[i], d.restraints[j], rule));
-  c.restraints.forEach((r, i) => { if (!pairedIn.has(i)) ops.push({op: 'remove', uid: r.uid, rule}); });
-  let after = c.restraints.filter((_, i) => pairedIn.has(i)).at(-1)?.uid ?? null;
-  d.restraints.forEach((r, k) => {
-    if (pairedOut.has(k)) return;
-    const uid = 'u:s' + sha256Hex(`${c.uid}|${rule}|support|${k}`).slice(0, 15);
-    const values = Object.fromEntries(Object.entries(r.values).map(([key, v]) => [key, plain(v, rule)]));
-    ops.push({op: 'add', kind: 'restraint', uid, parent: c.uid, after, rule,
-      entity: {kind: 'restraint', fieldOrder: [...(r.fieldOrder || Object.keys(r.values))], values,
-        ...(r.frame ? {frame: r.frame} : {}), lineage: {from: [], rule}}});
-    after = uid;
-  });
+/** Ops for one node's supports, "node N, support k": support k set to today's support k, extras added after the last,
+ * missing ones removed. A support today rebuilt with its tags in another order is replaced, unless it holds a lock. */
+function supportOps(c, d, rule) {
+  const ops = [], have = c.restraints, want = d.restraints, n = Math.min(have.length, want.length);
+  let after = null;
+  for (let k = 0; k < n; k += 1) {
+    if (sameOrder(have[k], want[k]) || hasLock(have[k])) { ops.push(...valueOps(have[k], want[k], rule)); after = have[k].uid; continue; }
+    const add = addOp(c, want[k], k, after, rule);
+    ops.push({op: 'remove', uid: have[k].uid, rule}, add);
+    after = add.uid;
+  }
+  for (let k = n; k < have.length; k += 1) ops.push({op: 'remove', uid: have[k].uid, rule});
+  for (let k = n; k < want.length; k += 1) { const add = addOp(c, want[k], k, after, rule); ops.push(add); after = add.uid; }
   return ops;
 }
 
-/**
- * Node keys for one branch, input and output. Where one key is shared by several input nodes (duplicate ATTA nodes at
- * one point, all with one reference number), NodeName joins the key on both sides (today's supports stage never changes
- * a NodeName: measured 20 Nov), so the node today kept is the one matched. If names still tie and today removed some of
- * those nodes, it is refused (UXML_SUPPORTS_NODE_AMBIGUOUS). `firstOfTies` (gate control only) skips this guard.
- */
-function branchKeys(p, q, keyOf, {firstOfTies = false} = {}) {
-  const ins = p.components.map(keyOf), outs = q.components.map(keyOf);
-  if (firstOfTies) return [ins, outs];
-  const count = (list) => list.reduce((m, k) => m.set(k, (m.get(k) || 0) + 1), new Map());
-  const nIn = count(ins), tied = new Set([...nIn].filter(([, n]) => n > 1).map(([k]) => k));
-  if (!tied.size) return [ins, outs];
-  const named = (list, comps) => list.map((k, i) => (tied.has(k) ? k + '|' + text(comps[i], 'NodeName') : k));
-  const [inN, outN] = [named(ins, p.components), named(outs, q.components)];
-  const nOut = count(outs), nNamed = count(inN);
-  inN.forEach((k, i) => {
-    if (nNamed.get(k) > 1 && tied.has(ins[i]) && (nOut.get(ins[i]) || 0) < nIn.get(ins[i]))
-      refuse('UXML_SUPPORTS_NODE_AMBIGUOUS', {branch: text(p, 'Branchname'), key: k, nodes: nNamed.get(k)});
-  });
-  return [inN, outN];
-}
-
-/** Ops that turn `doc` into the PSI116 text `xmlText` (one sub-step's output), every op naming `rule`. `nodeKey`: how
- * nodes are matched (default position, reference and type). `firstOfTies`, `byPlace`: the gate's wrong controls only. */
-export function changesFromXml(doc, xmlText, rule, {nodeKey: keyOf = nodeKey, firstOfTies = false, byPlace = false} = {}) {
-  const out = readPsi116V2(xmlText, {fileSha256: sha256Hex(xmlText)});
-  if (out.pipelines.length !== doc.pipelines.length)
-    refuse('UXML_SUPPORTS_BRANCHES_CHANGED', {rule, branches: [doc.pipelines.length, out.pipelines.length]});
+/** Ops that turn `doc` into the PSI116 text `xmlText` (one sub-step's output, with ids), every op naming `rule`. */
+export function changesFromXml(doc, xmlText, rule) {
+  const {text: plainText, branches} = readIds(xmlText);
+  if (!branches.length || branches.some(b => !b.uid)) refuse('UXML_SUPPORTS_IDS_MISSING', {rule});
+  const out = readPsi116V2(plainText, {fileSha256: sha256Hex(plainText)});
+  if (out.pipelines.length !== branches.length || out.pipelines.some((q, b) => q.components.length !== branches[b].nodes.length))
+    refuse('UXML_SUPPORTS_IDS_NOT_READ', {rule});
+  if (branches.length !== doc.pipelines.length || branches.some((b, i) => b.uid !== doc.pipelines[i].uid))
+    refuse('UXML_SUPPORTS_BRANCHES_CHANGED', {rule, branches: [doc.pipelines.length, branches.length]});
   const ops = [];
   doc.pipelines.forEach((p, b) => {
-    const q = out.pipelines[b];
+    const q = out.pipelines[b], ids = branches[b].nodes, branch = text(p, 'Branchname');
     ops.push(...valueOps(p, q, rule));
-    const {pairs, removed, unmatched} = alignNodes(...branchKeys(p, q, keyOf, {firstOfTies}));
-    if (unmatched.length) refuse('UXML_SUPPORTS_NODE_NOT_MATCHED', {rule, branch: text(p, 'Branchname'), node: text(q.components[unmatched[0]], 'NodeNumber')});
-    for (const i of removed) ops.push({op: 'remove', uid: p.components[i].uid, rule});
-    for (const [i, j] of pairs) {
-      ops.push(...valueOps(p.components[i], q.components[j], rule), ...supportOps(p.components[i], q.components[j], rule, {byPlace}));
-    }
+    const at = new Map(p.components.map((c, i) => [c.uid, i]));
+    let last = -1;
+    ids.forEach((uid, j) => {
+      if (!uid) refuse('UXML_SUPPORTS_NODE_ADDED', {rule, branch, node: text(q.components[j], 'NodeNumber')});
+      const i = at.get(uid);
+      if (i == null) refuse('UXML_SUPPORTS_NODE_MOVED', {rule, branch, uid});
+      if (i <= last) refuse('UXML_SUPPORTS_NODE_ORDER', {rule, branch, uid});
+      last = i;
+    });
+    const kept = new Set(ids);
+    for (const c of p.components) if (!kept.has(c.uid)) ops.push({op: 'remove', uid: c.uid, rule});
+    ids.forEach((uid, j) => {
+      const c = p.components[at.get(uid)], d = q.components[j];
+      ops.push(...valueOps(c, d, rule), ...supportOps(c, d, rule));
+    });
   });
   return ops;
 }
@@ -204,7 +188,7 @@ export function supportsAsChanges(doc, steps) {
     const ops = changesFromXml(uxml, xmlText, id);
     const stage = {id: 'supports:' + id, rulesVersion: SUPPORTS_AS_CHANGES_RULES, reads: ['topology'], writes: LAYERS,
       run: () => ({ops, diagnostics: []})};
-    const step = runStage(stage, uxml, {}, {}, {inputHashes: [sha256Hex(xmlText)]});
+    const step = runStage(stage, uxml, {}, {}, {inputHashes: [sha256Hex(withoutIds(xmlText))]});
     counts[id] = countChanges(uxml, ops);
     uxml = step.uxml;
     deltas.push(step.delta);
