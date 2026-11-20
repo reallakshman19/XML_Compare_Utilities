@@ -36,6 +36,12 @@ export const STAGE_FILE_MESSAGES = Object.freeze({
   UXML_STAGE_FILE_NOT_A_READ: 'The stage file does not start from the source read.',
   UXML_STAGE_FILE_RESULT_MISMATCH: 'The stage file\'s changes do not end at the revision it claims: it is cut short or was changed.',
   UXML_STAGE_SETTINGS_NOT_LEFT_OUT: 'This stage file holds settings its stage must leave out (for example a weight choice before Weight Match).',
+  // The kernel's refusals while the chain is rebuilt: the file was changed after it was made.
+  UXML_HASH_MISMATCH: 'The stage file was changed after it was made: a document in it no longer matches its own hash.',
+  UXML_DELTA_BEFORE_MISMATCH: 'The stage file was changed after it was made: a recorded change no longer fits the document.',
+  UXML_DELTA_BASE_MISMATCH: 'The stage file was changed after it was made: its recorded changes are out of order.',
+  UXML_DELTA_RESULT_MISMATCH: 'The stage file was changed after it was made: a recorded change does not give the revision it names.',
+  UXML_UID_UNKNOWN: 'The stage file was changed after it was made: a recorded change names an item that is not there.',
 });
 
 /** A stage file (plain object; JSON.stringify it to save). `inputs` are sha256 hex strings (see the header). */
