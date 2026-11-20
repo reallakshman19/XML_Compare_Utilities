@@ -23,6 +23,8 @@ import {writePsi116FromUxmlV2} from '../UxmlV2Psi116Writer.js';
 import {parsePlainXml, serializePlainXml} from './PlainDom.js';
 
 export const SUPPORTS_AS_CHANGES_RULES = 'supports-as-changes/1';
+/** Today's supports sub-steps, in order (SupportsStage.js `stages`). */
+export const SUPPORTS_STEPS = ['branch-pass', '01-parent-enrichment', '02-dtxr-enrichment', '02b-process-parity', '03-atta-default', '04-mds-closure'];
 const LAYERS = ['topology', 'engineering', 'supports', 'names', 'other'];
 
 const text = (entity, key) => String(entity?.values?.[key]?.text ?? '').trim();
@@ -82,9 +84,12 @@ const AXIS = {Z: 'Y', '+Z': '+Y', '-Z': '-Y'};
 const supportText = r => Object.keys(r.values).sort().map(k => `${k}=${r.values[k].text}`).join(' ') + `|${r.frame || ''}`;
 
 /**
- * Pair one node's supports by what they are, never by their place (Owner 20 Nov: support order does not matter), in
- * three passes: identical content; then the same Type; then a PSI116 Z Type with its CAESAR II Y. In the last two passes
- * a Type with more than one candidate left on either side is refused (UXML_SUPPORTS_SUPPORT_AMBIGUOUS), never guessed.
+ * Pair one node's supports by what they are, never by their place (Owner 20 Nov: support order does not matter):
+ *   1. identical content (identical twins pair in order: nothing tells them apart);
+ *   2. the same Type, a PSI116 Z Type counting as its CAESAR II Y: a Type with more than one candidate left on either
+ *      side is refused (UXML_SUPPORTS_SUPPORT_AMBIGUOUS), never guessed (E2b: a Z and a Y that could both be one Y);
+ *   3. one support left on each side: paired, its Type changed (E2b: so a lock on it stays, the kernel keeps a locked
+ *      Type), never a removal plus a new support.
  * Returns [inputIndex, outputIndex] pairs. `byPlace` (gate control only) pairs by index, the old wrong way.
  */
 export function pairSupports(have, want, {byPlace = false} = {}) {
@@ -95,16 +100,16 @@ export function pairSupports(have, want, {byPlace = false} = {}) {
     const i = [...freeIn].find(k => supportText(have[k]) === supportText(want[j]));
     if (i != null) take(i, j);
   }
-  for (const typeOf of [r => text(r, 'Type'), r => AXIS[text(r, 'Type')] ?? text(r, 'Type')]) {
-    const groups = new Map();
-    for (const i of freeIn) { const t = typeOf(have[i]); if (!groups.has(t)) groups.set(t, [[], []]); groups.get(t)[0].push(i); }
-    for (const j of freeOut) { const t = text(want[j], 'Type'); if (groups.has(t)) groups.get(t)[1].push(j); }
-    for (const [type, [ins, outs]] of groups) {
-      if (!ins.length || !outs.length) continue;
-      if (ins.length > 1 || outs.length > 1) refuse('UXML_SUPPORTS_SUPPORT_AMBIGUOUS', {type, candidates: [ins.length, outs.length]});
-      take(ins[0], outs[0]);
-    }
+  const groups = new Map();
+  const group = t => { if (!groups.has(t)) groups.set(t, [[], []]); return groups.get(t); };
+  for (const i of freeIn) { const t = text(have[i], 'Type'); group(AXIS[t] ?? t)[0].push(i); }
+  for (const j of freeOut) group(text(want[j], 'Type'))[1].push(j);
+  for (const [type, [ins, outs]] of groups) {
+    if (!ins.length || !outs.length) continue;
+    if (ins.length > 1 || outs.length > 1) refuse('UXML_SUPPORTS_SUPPORT_AMBIGUOUS', {type, candidates: [ins.length, outs.length]});
+    take(ins[0], outs[0]);
   }
+  if (freeIn.size === 1 && freeOut.size === 1) take([...freeIn][0], [...freeOut][0]);
   return pairs.sort((a, b) => a[0] - b[0]);
 }
 
