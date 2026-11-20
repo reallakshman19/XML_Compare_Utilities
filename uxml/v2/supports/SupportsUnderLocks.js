@@ -8,11 +8,12 @@
  *     transfer's 127 is kept");
  *   - on a node whose supports the transfer set (a supports lock on its NodeNumber), no change to its supports is
  *     taken; when today's final supports differ, that is one conflict, key 'Supports' (as today, Owner 18 Nov);
- *   - a node holding any lock is never removed: it is kept and listed, key 'Node' (Owner 19 Nov, "Yes, keep the node").
+ *   - a locked node today removes as a duplicate is joined into the node today keeps (JoinDuplicates.js; Owner 20 Nov,
+ *     "Yes, that join", replacing 19 Nov "keep the node"); a node still holding a lock is never removed (key 'Node').
  * Conflicts are what still differs between the final document and today's final output: each is listed once, with
  * the first sub-step that wanted it. Any other difference is a defect and refused (UXML_SUPPORTS_LOCKS_RESIDUAL).
  *
- *   runSupportsUnderLocks(doc, runStageFull) -> {uxml, deltas, conflicts, xmlText (with the note), stageXmlText}
+ *   runSupportsUnderLocks(doc, runStageFull) -> {uxml, deltas, conflicts, joined, xmlText (with the note), stageXmlText}
  *   runStageFull(psi116Text) -> {xmlText, stages} (SupportsStage.js runSupportsStage's result)
  */
 import {runStage, sha256Hex, LAYERS} from '../UxmlV2Kernel.js';
@@ -21,9 +22,11 @@ import {noteFromLocks, withTransferNote, withoutTransferNote} from '../transfer/
 import {restraintsText} from '../transfer/LockedEngineering.js';
 import {changesFromXml, SUPPORTS_AS_CHANGES_RULES, SUPPORTS_STEPS} from './SupportsAsChanges.js';
 import {readPsi116V2} from '../UxmlV2Psi116Reader.js';
+import {joinDuplicates, joinPlan} from './JoinDuplicates.js';
 
 export const SUPPORTS_UNDER_LOCKS_RULES = 'supports-under-locks/1';
 const txt = (e, k) => String(e?.values?.[k]?.text ?? '');
+const val = (e, k) => String(e?.values?.[k]?.v ?? ''); // place names as today's wrapper writes them (its .v)
 
 function refuse(code, details) {
   const error = new Error(`${code}: ${JSON.stringify(details)}`);
@@ -36,7 +39,7 @@ function refuse(code, details) {
 function nodesOf(doc) {
   const nodes = new Map(), owner = new Map();
   for (const p of doc.pipelines) for (const c of p.components) {
-    nodes.set(c.uid, {c, branch: txt(p, 'Branchname')});
+    nodes.set(c.uid, {c, branch: val(p, 'Branchname')});
     for (const r of c.restraints) owner.set(r.uid, c.uid);
   }
   return {nodes, owner};
@@ -70,9 +73,10 @@ function residualConflicts(doc, todayXml, firstStep, options) {
   const {held, taken} = holdBackLocked(doc, changesFromXml(doc, todayXml, 'residual'), options);
   const out = readPsi116V2(todayXml, {fileSha256: sha256Hex(todayXml)});
   const values = [], others = [], seen = new Set();
-  const place = uid => { const n = nodes.get(uid) || nodes.get(owner.get(uid)); return n ? {branch: n.branch, node: txt(n.c, 'NodeNumber')} : {branch: txt(doc.pipelines.find(p => p.uid === uid), 'Branchname'), node: null}; };
+  const place = uid => { const n = nodes.get(uid) || nodes.get(owner.get(uid)); return n ? {branch: n.branch, node: val(n.c, 'NodeNumber')} : {branch: val(doc.pipelines.find(p => p.uid === uid), 'Branchname'), node: null}; };
+  const byUid = new Map([...doc.pipelines, ...[...nodes.values()].flatMap(n => [n.c, ...n.c.restraints])].map(e => [e.uid, e]));
   for (const op of taken) {
-    const entity = [...doc.pipelines, ...[...nodes.values()].map(n => n.c), ...[...nodes.values()].flatMap(n => n.c.restraints)].find(e => e.uid === op.uid);
+    const entity = byUid.get(op.uid);
     const key = op.path?.startsWith('values.') ? op.path.slice(7) : null;
     const current = key ? entity?.values?.[key] : null;
     if (op.op !== 'set' || !current?.lock) refuse('UXML_SUPPORTS_LOCKS_RESIDUAL', {op: op.op, uid: op.uid, path: op.path ?? null});
@@ -84,7 +88,8 @@ function residualConflicts(doc, todayXml, firstStep, options) {
     const c = nodes.get(h.uid).c;
     if (h.kind === 'node') others.push({...place(h.uid), key: 'Node', kept: 'kept', stageWanted: 'removed', lock: lockOf(c), step: firstStep.get(h.uid + '|Node') ?? null});
     else {
-      const want = out.pipelines.flatMap(p => p.components).find(d => txt(d, 'NodeNumber') === txt(c, 'NodeNumber') && txt(d, 'Position') === txt(c, 'Position'));
+      // Today's node by reference and position, which the stage never changes (review note N2: not by its number).
+      const want = out.pipelines.flatMap(p => p.components).find(d => txt(d, 'ComponentRefNo') === txt(c, 'ComponentRefNo') && txt(d, 'Position') === txt(c, 'Position'));
       others.push({...place(h.uid), key: 'Supports', kept: restraintsText(c.restraints), stageWanted: want ? restraintsText(want.restraints) : 'none',
         lock: c.values.NodeNumber.lock, step: firstStep.get(h.uid + '|Supports') ?? null});
     }
@@ -92,10 +97,22 @@ function residualConflicts(doc, todayXml, firstStep, options) {
   return values.concat(others);
 }
 
-/** Run today's supports stage on `doc` and read it back sub-step by sub-step under the document's locks. */
+/**
+ * Run today's supports stage on `doc` and read it back sub-step by sub-step under the document's locks. A locked node
+ * today's branch pass removes is first joined into the node it keeps (JoinDuplicates.js, Owner 20 Nov), then the stage
+ * runs again on the joined document. `noJoin` (gate control only): the locked node is kept instead, as in E2b.
+ */
 export function runSupportsUnderLocks(doc, runStageFull, options = {}) {
   const input = withoutTransferNote(writePsi116FromUxmlV2(doc).text);
   const today = runStageFull(input);
+  if (!options.noJoin && !options.joinedFrom) {
+    const plan = joinPlan(doc, today.stages['branch-pass']);
+    if (plan.length) {
+      const join = joinDuplicates(doc, plan, {stageWins: !!options.joinStageWins});
+      const again = runSupportsUnderLocks(join.uxml, runStageFull, {...options, joinedFrom: join});
+      return {...again, deltas: [join.delta, ...again.deltas]};
+    }
+  }
   let uxml = doc;
   const deltas = [], firstStep = new Map();
   for (const id of SUPPORTS_STEPS) {
@@ -109,5 +126,5 @@ export function runSupportsUnderLocks(doc, runStageFull, options = {}) {
   }
   const conflicts = residualConflicts(uxml, today.xmlText, firstStep, options);
   const xmlText = withTransferNote(writePsi116FromUxmlV2(uxml).text, noteFromLocks(uxml));
-  return {uxml, deltas, conflicts, xmlText, stageXmlText: today.xmlText, rules: SUPPORTS_UNDER_LOCKS_RULES};
+  return {uxml, deltas, conflicts, joined: options.joinedFrom?.joined || [], xmlText, stageXmlText: today.xmlText, rules: SUPPORTS_UNDER_LOCKS_RULES};
 }

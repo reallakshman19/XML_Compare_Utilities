@@ -1,15 +1,18 @@
 // Gate for end-to-end plan E2b (uxml/v2/supports/SupportsUnderLocks.js): today's supports stage read back as recorded
 // changes UNDER the transfer's locks must give what today's lock wrapper (uxml/v2/transfer/LockedEngineering.js) gives:
 // the same XML with the same protection note, byte for byte, and the same conflict list, on every locked case it accepts.
-// One case it refuses today (a lock on a duplicate ATTA node the stage removes) must keep that node and list it once.
+// A lock on a duplicate ATTA node the stage removes (refused by today's wrapper) is joined into the node today keeps
+// (Owner 20 Nov, "Yes, that join"): the output must be today's unlocked output plus the joined value, listed once.
 //   node scripts/uxml-v2-supports-locks-gate.mjs [control] [--json report.json]
 // Controls (each must FAIL): ignore-value-locks (the stage's value is written over a lock), take-locked-supports (the
-// stage's supports taken on a node whose supports the transfer set), remove-locked-node (a locked duplicate removed).
+// stage's supports taken on a node whose supports the transfer set), join-stage-wins (the kept node's value wins over the
+// removed node's lock), keep-locked-node (the locked duplicate kept, as E2b did), remove-locked-node (removed, no join).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runStage, sha256Hex } from '../uxml/v2/UxmlV2Kernel.js';
 import { readPsi116V2 } from '../uxml/v2/UxmlV2Psi116Reader.js';
+import { writePsi116FromUxmlV2 } from '../uxml/v2/UxmlV2Psi116Writer.js';
 import { loadCalls, revive } from '../uxml/v2/supports/CoreCallsLib.js';
 import { runSupportsStage } from '../uxml/v2/supports/SupportsStage.js';
 import { runSupportsUnderLocks } from '../uxml/v2/supports/SupportsUnderLocks.js';
@@ -22,7 +25,7 @@ const at = (...p) => path.join(ROOT, ...p);
 const args = process.argv.slice(2);
 const control = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--json') || null;
 const jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
-const CONTROLS = ['ignore-value-locks', 'take-locked-supports', 'remove-locked-node'];
+const CONTROLS = ['ignore-value-locks', 'take-locked-supports', 'join-stage-wins', 'keep-locked-node', 'remove-locked-node'];
 if (control && !CONTROLS.includes(control)) throw new Error(`unknown control ${control}`);
 const read = (t) => readPsi116V2(t, { fileSha256: sha256Hex(t) });
 const tx = (e, k) => String(e?.values?.[k]?.text ?? '');
@@ -90,17 +93,41 @@ function cases() {
   ];
 }
 
-/** RMS-BLOW-1, raw: a lock on one duplicate ATTA node the stage removes (refused by today's wrapper). */
-function lockedDuplicateCase() {
-  const xmlText = fs.readFileSync(at('fixtures/uxml-v2-supports/oracle/RMS-BLOW-1/xml/engineering-pass-start.xml'), 'utf8');
-  const doc = read(xmlText), full = benchStage('RMS-BLOW-1'), today = full(xmlText);
+/**
+ * The join (Owner 20 Nov, "Yes, that join"): a raw model, today's stage, and locks set on duplicate ATTA nodes today
+ * removes. `pick(removedNode, keptNode)` gives the lock ops (removed node: one today removes, with a kept ATTA node
+ * at its point; `supports`: both with supports). Returns the locked document, today's unlocked
+ * output (the oracle), and the nodes.
+ */
+function joinCase(bench, pick, {supports = true} = {}) {
+  const xmlText = fs.readFileSync(at('fixtures/uxml-v2-supports/oracle', bench, 'xml/engineering-pass-start.xml'), 'utf8');
+  const doc = read(xmlText), full = benchStage(bench), today = full(xmlText);
   const out = read(today.stages['branch-pass']);
   const kept = new Set(out.pipelines.flatMap((p) => p.components.map((c) => tx(c, 'ComponentRefNo') + '|' + tx(c, 'Position'))));
-  const victim = doc.pipelines.flatMap((p) => p.components).find((c) => tx(c, 'ComponentType') === 'ATTA' && !kept.has(tx(c, 'ComponentRefNo') + '|' + tx(c, 'Position')));
-  const lock = { field: 'Node/NodeName', source: 'gate' };
-  const stage = { id: 'gate-lock', rulesVersion: 'gate/1', reads: ['topology'], writes: ['topology', 'engineering', 'supports', 'names', 'other'],
-    run: () => ({ ops: [{ op: 'lock', uid: victim.uid, path: 'values.NodeName', after: lock }] }) };
-  return { doc: runStage(stage, doc).uxml, full, victim };
+  const all = doc.pipelines.flatMap((p) => p.components);
+  const isKept = (c) => kept.has(tx(c, 'ComponentRefNo') + '|' + tx(c, 'Position'));
+  const victim = all.find((c) => tx(c, 'ComponentType') === 'ATTA' && !isKept(c) && (!supports || c.restraints.length)
+    && all.some((k) => k !== c && isKept(k) && tx(k, 'ComponentType') === 'ATTA' && tx(k, 'Position') === tx(c, 'Position') && (!supports || k.restraints.length)));
+  const keeper = all.find((k) => isKept(k) && tx(k, 'ComponentType') === 'ATTA' && tx(k, 'Position') === tx(victim, 'Position'));
+  const LAYERS = ['topology', 'engineering', 'supports', 'names', 'other'];
+  const stage = { id: 'gate-lock', rulesVersion: 'gate/1', reads: ['topology'], writes: LAYERS, run: () => ({ ops: pick(victim, keeper) }) };
+  return { doc: runStage(stage, doc).uxml, full, todayXml: today.xmlText, victim, keeper };
+}
+const lockValue = (uid, key, text) => [
+  { op: 'set', uid, path: 'values.' + key, after: { v: Number(text) || text, text, src: 'transfer', rule: 'gate' } },
+  { op: 'lock', uid, path: 'values.' + key, after: { field: 'Node/' + key, source: 'gate' } }];
+
+/** Content lines of a PSI116 text, whatever the tag and support order (as the E2a gate's). */
+function content(xmlText) {
+  const doc = read(xmlText);
+  const vals = (e) => Object.keys(e.values).sort().map((k) => `${k}=${e.values[k].text}`).join(' ');
+  return doc.pipelines.flatMap((p) => [`B ${vals(p)}`, ...p.components.flatMap((c) => [`N ${vals(c)}`, ...c.restraints.map((r) => `  S ${vals(r)}`).sort()])]);
+}
+/** Lines in `a` not in `b`, counted (a multiset difference). */
+function minus(a, b) {
+  const n = new Map();
+  for (const x of b) n.set(x, (n.get(x) || 0) + 1);
+  return a.filter((x) => (n.get(x) ? (n.set(x, n.get(x) - 1), false) : true));
 }
 
 const key = (c) => [c.branch, c.node, c.key, c.kept, c.stageWanted].join(' | ');
@@ -132,16 +159,30 @@ for (const c of cases()) {
   if (got.conflicts.some((x) => !x.step)) { say(c.id, { what: 'a conflict names no sub-step' }); continue; }
   say(c.id, null);
 }
-{
-  const { doc, full, victim } = lockedDuplicateCase();
+const JOIN_OPTIONS = { 'join-stage-wins': { joinStageWins: true }, 'keep-locked-node': { noJoin: true }, 'remove-locked-node': { noJoin: true, removeLockedNodes: true } };
+/** A join case: the result must equal today's unlocked output except the expected lines, and list the join. */
+function checkJoin(id, c, expect) {
   let got;
-  try { got = control === 'remove-locked-node' ? runSupportsUnderLocks(doc, full, { removeLockedNodes: true }) : spoiled(doc, full); } catch (e) { got = { refused: e.code || e.message }; }
-  const nodeConflicts = got.conflicts?.filter((x) => x.key === 'Node') || [];
-  const stillThere = got.uxml?.pipelines.some((p) => p.components.some((c) => c.uid === victim.uid));
-  if (got.refused) say('RMS-BLOW-1 locked duplicate kept', { refused: got.refused });
-  else if (!stillThere || nodeConflicts.length !== 1 || nodeConflicts[0].node !== tx(victim, 'NodeNumber') || nodeConflicts[0].step !== 'branch-pass')
-    say('RMS-BLOW-1 locked duplicate kept', { what: 'locked node not kept and listed once', stillThere, nodeConflicts });
-  else say('RMS-BLOW-1 locked duplicate kept', null);
+  try { got = runSupportsUnderLocks(c.doc, c.full, JOIN_OPTIONS[control] || {}); } catch (e) { return say(id, expect.refused === (e.code || e.message) ? null : { refused: e.code || e.message }); }
+  if (expect.refused) return say(id, { what: 'not refused', want: expect.refused });
+  const a = content(writePsi116FromUxmlV2(got.uxml).text), b = content(c.todayXml);
+  const extra = minus(a, b), missing = minus(b, a);
+  if (extra.length !== expect.lines || missing.length !== expect.lines || !extra.every((x) => x.includes(expect.text)))
+    return say(id, { what: 'output is not today plus the joined value', extra: extra.slice(0, 3), missing: missing.slice(0, 3) });
+  const j = got.joined?.[0];
+  if (got.joined?.length !== 1 || j.from !== tx(c.victim, 'NodeNumber') || j.into !== tx(c.keeper, 'NodeNumber') || !j.replaced.some((r) => r.kept === expect.value))
+    return say(id, { what: 'join not listed', joined: got.joined });
+  return say(id, null);
+}
+{
+  const stiff = joinCase('EF05', (v) => lockValue(v.restraints[0].uid, 'Stiffness', '2.000000E+12'));
+  checkJoin('EF-05 join: a locked support stiffness moves to the kept node', stiff, { lines: 1, text: 'Stiffness=2.000000E+12', value: '2.000000E+12' });
+  const weight = joinCase('RMS-BLOW-1', (v) => lockValue(v.uid, 'Weight', '5'), { supports: false });
+  checkJoin('RMS-BLOW-1 join: a locked node value moves to the kept node', weight, { lines: 1, text: 'Weight=5', value: '5' });
+  const name = joinCase('EF05', (v) => [{ op: 'lock', uid: v.uid, path: 'values.NodeName', after: { field: 'Node/NodeName', source: 'gate' } }]);
+  checkJoin("EF-05 join: a lock on the removed node's name is refused", name, { refused: 'UXML_JOIN_IDENTITY_LOCKED' });
+  const two = joinCase('EF05', (v, k) => [...lockValue(v.restraints[0].uid, 'Stiffness', '2.000000E+12'), ...lockValue(k.restraints[0].uid, 'Stiffness', '3.000000E+12')]);
+  checkJoin('EF-05 join: two different locks on one value are refused', two, { refused: 'UXML_JOIN_LOCKS_DIFFER' });
 }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(report, null, 1));
 console.log(failed ? `FAIL ${failed} case(s) (${control || 'stage'})` : `PASS every case (${control || 'stage'})`);

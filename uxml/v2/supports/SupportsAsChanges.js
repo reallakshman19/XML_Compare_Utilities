@@ -100,15 +100,18 @@ export function pairSupports(have, want, {byPlace = false} = {}) {
     const i = [...freeIn].find(k => supportText(have[k]) === supportText(want[j]));
     if (i != null) take(i, j);
   }
-  const groups = new Map();
-  const group = t => { if (!groups.has(t)) groups.set(t, [[], []]); return groups.get(t); };
-  for (const i of freeIn) { const t = text(have[i], 'Type'); group(AXIS[t] ?? t)[0].push(i); }
-  for (const j of freeOut) group(text(want[j], 'Type'))[1].push(j);
-  for (const [type, [ins, outs]] of groups) {
-    if (!ins.length || !outs.length) continue;
-    if (ins.length > 1 || outs.length > 1) refuse('UXML_SUPPORTS_SUPPORT_AMBIGUOUS', {type, candidates: [ins.length, outs.length]});
-    take(ins[0], outs[0]);
+  // A free output support's candidates: free inputs of its Type, or a PSI116 Z for a Y (review note N4: a Z that stays
+  // a Z still pairs). More than one candidate on either side is refused.
+  const fits = (i, j) => { const t = text(have[i], 'Type'), w = text(want[j], 'Type'); return t === w || AXIS[t] === w; };
+  const choice = [];
+  for (const j of freeOut) {
+    const ins = [...freeIn].filter(i => fits(i, j));
+    if (!ins.length) continue;
+    const rivals = [...freeOut].filter(k => fits(ins[0], k));
+    if (ins.length > 1 || rivals.length > 1) refuse('UXML_SUPPORTS_SUPPORT_AMBIGUOUS', {type: text(want[j], 'Type'), candidates: [ins.length, rivals.length]});
+    choice.push([ins[0], j]);
   }
+  for (const [i, j] of choice) take(i, j);
   if (freeIn.size === 1 && freeOut.size === 1) take([...freeIn][0], [...freeOut][0]);
   return pairs.sort((a, b) => a[0] - b[0]);
 }
