@@ -3,12 +3,12 @@
 // sub-step and at the end. Inputs per model are the supports stage gate's: oracle/<B>/xml/engineering-pass-start.xml,
 // the job config from the recorded DTXR call, and the material map rows from the snapshot.
 //   node scripts/uxml-v2-supports-changes-gate.mjs [control] [--bench <model>] [--json report.json]
-// Identity (PR 299 review): a kept node never changes NodeName or ComponentRefNo (today never does), and a kept support
-// never changes Type except PSI116 Z to CAESAR II Y, so no op hands one node's or support's identity to another.
-// Support order inside a node is not compared (Owner 20 Nov: it does not matter); everything else is, by byte at the end.
-// Controls (each must FAIL): drop-support (one new support not recorded), wrong-duplicate (duplicate ATTA nodes matched
-// by position and type only, first of a tie kept), by-number (nodes matched by NodeNumber), by-place (supports paired by
-// their place on the node).
+// Rebuilt on ids (Owner 20 Nov 2026): today's stage runs on the input with each Branch's and Node's uid on it; first the
+// ids must change nothing (every sub-step's output, ids taken out, equal to today's run without ids), then the read-back
+// by ids must give today's engine XML byte for byte, support order included. Identity: a kept node never changes
+// NodeName or ComponentRefNo (today never does), so no op hands one node's identity to another.
+// Controls (each must FAIL): drop-support (one new support not recorded), swap-duplicate-ids (the ids of two ATTA nodes
+// at one point swapped, so the read-back keeps the node today removed).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +17,7 @@ import { readPsi116V2 } from '../uxml/v2/UxmlV2Psi116Reader.js';
 import { loadCalls, revive } from '../uxml/v2/supports/CoreCallsLib.js';
 import { runSupportsStage } from '../uxml/v2/supports/SupportsStage.js';
 import { parsePlainXml, serializePlainXml } from '../uxml/v2/supports/PlainDom.js';
-import { changesFromXml, countChanges, engineXml, SUPPORTS_AS_CHANGES_RULES } from '../uxml/v2/supports/SupportsAsChanges.js';
+import { changesFromXml, countChanges, engineXml, placeIds, withoutIds, SUPPORTS_AS_CHANGES_RULES } from '../uxml/v2/supports/SupportsAsChanges.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const ORACLE = path.join(ROOT, 'fixtures/uxml-v2-supports/oracle');
@@ -27,17 +27,26 @@ const args = process.argv.slice(2);
 const control = args.find((a, i) => !a.startsWith('--') && !['--json', '--bench'].includes(args[i - 1])) || null;
 const only = args.includes('--bench') ? args[args.indexOf('--bench') + 1] : null;
 const jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
-const CONTROLS = ['drop-support', 'wrong-duplicate', 'by-number', 'by-place'];
+const CONTROLS = ['drop-support', 'swap-duplicate-ids'];
 if (control && !CONTROLS.includes(control)) throw new Error(`unknown control ${control}`);
 const LAYERS = ['topology', 'engineering', 'supports', 'names', 'other'];
 const tx = (e, k) => String(e?.values?.[k]?.text ?? '').trim();
 
-const AXIS = { Z: 'Y', '+Z': '+Y', '-Z': '-Y' };
-const OPTIONS = {
-  'wrong-duplicate': { nodeKey: (c) => `${tx(c, 'Position')}|${tx(c, 'ComponentType')}`, firstOfTies: true },
-  'by-number': { nodeKey: (c) => tx(c, 'NodeNumber') },
-  'by-place': { byPlace: true },
-};
+/** The document's ids, as placeIds takes them; swap-duplicate-ids swaps the first two ATTA nodes at one point. */
+function idsFor(doc) {
+  const branches = doc.pipelines.map((p) => ({ uid: p.uid, nodes: p.components.map((c) => c.uid) }));
+  if (control !== 'swap-duplicate-ids') return branches;
+  for (const [b, p] of doc.pipelines.entries()) {
+    const seen = new Map();
+    for (const [i, c] of p.components.entries()) {
+      if (tx(c, 'ComponentType') !== 'ATTA') continue;
+      const j = seen.get(tx(c, 'Position'));
+      if (j != null) { const n = branches[b].nodes; [n[i], n[j]] = [n[j], n[i]]; return branches; }
+      seen.set(tx(c, 'Position'), i);
+    }
+  }
+  return branches;
+}
 
 /** The drop-support control: one new support of the sub-step not recorded. */
 function spoil(ops) {
@@ -45,7 +54,7 @@ function spoil(ops) {
   return ops;
 }
 
-/** The first op that hands a node's or a support's identity to another, or null. */
+/** The first op that hands a node's identity to another, or null. */
 function identitySwap(doc, ops) {
   const byUid = new Map();
   for (const p of doc.pipelines) for (const c of p.components) { byUid.set(c.uid, c); for (const r of c.restraints) byUid.set(r.uid, r); }
@@ -54,17 +63,9 @@ function identitySwap(doc, ops) {
     if (o.op !== 'set' || !e || !o.path.startsWith('values.')) continue;
     const key = o.path.slice('values.'.length), was = tx(e, key), now = String(o.after?.text ?? '').trim();
     if (e.kind !== 'restraint' && (key === 'NodeName' || key === 'ComponentRefNo')) return { uid: o.uid, key, was, now };
-    if (e.kind === 'restraint' && key === 'Type' && (AXIS[was] ?? was) !== now) return { uid: o.uid, key, was, now };
   }
   return null;
 }
-
-/** Support order inside each node set aside: each node's run of <Restraint> elements sorted. */
-const supportsSorted = (xmlText) => xmlText.replace(/(?:<Restraint>[\s\S]*?<\/Restraint>\s*)+(?=<\/Node>)/g, (run) => {
-  const parts = run.match(/<Restraint>[\s\S]*?<\/Restraint>\s*/g), tail = /\s*$/.exec(parts.at(-1))[0];
-  const gap = parts.length > 1 ? /\s*$/.exec(parts[0])[0] : '';
-  return parts.map((x) => x.trimEnd()).sort().join(gap) + tail;
-});
 
 /** A PSI116 text's content, whatever the tag order: one line per branch, node and support, values sorted by tag. */
 function content(xmlText) {
@@ -79,25 +80,28 @@ function check(bench) {
   const snap = revive(JSON.parse(fs.readFileSync(path.join(dir, 'engineering-pass-start.json'), 'utf8')));
   const dtxr = loadCalls([path.join(CALLS, `${bench}.substep-calls.json`)]).find((c) => c.name === 'enrichStandaloneDtxrAnnotations');
   const [, stagedJsonText, supportConfig] = revive(dtxr.args);
-  const today = runSupportsStage({ xmlText, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows } });
+  const stage = (text) => runSupportsStage({ xmlText: text, stagedJsonText, supportConfig, masters: { materialMapRows: snap.config.material?.mapRows } });
   let uxml = readPsi116V2(xmlText, { fileSha256: sha256Hex(xmlText) });
   const problems = [], counts = {};
+  const tagged = stage(placeIds(xmlText, idsFor(uxml))), today = stage(xmlText);
+  for (const id of STEPS) if (withoutIds(tagged.stages[id]) !== today.stages[id]) return { problems: [{ step: id, what: 'the ids change the output of the stage' }], counts };
+  if (withoutIds(tagged.xmlText) !== today.xmlText) return { problems: [{ step: 'final', what: 'the ids change the output of the stage' }], counts };
   for (const id of STEPS) {
-    const stepXml = today.stages[id];
+    const stepXml = tagged.stages[id];
     let ops;
-    try { ops = spoil(changesFromXml(uxml, stepXml, id, OPTIONS[control] || {})); } catch (e) { problems.push({ step: id, refused: e.code || e.message }); break; }
+    try { ops = spoil(changesFromXml(uxml, stepXml, id)); } catch (e) { problems.push({ step: id, refused: e.code || e.message }); break; }
     const swap = identitySwap(uxml, ops);
     if (swap) { problems.push({ step: id, what: 'identity handed to another node or support', ...swap }); break; }
     counts[id] = countChanges(uxml, ops);
-    const stage = { id: 'supports:' + id, rulesVersion: SUPPORTS_AS_CHANGES_RULES, reads: ['topology'], writes: LAYERS, run: () => ({ ops, diagnostics: [] }) };
-    try { uxml = runStage(stage, uxml, {}, {}, { inputHashes: [sha256Hex(stepXml)] }).uxml; } catch (e) { problems.push({ step: id, kernelRefused: e.code || e.message }); break; }
+    const record = { id: 'supports:' + id, rulesVersion: SUPPORTS_AS_CHANGES_RULES, reads: ['topology'], writes: LAYERS, run: () => ({ ops, diagnostics: [] }) };
+    try { uxml = runStage(record, uxml, {}, {}, { inputHashes: [sha256Hex(today.stages[id])] }).uxml; } catch (e) { problems.push({ step: id, kernelRefused: e.code || e.message }); break; }
     try { engineXml(uxml); } catch (e) { problems.push({ step: id, writeRefused: e.code, details: e.details }); break; }
     // Between sub-steps today's code leaves new tags after a node's restraints (the last sub-step moves restraints last),
     // so there the content is compared: every branch and node as its sorted lines. The engine's XML is compared by byte.
     const got = engineXml(uxml), want = serializePlainXml(parsePlainXml(today.stages[id]));
     if (content(got) !== content(want)) { const a = content(got), b = content(want); let at = 0; while (a[at] === b[at]) at += 1; problems.push({ step: id, what: 'content differs', got: a.slice(at - 80, at + 80), want: b.slice(at - 80, at + 80) }); break; }
   }
-  if (!problems.length && supportsSorted(engineXml(uxml)) !== supportsSorted(today.xmlText)) { const got = supportsSorted(engineXml(uxml)), want = supportsSorted(today.xmlText); let at = 0; while (got[at] === want[at]) at += 1; problems.push({ step: 'final', what: 'engine XML differs by byte (support order aside)', at, got: got.slice(at - 80, at + 80), want: want.slice(at - 80, at + 80) }); }
+  if (!problems.length && engineXml(uxml) !== today.xmlText) { const got = engineXml(uxml), want = today.xmlText; let at = 0; while (got[at] === want[at]) at += 1; problems.push({ step: 'final', what: 'engine XML differs by byte', at, got: got.slice(at - 80, at + 80), want: want.slice(at - 80, at + 80) }); }
   return { problems, counts };
 }
 
