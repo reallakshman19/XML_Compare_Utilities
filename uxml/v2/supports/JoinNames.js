@@ -13,8 +13,13 @@
  *   - The XML output carries the joined names; the CII engine gets the XML without them, so the CII stays today's
  *     (SupportsUnderLocks.js: xmlText and engineXmlText).
  *   - A kept node's value the transfer locked, or a value the kept node does not have, is not written; it is listed.
+ *   - A "|" already in an input name is that node's join history (Owner 20 Nov, "Read it as history"; an Enriched XML
+ *     run through step 10 again): readNameHistory first gives every such value its part before the first "|", so
+ *     today's code and the CII engine see the plain name; the history then stands for that node in the joins (all its
+ *     parts, in place of its one value), and a node with history but no new join gets its history written back.
  *
- *   joinNamesPlan(doc, branchPassXml (with ids), {tolerance}) -> [{branch, into, from:[uid], NodeName:[..], ComponentRefNo:[..]}]
+ *   readNameHistory(uxml) -> {uxml, delta (null when no "|"), history: Map uid -> {NodeName:[..], ComponentRefNo:[..]}}
+ *   joinNamesPlan(doc, branchPassXml (with ids), {tolerance, history}) -> [{branch, into, from:[uid], NodeName:[..], ComponentRefNo:[..]}]
  *   joinNames(uxml, plan) -> {uxml, delta (null when nothing is written), names:[{branch, node, nodeNumber, from,
  *     NodeName, ComponentRefNo, written:[key], notWritten:[{key, why}]}]}
  */
@@ -23,6 +28,7 @@ import {changesFromXml} from './SupportsAsChanges.js';
 import {xmlPositionKey} from './parent/ParentMatching.js';
 
 export const JOIN_NAMES_RULES = 'duplicate-names/1';
+export const NAME_HISTORY_RULES = 'name-history/1';
 /** The values joined with "|" (Owner 20 Nov: node name and AVEVA reference). */
 export const JOINED_KEYS = ['NodeName', 'ComponentRefNo'];
 const txt = (e, k) => String(e?.values?.[k]?.text ?? '');
@@ -37,11 +43,43 @@ function refuse(code, details) {
 /** The kept node's value first, then the removed ones': written once when the same on all, else joined with "|". */
 export const joinedText = values => (new Set(values).size === 1 ? values[0] : values.join('|'));
 
-/** Today's duplicate groups that its branch pass thinned (by the ids it carried), each with its one kept node. */
-export function joinNamesPlan(doc, branchPassXml, {tolerance = 1} = {}) {
+/** A recorded stage of the given ops on every layer, refused if the kernel refuses any of them. */
+function recorded(uxml, id, rule, ops, code) {
+  const stage = {id, rulesVersion: rule, reads: [...LAYERS], writes: [...LAYERS], run: () => ({ops: structuredClone(ops)})};
+  const step = runStage(stage, uxml);
+  if (step.refusals?.length) refuse(code, {refused: step.refusals.map(c => c.key)});
+  return step;
+}
+const setText = (uid, key, have, text, rule) => {
+  const after = {...have, v: text, text, src: 'stage', rule};
+  delete after.rev;
+  return {op: 'set', uid, path: 'values.' + key, after, rule};
+};
+
+/** Each node name and AVEVA reference holding "|" (join history) set to its part before the first "|": one recorded
+ * stage (rule name-history/1). A locked value with "|" is refused: today's code and the CII would get the "|". */
+export function readNameHistory(uxml) {
+  const ops = [], history = new Map();
+  for (const p of uxml.pipelines) for (const c of p.components) {
+    const parts = Object.fromEntries(JOINED_KEYS.map(k => [k, txt(c, k).split('|')]));
+    if (!JOINED_KEYS.some(k => parts[k].length > 1)) continue;
+    history.set(c.uid, parts);
+    for (const k of JOINED_KEYS.filter(key => parts[key].length > 1)) {
+      if (c.values[k].lock) refuse('UXML_NAMES_HISTORY_LOCKED', {branch: txt(p, 'Branchname'), node: txt(c, 'NodeNumber'), key: k});
+      ops.push(setText(c.uid, k, c.values[k], parts[k][0], NAME_HISTORY_RULES));
+    }
+  }
+  if (!ops.length) return {uxml, delta: null, history};
+  const step = recorded(uxml, 'supports:name-history', NAME_HISTORY_RULES, ops, 'UXML_NAMES_HISTORY_REFUSED');
+  return {uxml: step.uxml, delta: step.delta, history};
+}
+
+/** Today's duplicate groups that its branch pass thinned (by the ids it carried), each with its one kept node; a node's
+ * values are its history when it has one. Then every other node with history, alone (from: []). */
+export function joinNamesPlan(doc, branchPassXml, {tolerance = 1, history = new Map()} = {}) {
   const removed = new Set(changesFromXml(doc, branchPassXml, 'branch-pass').filter(o => o.op === 'remove').map(o => o.uid));
-  if (!removed.size) return [];
-  const plan = [];
+  const valuesOf = (c, k) => history.get(c.uid)?.[k] ?? [txt(c, k)];
+  const plan = [], grouped = new Set();
   for (const p of doc.pipelines) {
     const groups = new Map();
     for (const c of p.components) {
@@ -57,12 +95,17 @@ export function joinNamesPlan(doc, branchPassXml, {tolerance = 1} = {}) {
       const kept = group.filter(c => !removed.has(c.uid));
       if (kept.length !== 1) refuse(kept.length ? 'UXML_NAMES_KEEPER_AMBIGUOUS' : 'UXML_NAMES_NO_KEEPER', {branch: txt(p, 'Branchname'), node: txt(gone[0], 'NodeNumber')});
       const order = [kept[0], ...gone];
+      order.forEach(c => grouped.add(c.uid));
       plan.push({branch: txt(p, 'Branchname'), into: kept[0].uid, from: gone.map(c => c.uid),
-        ...Object.fromEntries(JOINED_KEYS.map(k => [k, order.map(c => txt(c, k))]))});
+        ...Object.fromEntries(JOINED_KEYS.map(k => [k, order.flatMap(c => valuesOf(c, k))]))});
     }
   }
-  const grouped = plan.reduce((n, g) => n + g.from.length, 0);
-  if (grouped !== removed.size) refuse('UXML_NAMES_REMOVED_NOT_GROUPED', {removed: removed.size, grouped});
+  const gone = plan.reduce((n, g) => n + g.from.length, 0);
+  if (gone !== removed.size) refuse('UXML_NAMES_REMOVED_NOT_GROUPED', {removed: removed.size, grouped: gone});
+  for (const p of doc.pipelines) for (const c of p.components) {
+    if (!history.has(c.uid) || grouped.has(c.uid) || removed.has(c.uid)) continue;
+    plan.push({branch: txt(p, 'Branchname'), into: c.uid, from: [], ...Object.fromEntries(JOINED_KEYS.map(k => [k, valuesOf(c, k)]))});
+  }
   return plan;
 }
 
@@ -80,16 +123,12 @@ export function joinNames(uxml, plan) {
       if (!have) { rec.notWritten.push({key, why: 'the kept node has no value'}); continue; }
       if (have.lock) { rec.notWritten.push({key, why: 'locked by the transfer'}); continue; }
       if (have.text === value) continue;
-      const after = {...have, v: value, text: value, src: 'stage', rule: JOIN_NAMES_RULES};
-      delete after.rev;
-      ops.push({op: 'set', uid: k.uid, path: 'values.' + key, after, rule: JOIN_NAMES_RULES});
+      ops.push(setText(k.uid, key, have, value, JOIN_NAMES_RULES));
       rec.written.push(key);
     }
     names.push(rec);
   }
   if (!ops.length) return {uxml, delta: null, names};
-  const stage = {id: 'supports:names', rulesVersion: JOIN_NAMES_RULES, reads: [...LAYERS], writes: [...LAYERS], run: () => ({ops: structuredClone(ops)})};
-  const step = runStage(stage, uxml);
-  if (step.refusals?.length) refuse('UXML_NAMES_REFUSED', {refused: step.refusals.map(c => c.key)});
+  const step = recorded(uxml, 'supports:names', JOIN_NAMES_RULES, ops, 'UXML_NAMES_REFUSED');
   return {uxml: step.uxml, delta: step.delta, names};
 }

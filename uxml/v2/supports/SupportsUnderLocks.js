@@ -16,6 +16,9 @@
  * Then the kept node of each duplicate group today thinned gets the removed nodes' names and AVEVA references joined
  * with "|" (JoinNames.js, Owner 20 Nov "Write | in output"): in xmlText and the document, never in engineXmlText,
  * the XML the CII engine gets, so the CII stays today's. `names: false` leaves them out (xmlText is engineXmlText).
+ * A "|" already in an input name is read first as that node's join history (JoinNames.js readNameHistory; Owner 20 Nov,
+ * "Read it as history"): today's code and the CII engine get the part before the first "|", the output the whole
+ * history plus any new join. `nameHistory: false` (gate control only) leaves the "|" names in.
  *
  *   runSupportsUnderLocks(doc, runStageFull, options) -> {uxml, deltas, conflicts, joined, names, xmlText (with the note
  *     and the joined names), engineXmlText (with the note, plain names), stageXmlText}
@@ -28,7 +31,7 @@ import {restraintsText} from '../transfer/LockedEngineering.js';
 import {changesFromXml, readIds, tagIds, withoutIds, SUPPORTS_AS_CHANGES_RULES, SUPPORTS_STEPS} from './SupportsAsChanges.js';
 import {readPsi116V2} from '../UxmlV2Psi116Reader.js';
 import {joinDuplicates, joinPlan} from './JoinDuplicates.js';
-import {joinNames, joinNamesPlan} from './JoinNames.js';
+import {joinNames, joinNamesPlan, readNameHistory} from './JoinNames.js';
 import {toFiniteNumber} from './config/EnrichmentConfig.js';
 
 export const SUPPORTS_UNDER_LOCKS_RULES = 'supports-under-locks/1';
@@ -119,6 +122,11 @@ function residualConflicts(doc, todayXml, firstStep, options) {
  * runs again on the joined document. `noJoin` (gate control only): the locked node is kept instead, as in E2b.
  */
 export function runSupportsUnderLocks(doc, runStageFull, options = {}) {
+  if (!options.history) {
+    const read = options.nameHistory === false ? {uxml: doc, delta: null, history: new Map()} : readNameHistory(doc);
+    const again = runSupportsUnderLocks(read.uxml, runStageFull, {...options, history: read.history});
+    return read.delta ? {...again, deltas: [read.delta, ...again.deltas]} : again;
+  }
   const input = withoutTransferNote(writePsi116FromUxmlV2(doc).text);
   const tagged = runStageFull(tagIds(doc, input)); // today's stage, the document's ids carried through it
   const tolerance = todayTolerance(tagged, options);
@@ -147,7 +155,7 @@ export function runSupportsUnderLocks(doc, runStageFull, options = {}) {
   const engineXmlText = withNote(uxml);
   let names = [];
   if (options.names !== false) {
-    const step = joinNames(uxml, joinNamesPlan(doc, tagged.stages['branch-pass'], {tolerance}));
+    const step = joinNames(uxml, joinNamesPlan(doc, tagged.stages['branch-pass'], {tolerance, history: options.history}));
     uxml = step.uxml;
     names = step.names;
     if (step.delta) deltas.push(step.delta);
