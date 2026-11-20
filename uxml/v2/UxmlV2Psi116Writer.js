@@ -3,8 +3,10 @@
  *
  *   - Source records are written from their custody text; a value is replaced only when
  *     its `rev` is newer than read revision 0, so an unchanged file comes out byte for byte.
- *   - A value a stage added (no span in the source record) is inserted before the record's
- *     close tag. Removing a source value is refused (set it to '' instead).
+ *   - A value a stage added (no span in the source record) goes where its fieldOrder puts it: after the
+ *     last value before it in the text (inside its group for a grouped key), else before the group's first
+ *     value, else before the record's close tag (a branch: after its nodes; a whole new branch group is one
+ *     new element there). Removing a source value is refused (set it to '' instead).
  *   - A node a stage made (lineage insert/split, no custody) is written from the template of
  *     its first lineage source with EVERY tag taken from its own modelled values; a template
  *     tag with no value is refused (PS116_WRITE_REQUIRED_VALUE_MISSING).
@@ -65,6 +67,11 @@ function valueEdits(entity, spans, insertAt, ws, stats, place = {}) {
   }
   const lastIn = new Map(); // group ('' = top level) -> {end, ws} of the last element in the text seen so far
   const newGroups = new Map(); // group -> its one new element (branches only)
+  const firstIn = new Map(); // group -> {start, ws} of its first element in the text (a new key before it goes there)
+  for (const [key, span] of place.raw == null ? [] : Object.entries(spans)) {
+    const start = span[2] ? span[0] : span[0] - tagOf(key).length - 2, group = groupOf(key);
+    if (group && !(firstIn.get(group)?.start <= start)) firstIn.set(group, {start, ws: wsBefore(place.raw, start)});
+  }
   for (const key of entity.fieldOrder || Object.keys(entity.values)) {
     const value = entity.values[key];
     const span = spans[key];
@@ -78,6 +85,13 @@ function valueEdits(entity, spans, insertAt, ws, stats, place = {}) {
     } else {
       const group = groupOf(key);
       const after = place.tail && !group ? undefined : lastIn.get(group);
+      if (group && !after && firstIn.has(group)) {
+        // A new key ordered before its group's keys in the text (PR 299 review): inside the group, before its first key.
+        const first = firstIn.get(group);
+        edits.push({start: first.start, end: first.start, text: element(key, value) + first.ws});
+        stats.patchedValues += 1;
+        continue;
+      }
       if (group && !after && place.tail && !group.includes('.') && insertAt != null) {
         // A whole new group on a branch (Pressure with no <Pressure> in the text): one element after the nodes, as today.
         let made = newGroups.get(group);
