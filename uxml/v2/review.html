@@ -45,7 +45,16 @@
       <input type="file" id="file" accept=".xml">
       <button id="sample">Use the GOLDEN-30 sample</button>
     </div>
+    <div class="row">
+      <label for="stageFile">Or a stage file from 3D_Converters (steps 1, 3, 4, 6: <span class="mono">.uxml.json</span>)</label>
+      <input type="file" id="stageFile" accept=".json">
+    </div>
+    <div class="row" id="stageMore" hidden>
+      <label for="stageFile2">Compare with another stage file</label><input type="file" id="stageFile2" accept=".json">
+      <label for="stageRecord">Check against a step 10 Run record</label><input type="file" id="stageRecord" accept=".json">
+    </div>
     <div id="model" class="muted">No model open.</div>
+    <div id="stageInfo"></div>
   </section>
 
   <section id="actions" hidden>

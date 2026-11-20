@@ -6,9 +6,13 @@
 import {diffRevisions, groupChanges, entityLabel} from './UxmlV2Diff.js';
 import {openPsi116, latest, runRepair, setValue, splitNode, undoLast, openDelta, psi116Of, messageOf} from './UxmlV2ReviewSession.js';
 import {parseLiteral} from './UxmlV2Psi116Reader.js';
+import {inputsDiffer, readStageFile, runRecordDiffers, STAGE_FILE_MESSAGES} from './UxmlV2StageFile.js';
+import {readRunRecordFile} from './UxmlV2RunRecord.js';
 
 const $ = id => document.getElementById(id);
 let session = null;
+let stageOpen = null; // E2c step 4: the stage file open in section 1, {file, opened}
+const msg = item => STAGE_FILE_MESSAGES[item?.code] || messageOf(item);
 
 const TYPE_WORDS = Object.freeze({'set': 'changed', 'add-value': 'value added', 'remove-value': 'value removed',
   'lock': 'locked', 'unlock': 'unlocked', 'add': 'node added', 'split': 'node split', 'remove': 'removed'});
@@ -28,6 +32,7 @@ const options = (select, items, selected) => {
 const say = (text, isNotice = true) => $('message').replaceChildren(text ? el('div', {className: isNotice ? 'notice' : 'muted', textContent: text}) : '');
 
 function revisionName(step, i) {
+  if (step.label) return `${i}: ${step.label}`;
   const r = step.doc.revision;
   return `${i}: ${STAGE_WORDS[r.stage] || r.stage} (${r.id.slice(2, 10)})`;
 }
@@ -137,6 +142,9 @@ const toStep = () => session.revisions[Number($('to').value)];
 function openText(text, name) {
   try {
     session = openPsi116(text, name);
+    stageOpen = null;
+    $('stageMore').hidden = true;
+    $('stageInfo').replaceChildren();
     for (const id of ['branch', 'node', 'field']) $(id).replaceChildren();
     say('');
     refresh();
@@ -145,7 +153,87 @@ function openText(text, name) {
   }
 }
 
+/** Plain notes about the open stage file (E2c step 4). */
+const INPUT_WORDS = Object.freeze({sourceXml: 'source XML', stagedJson: 'staged JSON', config: 'settings (masters, mapper, config)',
+  previewEdits: 'Preview edits', weightChoices: 'weight choices', settings: 'settings the Run used'});
+const words = keys => keys.map(k => INPUT_WORDS[k] || k).join(', ');
+function stageLines(lines) {
+  $('stageInfo').replaceChildren(...lines.map(l => el('div', {className: l.notice ? 'notice' : 'muted', textContent: l.text})));
+}
+
+/** Open a 3D_Converters stage file: its chain becomes the revisions compared in section 3. */
+function openStageText(text, name) {
+  try {
+    const file = JSON.parse(text);
+    const opened = readStageFile(file);
+    if (opened.refusal) {
+      $('model').textContent = `${name}: stage ${opened.stage} (${opened.stageName}) of ${opened.model} holds no document: ${opened.refusal}.`;
+      return;
+    }
+    session = {name: `${opened.model} ${opened.stage}`, revisions: opened.revisions};
+    stageOpen = {file, opened};
+    for (const id of ['branch', 'node', 'field']) $(id).replaceChildren();
+    say('');
+    refresh();
+    $('stageMore').hidden = false;
+    $('to').value = String(session.revisions.length - 1);
+    $('from').value = '0';
+    renderDiff();
+    stageLines([{text: `Stage ${opened.stage} (${opened.stageName}) of ${opened.model}, made ${opened.createdAt} by `
+      + `${opened.producer?.vendor || opened.producer?.tool || 'an unnamed tool'}. Its ${session.revisions.length - 1} recorded `
+      + 'change step(s) rebuild to the revision it names. Compare any two revisions in section 3.'}]);
+  } catch (error) {
+    $('model').textContent = 'Could not open this stage file: ' + msg(error);
+  }
+}
+
+/** Another stage file's final document, added as one more revision to compare with (its inputs are checked). */
+function addStageText(text) {
+  try {
+    const file = JSON.parse(text);
+    const other = readStageFile(file);
+    if (other.refusal) return stageLines([{notice: true, text: `That stage file holds no document: ${other.refusal}.`}]);
+    const differ = inputsDiffer(stageOpen.file, file);
+    session = {...session, revisions: [...session.revisions, {...other.revisions.at(-1), delta: null, diagnostics: [], refusals: [],
+      label: `stage ${other.stage} (${other.stageName}), other file`}]};
+    refresh();
+    $('from').value = String(stageOpen.opened.revisions.length - 1);
+    $('to').value = String(session.revisions.length - 1);
+    renderDiff();
+    stageLines([{text: `Added stage ${other.stage} of ${other.model} as revision ${session.revisions.length - 1}; section 3 compares it with stage ${stageOpen.opened.stage}.`},
+      differ.length ? {notice: true, text: `The two stage files were made from different ${words(differ)}: the comparison also shows those differences.`}
+        : {text: 'Both stage files were made from the same source, staged JSON and settings (apart from what the earlier stage leaves out).'}]);
+  } catch (error) {
+    stageLines([{notice: true, text: 'Could not add this stage file: ' + msg(error)}]);
+  }
+}
+
+/** The open stage file against a step 10 Run record (the record for the same model, or the file's only one). */
+function checkStageRecord(text) {
+  try {
+    const records = readRunRecordFile(text);
+    const model = stageOpen.opened.model;
+    const record = records.find(r => r.model === model) || (records.length === 1 ? records[0] : null);
+    if (!record) return stageLines([{notice: true, text: `The Run record file holds no record for ${model}.`}]);
+    const differ = runRecordDiffers(stageOpen.file, record);
+    stageLines([differ.length
+      ? {notice: true, text: `This stage file and the Run record (${record.model}, ${record.createdAt}) were made from different ${words(differ)}.`}
+      : {text: `This stage file and the Run record (${record.model}, ${record.createdAt}) were made from the same source and staged JSON`
+        + (stageOpen.opened.stage === 'S4' ? ', with the same settings.' : '.')}]);
+  } catch (error) {
+    stageLines([{notice: true, text: 'Could not read the Run record: ' + msg(error)}]);
+  }
+}
+
 function wire() {
+  const onFile = (id, fn) => $(id).addEventListener('change', async e => {
+    const f = e.target.files[0];
+    if (f) fn(await f.text(), f.name);
+    e.target.value = '';
+  });
+  onFile('stageFile', openStageText);
+  onFile('stageFile2', addStageText);
+  onFile('stageRecord', checkStageRecord);
   $('file').addEventListener('change', async e => { const f = e.target.files[0]; if (f) openText(await f.text(), f.name); });
   $('sample').addEventListener('click', async () => {
     const res = await fetch('../../fixtures/uxml-v2/golden-30.xml');
