@@ -62,6 +62,10 @@ test('PR 304 review B1: each stage holds exactly its sub-steps', () => {
   assert.ok(chainFitsStage('S1', ['gasket-drop']));
   assert.ok(chainFitsStage('S2', ['gasket-drop', ...S]));
   assert.ok(chainFitsStage('S4', ['gasket-drop', 'transfer-note', 'supports:join', 'supports:join', ...S, 'supports:names']));
+  // PR 304 review B5: a source whose names already hold "|" history (a second step 10 run on its own Enriched XML).
+  assert.ok(chainFitsStage('S2', ['gasket-drop', 'supports:name-history', ...S, 'supports:names']));
+  assert.ok(chainFitsStage('S4', ['gasket-drop', 'transfer-note', 'supports:name-history', 'supports:join', ...S, 'supports:names']));
+  assert.ok(!chainFitsStage('S4', ['gasket-drop', ...S, 'supports:name-history']), 'name history only before the sub-steps');
   assert.ok(!chainFitsStage('S0', ['gasket-drop']), 'an S1 relabelled S0');
   assert.ok(!chainFitsStage('S2', ['gasket-drop', ...S.slice(0, -1)]), 'cut short by one sub-step');
   assert.ok(!chainFitsStage('S3', ['gasket-drop', ...S.slice(1)]), 'first sub-step missing');
