@@ -200,9 +200,20 @@ def cii_source(rows: list) -> dict:
 
 def differs(field: str, before, after: str) -> bool:
     if field == "Node/NodeName":
-        return before != after and not (len(before) > NAME_LIMIT and before[:NAME_LIMIT] == after)
+        # E4b (Owner 21 Nov 2026, "Yes, as suggested"): step 10 gives the CII only the first name of a "|" name (the
+        # names of duplicate nodes joined at one point), so the CII name is compared with that first name.
+        head = before.split("|", 1)[0]
+        return head != after and not (len(head) > NAME_LIMIT and head[:NAME_LIMIT] == after)
     b = num(before)
     return b is None or not same(b, num(after))
+
+
+def written(field: str, before, after: str) -> str:
+    """The text an edit writes: a CAESAR II rename of a "|" name replaces its first name and the others stay (E4b,
+    Owner 21 Nov 2026)."""
+    if field == "Node/NodeName" and "|" in before:
+        return after + before[len(before.split("|", 1)[0]):]
+    return after
 
 
 def check_weight_scale(edits: list, weight_scale: float) -> None:
@@ -242,7 +253,7 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
             refused.append({"code": "U2D_WEIGHT_ZERO", "ref": n["ref"], "field": field, "before": before,
                             "detail": "the CII weight is 0; the PSI116 weight is kept"})
         elif differs(field, before, next(iter(texts))):
-            edits.append({"ref": n["ref"], "field": field, "before": before, "after": next(iter(texts)), "lineNo": "[TBA]"})
+            edits.append({"ref": n["ref"], "field": field, "before": before, "after": written(field, before, next(iter(texts))), "lineNo": "[TBA]"})
     if "element" in items:
         first = {}
         for k in sorted(nodes):
