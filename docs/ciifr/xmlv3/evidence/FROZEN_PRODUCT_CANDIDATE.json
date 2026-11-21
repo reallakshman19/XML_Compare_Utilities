@@ -1,0 +1,72 @@
+{
+  "identity": "a7dd4e1432d960f2969ebbb189ad55004e31d8e3f22a55ee557c94bd74f36163",
+  "basis": "sorted path NUL byte-length NUL SHA256 newline, all16 runnable product/dependency files",
+  "files": {
+    "prototypes/ciifr-xmlv2-r3/engine/engine.py": {
+      "bytes": 38745,
+      "sha256": "b2bb8ed87440e46f72833424cacd82e6605c47f372f146deec749ad2bb0ee264"
+    },
+    "prototypes/ciifr-xmlv2-r3/engine/profile.py": {
+      "bytes": 4856,
+      "sha256": "8d2c2123bce98a387d00a3aeca69c8e5dea6b3831e29f65e7760f6a5694204b2"
+    },
+    "prototypes/ciifr-xmlv3/README.md": {
+      "bytes": 9610,
+      "sha256": "7218a0e0d6778e7b8546c80a7960bd8060c69875dff46a6a0676e011a89ec8e9"
+    },
+    "prototypes/ciifr-xmlv3/cii_xmlv3.py": {
+      "bytes": 301,
+      "sha256": "83f3aedd93754de91620ed7a9370149f08775c31a94a9c359c509ced597fdf79"
+    },
+    "prototypes/ciifr-xmlv3/tests/test_dependencies.py": {
+      "bytes": 15283,
+      "sha256": "9111d4d744d195a31bf8944ac65193ecfec531ce7d2e7c809a8beb9180e97659"
+    },
+    "prototypes/ciifr-xmlv3/tests/test_intake.py": {
+      "bytes": 7586,
+      "sha256": "9dc391cea760e07bcee4aa366bff23ebc02a93c4d68546a2afa6971669a4e97d"
+    },
+    "prototypes/ciifr-xmlv3/tests/test_integration.py": {
+      "bytes": 11128,
+      "sha256": "e95422911b45d763f86e29f860515594e3240af2f0d527db1e81c7d0f45e030b"
+    },
+    "prototypes/ciifr-xmlv3/xmlv3/__init__.py": {
+      "bytes": 356,
+      "sha256": "f9256edb639ea34f458eb583f6efed30edd79caa9f10398d5fa30bc70715a123"
+    },
+    "prototypes/ciifr-xmlv3/xmlv3/baseline.py": {
+      "bytes": 1555,
+      "sha256": "583bfd44d2eebedd51be61d20d01e7c94780832ab624845e406332167794b9f0"
+    },
+    "prototypes/ciifr-xmlv3/xmlv3/cli.py": {
+      "bytes": 2761,
+      "sha256": "f9f181c595e111c94a6bb422fa8ee049d47219d8f85609c8367a11281f054b97"
+    },
+    "prototypes/ciifr-xmlv3/xmlv3/core.py": {
+      "bytes": 4063,
+      "sha256": "a1919a123971ebf46ef1018e052e7cb9acec1daea57209157ecac2600b151d47"
+    },
+    "prototypes/ciifr-xmlv3/xmlv3/dependencies.py": {
+      "bytes": 7265,
+      "sha256": "1c2de3b1683183ae5afa704d5ade6c5609d0d75d65bc00478d5a6d30371e7e4e"
+    },
+    "prototypes/ciifr-xmlv3/xmlv3/guards.py": {
+      "bytes": 1208,
+      "sha256": "0beaa72f628afd2e6353ba76cdfb78a34e3c161e8b71cd1ea963c2d70098baa2"
+    },
+    "prototypes/ciifr-xmlv3/xmlv3/intake.py": {
+      "bytes": 703,
+      "sha256": "dc729b5a93058ed32031d4bdce55dc738a2901e8ae5c4ff8db263a61ef035981"
+    },
+    "prototypes/ciifr-xmlv3/xmlv3/publish.py": {
+      "bytes": 1090,
+      "sha256": "a19782ce05081786eece562a1ab6ca7b489151760484cd22c5d1861c9a2a7075"
+    },
+    "prototypes/ciifr-xmlv3/xmlv3/views.py": {
+      "bytes": 4309,
+      "sha256": "187548c5c4eb7a120b5bdc78fefc42b0a1c780f2114ab90f970f5f565355108c"
+    }
+  },
+  "four_changed_files_identity": "76047a9acc527619943c2b7628b3af5f0177abe420d392928ba542d9777763a4",
+  "review": "NOT_RUN"
+}
