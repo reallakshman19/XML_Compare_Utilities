@@ -1,0 +1,32 @@
+{
+  "product": "CIIFR R3 BM2 informational node-map prototype",
+  "author": "01a16c60",
+  "base_node_map_archive_sha256": "260d79fcbdeb8c96c94ae117a60d417af7c681c97a3af55160ec74db9ed04158",
+  "pinned_xmlv11_f05_archive_sha256": "e7901a79fdbd9dd992923303b33fb0d3e2d0d0550826a6ad363ea8a8847150cf",
+  "vendor_sha256": {
+    "vendor/f05/cii_to_richinputxml.py": "20db9559625818868effd668fe2cee6d995065974b2820094ebae231ef932fd8",
+    "vendor/f05/cii_to_xml.py": "db14b48193114a1007a20c2a07dd60c02fede2e6a427db62cfd2947ebaa70c11",
+    "vendor/f05/richcii_schema.py": "6c6ab7884b11d6e820a1fec8e1702e9289ab69b2989530fba4924368893fd80b",
+    "vendor/f05/richcii_validate.py": "d4f80164cd10c928827a34191e706d71aac1f53a15ce9e73aec785c1b02b0a0e",
+    "vendor/f05/richinputxml_to_cii2019.py": "277e22e7535b0c1499eacd7c92611262443868896b260a35b0327c6a6d64bb4b",
+    "vendor/f05/v11_lexical.py": "e5d19ba48d1ed7434e440c4fd1b7a24fbd78509904477f222de95fb7db9fdabd",
+    "vendor/f05/validate_xml.py": "577c445ab9a9efc907bb8b4784a6efed0b58c694e67837bb729ba8a515bfb928",
+    "vendor/f05/xml_to_cii.py": "4f828cc017dee56987ae12dd48f83b99aecc56a16ae0780bfbe924b0c7eded16"
+  },
+  "core_sha256": {
+    "tools/node-transfer/cli.py": "0682862b15b39dfd279f52fcec2f532a6cfb985dbfd79e1d037b4c4421062f27",
+    "tools/node-transfer/converter_adapter.py": "52bd48f2ef4ce7d2377aad3b63179714624d8d74a92206e2931326e8e6f461d3",
+    "tools/node-transfer/displacement_profile.py": "4fcb9af79c4ee61b8636d65284465acb31c5b210590a9462520df291f896720b",
+    "tools/node-transfer/export_audit.py": "e5707af91d15cb27b194aa62c6297b8ad91f4a4808e0c5db1f9b9f0c44c6904f",
+    "tools/node-transfer/node_catalogue.py": "fcb52723569c99b87098b2b6a6e19fab657eb83000f978b3ad4178d701d24e0c",
+    "tools/node-transfer/node_mapping.py": "a19efdb82682589e229b0398e281106e25d240af5312796abb2985a6414c9e4e",
+    "tools/node-transfer/transfer_plan.py": "e498c2f06e6ae88b51fe7475e37c3c65e731a92e9f8098b7a68c5933e9449e1d"
+  },
+  "core_changes": [
+    "displacement_profile.py",
+    "node_mapping.py"
+  ],
+  "p2_p21_integration_qualification": "NOT_RUN",
+  "mapping_approval": "NOT_PROVIDED",
+  "export": "EXPORT_DISABLED"
+}
