@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "policy": "forcmnt-entry-1/xml-declaration-only",
+  "identity": "2e69f9e0c1f5f1e46c11911d9918223058653847e732aa065f6602823408cd96",
+  "files": {
+    "entry.py": {
+      "bytes": 3001,
+      "sha256": "cf205af61e75a3bc9b48d7eb15bdcca6f564aaf10390b7feac3b1448d643739e"
+    },
+    "forcmnt_codec.py": {
+      "bytes": 11616,
+      "sha256": "492575bf14bafce965b6ebfaae9775e856e4165a15d1b086505e35ec6eff160f"
+    },
+    "forcmnt_physical.py": {
+      "bytes": 2656,
+      "sha256": "94352affce75deb1b4a0a50856204cbbadfb523f8bb4da4b0c298e55abc43150"
+    },
+    "io_guards.py": {
+      "bytes": 2087,
+      "sha256": "61d62262f6f72041005d6d6458fa1a288ea8534e179dd9e3f632db0069e57e2b"
+    },
+    "runtime.py": {
+      "bytes": 2538,
+      "sha256": "80e2a38bdff0d1dbb3ef83a48399b906d39d1ed0faa352234ad4e8f9f9c05788"
+    }
+  }
+}
