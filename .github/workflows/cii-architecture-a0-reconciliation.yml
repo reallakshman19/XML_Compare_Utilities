@@ -1,0 +1,55 @@
+# A0 architecture reconciliation: authentic retained inputs, reporting only.
+# No secrets, write permissions, pull_request_target, target mutation or benchmark overwrite.
+name: CII Architecture A0 Reconciliation
+on:
+  push:
+    branches:
+      - test/cii-architecture-a0-reconciliation-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-snapshot-ledger.mjs'
+      - 'scripts/cii-architecture-reconcile-retained.mjs'
+      - 'tests/cii-architecture-reconciliation-ledger.test.js'
+      - '.github/workflows/cii-architecture-a0-reconciliation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  reconciled-counter-contract:
+    name: A0 counter/provenance contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only ledger population, mutation-family, BM and blocker test
+        run: node tests/cii-architecture-reconciliation-ledger.test.js
+
+  retained-source-replay:
+    name: Exact S1/S2/S3 to TARGET A0 replay (no Writer)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Audit original frozen fixture bytes and replay automatic versus manual base modes
+        run: |
+          set -euo pipefail
+          node scripts/cii-architecture-reconcile-retained.mjs --out=test-results/cii-architecture-a0/retained-reconciliation.json
+      - name: Publish read-only A0 reconciliation JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-architecture-a0-reconciliation
+          path: test-results/cii-architecture-a0/retained-reconciliation.json
+          if-no-files-found: warn
+          retention-days: 14
