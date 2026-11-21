@@ -160,7 +160,12 @@ test('the "|" names go into the XML output and the document, never into the XML 
   assert.equal(got.xmlText.replace('N20|N10', 'N20').replace('=1/20|=1/10', '=1/20'), got.engineXmlText, 'nothing else differs');
   assert.equal(got.uxml.pipelines[0].components.find((c) => c.values.NodeNumber.text === '20').values.NodeName.text, 'N20|N10');
   assert.deepEqual(got.conflicts, []);
+  // E3 (Owner 21 Nov 2026): engineUxml is the document engineXmlText is written from, the revision before the names.
+  assert.equal(got.deltas.at(-1).stage, 'supports:names');
+  assert.equal(got.engineUxml.revision.id, got.deltas.at(-1).base);
+  assert.equal(got.engineUxml.pipelines[0].components.find((c) => c.values.NodeNumber.text === '20').values.NodeName.text, 'N20');
   const off = runSupportsUnderLocks(doc, dropping(10), { names: false });
+  assert.equal(off.engineUxml, off.uxml, 'without names the engine document is the document');
   assert.equal(off.xmlText, off.engineXmlText);
   assert.equal(off.engineXmlText, got.engineXmlText);
 });
