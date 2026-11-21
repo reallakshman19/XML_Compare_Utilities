@@ -6,8 +6,9 @@ import test from 'node:test';
 import {fileURLToPath} from 'node:url';
 import {clone, sha256Hex} from '../uxml/v2/UxmlV2Kernel.js';
 import {step10Document} from '../uxml/v2/topology/GasketDropStage.js';
-import {EMPTY_SETTINGS_SHA256, inputsDiffer, makeStageFile, readStageFile, runRecordDiffers, settingsSha256, stageFileName,
-  STAGE_FILE_MESSAGES} from '../uxml/v2/UxmlV2StageFile.js';
+import {chainFitsStage, EMPTY_SETTINGS_SHA256, inputsDiffer, makeStageFile, readStageFile, runRecordDiffers, settingsSha256,
+  stageFileName, stageFileSeal, STAGE_FILE_MESSAGES, SUPPORTS_SUB_STEPS} from '../uxml/v2/UxmlV2StageFile.js';
+import {SUPPORTS_STEPS} from '../uxml/v2/supports/SupportsAsChanges.js';
 
 const RMS = fs.readFileSync(fileURLToPath(new URL('../fixtures/uxml-v2-supports/bench/RMS-BLOW-1.xml', import.meta.url)), 'utf8');
 const out = step10Document(RMS);
@@ -26,25 +27,46 @@ test('a stage file rebuilds to its revision: S0 is the read, S1 adds the gasket 
   assert.equal(s1.revisions[1].doc.revision.id, out.result.revision.id);
   assert.equal(s1.revisions[1].delta.ops.filter(o => o.op === 'remove').length, 40);
   assert.equal(stageFileName('RMS-BLOW-1.xml', 'S1'), 'RMS-BLOW-1.S1.uxml.json');
+  assert.deepEqual(SUPPORTS_SUB_STEPS, SUPPORTS_STEPS, 'the stage file names the supports sub-steps the stage runs');
 });
 
-test('wrong modes: edited by hand, cut short, another source, or an S2 holding a weight choice is refused', () => {
+test('wrong modes: edited by hand, cut short, relabelled, another source, a missing input, or an S2 holding a weight choice is refused', () => {
+  const reseal = f => ({...f, seal: stageFileSeal(f)});
   const edited = fileOf('S1');
   edited.deltas[0].ops[0].before.values.NodeName = {v: 'X', text: 'X', src: 'psi116'};
   assert.throws(() => readStageFile(edited));
   const base = fileOf('S1');
   base.base.pipelines[0].components[0].values.NodeNumber.text = '99999';
   refused(() => readStageFile(base), 'UXML_HASH_MISMATCH');
-  const short = fileOf('S1');
-  short.deltas = [];
-  refused(() => readStageFile(short), 'UXML_STAGE_FILE_RESULT_MISMATCH');
+  refused(() => readStageFile({...fileOf('S1'), deltas: []}), 'UXML_STAGE_FILE_STEPS_MISMATCH');
+  refused(() => readStageFile(reseal({...fileOf('S1'), deltas: [], result: out.source.revision.id})), 'UXML_STAGE_FILE_STEPS_MISMATCH');
+  refused(() => readStageFile(reseal({...fileOf('S1'), stage: 'S0'})), 'UXML_STAGE_FILE_STEPS_MISMATCH');
+  refused(() => readStageFile({...fileOf('S1'), stage: 'S0'}), 'UXML_STAGE_FILE_SEAL_MISMATCH');
+  refused(() => readStageFile({...fileOf('S1'), inputs: {...inputs(), config: 'x'}}), 'UXML_STAGE_FILE_SEAL_MISMATCH');
+  const noSource = fileOf('S1'); delete noSource.inputs.sourceXml;
+  refused(() => readStageFile(reseal(noSource)), 'UXML_STAGE_FILE_INPUT_MISSING');
   refused(() => readStageFile(fileOf('S1', {sourceXml: sha256Hex('other')})), 'UXML_STAGE_FILE_NOT_A_READ');
   refused(() => readStageFile(fileOf('S2', {weightChoices: settingsSha256({'k': 10})})), 'UXML_STAGE_SETTINGS_NOT_LEFT_OUT');
   refused(() => readStageFile(fileOf('S3', {weightChoices: settingsSha256({'k': 10})})), 'UXML_STAGE_SETTINGS_NOT_LEFT_OUT');
   refused(() => readStageFile(fileOf('S2', {previewEdits: settingsSha256({rating: {L1: '300'}})})), 'UXML_STAGE_SETTINGS_NOT_LEFT_OUT');
-  readStageFile(fileOf('S4', {previewEdits: settingsSha256({rating: {L1: '300'}}), weightChoices: settingsSha256({'k': 10})}));
+  refused(() => readStageFile(fileOf('S4', {previewEdits: settingsSha256({rating: {L1: '300'}}), weightChoices: settingsSha256({'k': 10})})),
+    'UXML_STAGE_FILE_STEPS_MISMATCH');
   refused(() => readStageFile({...fileOf('S1'), format: 'x'}), 'UXML_STAGE_FILE_FORMAT');
-  for (const code of Object.keys(STAGE_FILE_MESSAGES)) assert.ok(STAGE_FILE_MESSAGES[code]);
+  for (const code of ['UXML_STAGE_FILE_SEAL_MISMATCH', 'UXML_STAGE_FILE_INPUT_MISSING', 'UXML_STAGE_FILE_STEPS_MISMATCH', 'UXML_HASH_MISMATCH',
+    'UXML_DELTA_BEFORE_MISMATCH']) assert.ok(STAGE_FILE_MESSAGES[code], code);
+});
+
+test('PR 304 review B1: each stage holds exactly its sub-steps', () => {
+  const S = SUPPORTS_SUB_STEPS.map(id => 'supports:' + id);
+  assert.ok(chainFitsStage('S0', []));
+  assert.ok(chainFitsStage('S1', ['gasket-drop']));
+  assert.ok(chainFitsStage('S2', ['gasket-drop', ...S]));
+  assert.ok(chainFitsStage('S4', ['gasket-drop', 'transfer-note', 'supports:join', 'supports:join', ...S, 'supports:names']));
+  assert.ok(!chainFitsStage('S0', ['gasket-drop']), 'an S1 relabelled S0');
+  assert.ok(!chainFitsStage('S2', ['gasket-drop', ...S.slice(0, -1)]), 'cut short by one sub-step');
+  assert.ok(!chainFitsStage('S3', ['gasket-drop', ...S.slice(1)]), 'first sub-step missing');
+  assert.ok(!chainFitsStage('S4', ['gasket-drop', S[1], S[0], ...S.slice(2)]), 'out of order');
+  assert.ok(!chainFitsStage('S2', ['gasket-drop']));
 });
 
 test('inputs two stage files, or a stage file and a Run record, do not share are named', () => {

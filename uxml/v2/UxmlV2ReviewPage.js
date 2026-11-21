@@ -7,7 +7,7 @@ import {diffRevisions, groupChanges, entityLabel} from './UxmlV2Diff.js';
 import {openPsi116, latest, runRepair, setValue, splitNode, undoLast, openDelta, psi116Of, messageOf} from './UxmlV2ReviewSession.js';
 import {parseLiteral} from './UxmlV2Psi116Reader.js';
 import {inputsDiffer, readStageFile, runRecordDiffers, STAGE_FILE_MESSAGES} from './UxmlV2StageFile.js';
-import {readRunRecordFile} from './UxmlV2RunRecord.js';
+import {readRunRecordFile, runOutcome} from './UxmlV2RunRecord.js';
 
 const $ = id => document.getElementById(id);
 let session = null;
@@ -167,10 +167,12 @@ function openStageText(text, name) {
     const file = JSON.parse(text);
     const opened = readStageFile(file);
     if (opened.refusal) {
+      closeModel();
       $('model').textContent = `${name}: stage ${opened.stage} (${opened.stageName}) of ${opened.model} holds no document: ${opened.refusal}.`;
       return;
     }
-    session = {name: `${opened.model} ${opened.stage}`, revisions: opened.revisions};
+    // The name keeps the stage, so section 3's downloads are named <model>.<stage>_rev<n>.
+    session = {name: `${String(opened.model || 'model').replace(/\.[^.]+$/, '')}.${opened.stage}.uxml`, revisions: opened.revisions};
     stageOpen = {file, opened};
     for (const id of ['branch', 'node', 'field']) $(id).replaceChildren();
     say('');
@@ -181,10 +183,22 @@ function openStageText(text, name) {
     renderDiff();
     stageLines([{text: `Stage ${opened.stage} (${opened.stageName}) of ${opened.model}, made ${opened.createdAt} by `
       + `${opened.producer?.vendor || opened.producer?.tool || 'an unnamed tool'}. Its ${session.revisions.length - 1} recorded `
-      + 'change step(s) rebuild to the revision it names. Compare any two revisions in section 3.'}]);
+      + 'change step(s) rebuild to the revision it names. Compare any two revisions in section 3.'},
+    ...(opened.producer?.routeOn === false ? [{notice: true, text: "This file was made with step 10's UXML route switched off in "
+      + "that browser: step 10 then sends today's route XML to the CII engine, not this document."}] : [])]);
   } catch (error) {
+    closeModel();
     $('model').textContent = 'Could not open this stage file: ' + msg(error);
   }
+}
+
+/** No model open (a stage file that could not be opened, or holds no document): nothing of the last one stays. */
+function closeModel() {
+  session = null;
+  stageOpen = null;
+  for (const id of ['stageMore', 'actions', 'compare']) $(id).hidden = true;
+  $('stageInfo').replaceChildren();
+  say('');
 }
 
 /** Another stage file's final document, added as one more revision to compare with (its inputs are checked). */
@@ -197,12 +211,15 @@ function addStageText(text) {
     session = {...session, revisions: [...session.revisions, {...other.revisions.at(-1), delta: null, diagnostics: [], refusals: [],
       label: `stage ${other.stage} (${other.stageName}), other file`}]};
     refresh();
+    // Section 2 edits act on the latest revision, now the other file's document: off until the file is opened again.
+    $('actions').hidden = true;
     $('from').value = String(stageOpen.opened.revisions.length - 1);
     $('to').value = String(session.revisions.length - 1);
     renderDiff();
     stageLines([{text: `Added stage ${other.stage} of ${other.model} as revision ${session.revisions.length - 1}; section 3 compares it with stage ${stageOpen.opened.stage}.`},
       differ.length ? {notice: true, text: `The two stage files were made from different ${words(differ)}: the comparison also shows those differences.`}
-        : {text: 'Both stage files were made from the same source, staged JSON and settings (apart from what the earlier stage leaves out).'}]);
+        : {text: 'Both stage files were made from the same source, staged JSON and settings (apart from what the earlier stage leaves out).'},
+      {text: 'Section 2 (edits) is off while another file is added; open the stage file again to edit it.'}]);
   } catch (error) {
     stageLines([{notice: true, text: 'Could not add this stage file: ' + msg(error)}]);
   }
@@ -216,7 +233,9 @@ function checkStageRecord(text) {
     const record = records.find(r => r.model === model) || (records.length === 1 ? records[0] : null);
     if (!record) return stageLines([{notice: true, text: `The Run record file holds no record for ${model}.`}]);
     const differ = runRecordDiffers(stageOpen.file, record);
-    stageLines([differ.length
+    const held = runOutcome(record) === 'held'
+      ? [{notice: true, text: 'That Run was held (its parity check failed on the UXML XML): it sent nothing to the CII engine.'}] : [];
+    stageLines([...held, differ.length
       ? {notice: true, text: `This stage file and the Run record (${record.model}, ${record.createdAt}) were made from different ${words(differ)}.`}
       : {text: `This stage file and the Run record (${record.model}, ${record.createdAt}) were made from the same source and staged JSON`
         + (stageOpen.opened.stage === 'S4' ? ', with the same settings.' : '.')}]);
