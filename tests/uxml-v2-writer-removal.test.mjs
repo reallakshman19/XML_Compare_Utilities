@@ -30,3 +30,18 @@ test('a removed value loses its element and the whitespace before it; nothing el
   const back = readPsi116V2(after.text, {fileSha256: sha256Hex(after.text)});
   assert.deepEqual(valuesOf(back).map(([, v]) => v), valuesOf(step.uxml).map(([, v]) => v));
 });
+
+test('PR 306 review N1: an element spelled other than <Tag>..</Tag> or <Tag/> is refused, never cut into a fragment', () => {
+  const src = ['<?xml version="1.0" encoding="utf-8"?>', '<PipeStressExport xmlns="http://aveva.com/pipeStress116.xsd">',
+    '<Pipe><FullName>/P1</FullName>', '<Branch>', '  <Branchname>/B1</Branchname>', '  <Node>', '    <NodeNumber>10</NodeNumber>',
+    '    <Attr unit="mm">5</Attr>', '    <Spaced>7</Spaced >', '    <Empty/>', '    <BendRadius>0</BendRadius>', '  </Node>', '</Branch>', '</Pipe>',
+    '</PipeStressExport>', ''].join('\r\n');
+  const doc = readPsi116V2(src, {fileSha256: sha256Hex(src)});
+  const uid = doc.pipelines[0].components[0].uid;
+  for (const key of ['Attr', 'Spaced']) {
+    assert.throws(() => writePsi116FromUxmlV2(runStage(removing([uid], key), doc).uxml), e => e.code === 'PS116_WRITE_VALUE_REMOVED_UNSUPPORTED' && e.details.reason === 'element-spelling', key);
+  }
+  // The bare and self-closing spellings are still cut, with nothing else changed.
+  const out = writePsi116FromUxmlV2(runStage(removing([uid], 'BendRadius'), runStage(removing([uid], 'Empty'), doc).uxml).uxml).text;
+  assert.equal(out, src.replace('\r\n    <Empty/>', '').replace('\r\n    <BendRadius>0</BendRadius>', ''));
+});
