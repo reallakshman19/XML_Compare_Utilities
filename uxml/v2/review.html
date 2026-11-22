@@ -165,12 +165,14 @@
       Python (about 10 MB).</p>
     <div class="row">
       <label for="trCii">CAESAR II file</label><input type="file" id="trCii" accept=".cii">
+      <label for="trSidecar">CII sidecar (optional: transfer by node id)</label><input type="file" id="trSidecar" accept=".json">
       <label for="trScale">CII weights in</label><select id="trScale"><option value="" selected disabled>choose</option><option value="10">N (kg x 10, the XML to CII tab)</option><option value="1">kg</option></select>
       <button class="primary" id="trFromCii">Transfer from the CAESAR II file</button>
       <button id="trCiiSample">Use the BM2 CAESAR II sample</button>
       <button id="trCiiSampleEf05">Use the EF-05 CAESAR II sample</button>
       <button id="trCiiSampleEf05Supports">Use the EF-05 support-edits sample</button>
       <button id="trCiiSampleEf05Broken">Use the EF-05 broken-pipe sample</button>
+      <button id="trCiiSampleEf05ById">Use the EF-05 sample by node id</button>
     </div>
     <div id="trMessage"></div>
     <div id="trU2d" class="muted"></div>
