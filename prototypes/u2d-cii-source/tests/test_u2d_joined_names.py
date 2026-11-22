@@ -36,6 +36,14 @@ class Rule(unittest.TestCase):
         self.assertEqual(written("Node/NodeName", "A", "Z"), "Z")
         self.assertEqual(written("Node/Weight", "1|2", "3"), "3")
 
+    def test_a_locked_name_written_back_whole_is_no_change(self):
+        # E4b review B1: after a transfer the "|" name is locked and step 10 gives the CII the whole name.
+        self.assertFalse(differs("Node/NodeName", "Z|B|C", "Z|B|C"))
+        long = "R" * 14 + "|SL-142001.2"
+        self.assertFalse(differs("Node/NodeName", long, long[:NAME_LIMIT]), "the CII's 25 characters of the whole name")
+        self.assertTrue(differs("Node/NodeName", "A|B", "Z|B"), "a rename of a whole name is still a change")
+        self.assertEqual(written("Node/NodeName", "A|B", "Z|B"), "Z|B", "a whole name is taken as it is")
+
     def test_names_without_bar_keep_todays_rule(self):
         self.assertFalse(differs("Node/NodeName", "A", "A"))
         self.assertTrue(differs("Node/NodeName", "A", "B"))
@@ -80,6 +88,29 @@ class JoinedNamesOnEf05(unittest.TestCase):
         mine = [e for e in names(r) if e["before"].startswith("OLD-NAME|")]
         self.assertEqual(len(mine), 1, names(r))
         self.assertEqual(mine[0]["after"], m.group(1) + "|" + m.group(1) + ".J2|" + m.group(1) + ".J3")
+
+    def _cii_named(self, name: str, whole: str) -> str:
+        # The CII's NODENAME fields are 25 wide; the whole name is written where the first name was.
+        pad = lambda x: x[:NAME_LIMIT].ljust(NAME_LIMIT)  # noqa: E731
+        assert pad(name) in self.cii
+        return self.cii.replace(pad(name), pad(whole))
+
+    def test_a_second_transfer_of_a_locked_name_makes_no_edit(self):
+        # E4b review B1 round trip: the Enriched XML and the CII both hold the whole "|" name; nothing changed in
+        # CAESAR II, so no edit and no refusal (short and cut names). A rename of that whole name is still transferred.
+        m = self.joined_at[0]
+        text = self.joined.decode("utf-8")
+        was = m.group(1) + "|" + m.group(1) + ".J2|" + m.group(1) + ".J3"
+        for whole in ("R1|J2", "RENAMED-142001|SL-142001.2"):
+            xml = text.replace("<NodeName>" + was + "</NodeName>", "<NodeName>" + whole + "</NodeName>", 1).encode("utf-8")
+            r = plan(xml, self._cii_named(m.group(1), whole), self.match, 10.0)
+            self.assertEqual(names(r), [], (whole, names(r)))
+            self.assertFalse([x for x in r.get("refused", []) if x.get("field") == "Node/NodeName"], whole)
+            strip = lambda es: [(e["ref"]["nodeOrdinal"], e["field"], e["before"], e["after"]) for e in es]  # noqa: E731
+            self.assertEqual(strip(r["edits"]), strip(self.base["edits"]))
+        xml = text.replace("<NodeName>" + was + "</NodeName>", "<NodeName>R1|J2</NodeName>", 1).encode("utf-8")
+        r = plan(xml, self._cii_named(m.group(1), "R2|J2"), self.match, 10.0)
+        self.assertEqual([(e["before"], e["after"]) for e in names(r)], [("R1|J2", "R2|J2")])
 
 
 if __name__ == "__main__":

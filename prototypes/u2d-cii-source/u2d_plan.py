@@ -201,7 +201,10 @@ def cii_source(rows: list) -> dict:
 def differs(field: str, before, after: str) -> bool:
     if field == "Node/NodeName":
         # E4b (Owner 21 Nov 2026, "Yes, as suggested"): step 10 gives the CII only the first name of a "|" name (the
-        # names of duplicate nodes joined at one point), so the CII name is compared with that first name.
+        # names of duplicate nodes joined at one point), so the CII name is compared with that first name. Today's rule
+        # comes first: a name locked by an earlier transfer reaches the CII whole (E4b review B1), and that is no change.
+        if not (before != after and not (len(before) > NAME_LIMIT and before[:NAME_LIMIT] == after)):
+            return False
         head = before.split("|", 1)[0]
         return head != after and not (len(head) > NAME_LIMIT and head[:NAME_LIMIT] == after)
     b = num(before)
@@ -211,7 +214,8 @@ def differs(field: str, before, after: str) -> bool:
 def written(field: str, before, after: str) -> str:
     """The text an edit writes: a CAESAR II rename of a "|" name replaces its first name and the others stay (E4b,
     Owner 21 Nov 2026)."""
-    if field == "Node/NodeName" and "|" in before:
+    if field == "Node/NodeName" and "|" in before and "|" not in after:
+        # A CII name with "|" in it is a whole name (a locked one written back): it is taken as it is.
         return after + before[len(before.split("|", 1)[0]):]
     return after
 
