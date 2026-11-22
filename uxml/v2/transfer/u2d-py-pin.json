@@ -11,7 +11,7 @@
   },
   "prototypes/u2d-cii-source/u2d_plan.py": {
    "to": "u2d-cii-source/u2d_plan.py",
-   "sha256": "7dcd9cade95c65fd019add8df7e3c935fa1dea4dddfed0d01c584956f601c070"
+   "sha256": "e5d856897d0e0aea6323faee1c0b7fe452dd8cf3e720d1880bed27c64debe8c8"
   },
   "prototypes/u2d-cii-source/u2d_browser.py": {
    "to": "u2d-cii-source/u2d_browser.py",
