@@ -22,6 +22,8 @@ export async function transferWithNewNodes({targetBytes, ...args}) {
   const doc = readPsi116V2(text, {fileSha256: sha256Hex(text)});
   const {splits, refused} = findCiiNewNodes(doc, first.matchFull);
   if (!splits.length) return {doc, xmlText: text, u2d: first, newNodes: {splits, refused, stage: null}};
+  // T2 review N2: the sidecar places ids in the delivered Enriched XML only; a node made here is outside it.
+  if (args.sidecarBytes) throw new Error(`U2D_SIDECAR_WITH_NEW_NODES: CAESAR II broke ${splits.length} pipe(s) (new node(s) ${splits.map(s => s.ciiNode).join(', ')}); a transfer by node id cannot follow new nodes. Transfer without the sidecar. Nothing was transferred.`);
   const stage = runStage(ciiNewNodeStage, doc, {splits});
   const xmlText = writePsi116FromUxmlV2(stage.uxml).text;
   const u2d = await transferCiiIntoXml({targetBytes: new TextEncoder().encode(xmlText), ...args});

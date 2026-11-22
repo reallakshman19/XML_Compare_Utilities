@@ -87,6 +87,41 @@ def edit_shared_points(cii: str, sidecar: dict, shared: list) -> tuple[str, dict
     return "\n".join(lines), want
 
 
+def shift_along_run_ef05(cii: str) -> str:
+    """EF05-on step 10 CII with elements shifted along one run (T2 review B1, probe p6): element 50 (629-630, a free
+    end) deleted, element 53 (660-710) broken at new node 665 (the second half takes element 50's pointer lines), and
+    insulation 77 on element 52 (640-660). Node 629's coordinate seed moves to node 630. Same element count."""
+    lines = cii.split("\n")
+    e0 = section(lines, "ELEMENTS")
+    blk = lambda k: lines[e0 + k * ELEMENT_LINES:e0 + (k + 1) * ELEMENT_LINES]  # noqa: E731
+
+    def nums(b, frm=None, to=None, half=False):
+        b = list(b)
+        r = b[0]
+        c = [r[:15], r[15:28], r[28:41], r[41:54], r[54:67]]
+        if frm is not None:
+            c[0] = f"{frm:.4f}".rjust(15)
+        if to is not None:
+            c[1] = f"{to:.4f}".rjust(13)
+        if half:
+            for i in (2, 3, 4):
+                c[i] = f"{float(c[i]) / 2:.6f}".rjust(13)
+        b[0] = "".join(c) + r[67:]
+        return b
+
+    first = nums(blk(52), to=665.0, half=True)
+    second = nums(blk(52), frm=665.0, half=True)[:11] + blk(49)[11:]
+    e51 = list(blk(51))
+    e51[1] = e51[1][:15] + "77.0000".rjust(13) + e51[1][28:]
+    out = lines[:e0 + 49 * ELEMENT_LINES] + [x for b in (blk(50), e51, first, second) for x in b] + lines[e0 + 53 * ELEMENT_LINES:]
+    r49 = blk(49)[0]
+    dx, dy, dz = float(r49[28:41]), float(r49[41:54]), float(r49[54:67])
+    text = "\n".join(out)
+    old = "            629  441665.1500  100607.1500 1460905.0200"
+    assert old in text
+    return text.replace(old, f"{630:>15d}{441665.15 + dx:13.4f}{100607.15 + dy:13.4f}{1460905.02 + dz:13.4f}")
+
+
 def edit_key(e: dict) -> tuple:
     return (e["ref"]["branchOrdinal"], e["ref"]["nodeOrdinal"], e["field"], e["before"], e["after"])
 
@@ -257,6 +292,30 @@ class TransferById(unittest.TestCase):
         trimmed["elements"].pop()
         with self.assertRaisesRegex(ValueError, "U2D_SIDECAR_ELEMENT_COUNT"):
             self.by_id(self.cii, sidecar=trimmed)
+
+    def test_a_malformed_sidecar_is_refused_not_a_crash(self):
+        # T2 review N1: a place or number that is not one is U2D_SIDECAR_INVALID, never a Python TypeError.
+        bad_at = json.loads(json.dumps(self.sidecar))
+        bad_at["nodes"][0]["ids"][0]["at"] = [None, 0]
+        bad_no = json.loads(json.dumps(self.sidecar))
+        bad_no["elements"][0]["from"] = None
+        for side in (bad_at, bad_no):
+            with self.assertRaisesRegex(ValueError, "U2D_SIDECAR_INVALID"):
+                self.by_id(self.cii, sidecar=side)
+
+    def test_elements_shifted_along_a_run_are_refused(self):
+        # T2 review B1 (EF-05): CAESAR II deletes the free-end element 629-630 and breaks 660-710 at a new node 665; the
+        # element count stays 616 and the moved numbers map one to one (630->629, 640->630, 660->640, 665->660), so the
+        # ids would land one node along. Insulation 77 on 640-660 must not reach record 640: refused, nothing transferred.
+        if self.MODEL != "EF05":
+            self.skipTest("the EF-05 run 629-710 is the recorded case")
+        cii = shift_along_run_ef05(self.cii)
+        self.assertEqual(len(parse_cii(cii)["elements"]), len(self.sidecar["elements"]))
+        with self.assertRaisesRegex(ValueError, "U2D_SIDECAR_RENUMBER_UNCLEAR"):
+            self.by_id(cii)
+        today = plan(self.xml, cii, self.match_of(cii), 10.0)
+        ins = [(e["ref"]["nodeNumber"], e["after"]) for e in today["edits"] if e["field"] == "Node/InsulationThickness"]
+        self.assertEqual(ins, [("660", "77")], "by position the edit is on node 660")
 
     def test_a_bare_branch_layout_gives_the_same_places(self):
         # T1 review N3: read_target and step 10 count branches the same way when they sit under the root.

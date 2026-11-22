@@ -23,7 +23,7 @@
   },
   "prototypes/u2d-cii-source/u2d_sidecar.py": {
    "to": "u2d-cii-source/u2d_sidecar.py",
-   "sha256": "6e3daf7f0a3f2c6c850470dca9883ec4c82983c2f002ea84711076e2d1c6f618"
+   "sha256": "b3451411169beeb5ba88036928e792ab8b0d1c045292f051a23c72f241867e5d"
   },
   "prototypes/u3b-cii-check/u3b_core.py": {
    "to": "u3b-cii-check/u3b_core.py",

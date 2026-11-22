@@ -17,7 +17,10 @@ Refusals (ValueError; nothing is transferred):
   U2D_SIDECAR_OTHER_XML         the sidecar was made for another Enriched XML (sha256 of the file differs)
   U2D_SIDECAR_PLACE_MISMATCH    an id's place in this XML does not hold that id's NodeName and ComponentRefNo
   U2D_SIDECAR_ELEMENT_COUNT     the CII has another number of elements than step 10 wrote
-  U2D_SIDECAR_RENUMBER_UNCLEAR  the CII node numbers do not map one to one onto step 10's by element order
+  U2D_SIDECAR_RENUMBER_UNCLEAR  the CII node numbers do not map one to one onto step 10's by element order, or a node
+                                taken as renumbered is not at its node id's place by position (elements shifted along a
+                                run in CAESAR II: an element deleted at one end and one added elsewhere; T2 review B1)
+A sidecar whose content is malformed (a place or number that is not one) is U2D_SIDECAR_INVALID (T2 review N1).
 """
 from __future__ import annotations
 
@@ -91,9 +94,29 @@ def renumber_map(sidecar: dict, cii: dict) -> dict:
 def by_id(sidecar: dict, target_bytes: bytes, cii: dict, nodes: dict, position_pairs: dict) -> dict:
     """The record keys of every CII element end, the pairs they give (CII number -> keys), and the cross-checks."""
     check_header(sidecar, target_bytes)
+    try:
+        return follow(sidecar, cii, nodes, position_pairs)
+    except (TypeError, AttributeError, KeyError, IndexError) as e:
+        raise ValueError(f"U2D_SIDECAR_INVALID: the sidecar's content is malformed ({type(e).__name__}: {e}). "
+                         "Nothing was transferred.") from e
+
+
+def confirm_renumbered(moved_ends: list) -> None:
+    """A node number changed in CAESAR II is followed only where the position match puts that CII node at its id's
+    place. When elements shift along a run (one deleted at a free end, one added elsewhere: the count stays), every
+    moved number still maps one to one, but each id would land on the neighbouring node (T2 review B1)."""
+    if moved_ends:
+        r = moved_ends[0]
+        raise ValueError(f"U2D_SIDECAR_RENUMBER_UNCLEAR: {len(moved_ends)} element end(s) at node numbers changed in CAESAR II "
+                         f"are not at their node id's place by position (first: CII node {r['ciiNode']}, element {r['element']}, "
+                         f"step 10 node {r['step10']}). Elements were probably moved, deleted or added in CAESAR II; transfer "
+                         "without the sidecar (by position). Nothing was transferred.")
+
+
+def follow(sidecar: dict, cii: dict, nodes: dict, position_pairs: dict) -> dict:
     at = places(sidecar, nodes)
     renumber = renumber_map(sidecar, cii)
-    ends, pairs, other, unpaired = [], {}, [], []
+    ends, pairs, other, unpaired, moved_ends = [], {}, [], [], []
     for k, (el, s) in enumerate(zip(cii["elements"], sidecar["elements"])):
         keys = []
         for i, end in ((0, "fromId"), (1, "toId")):
@@ -109,7 +132,10 @@ def by_id(sidecar: dict, target_bytes: bytes, cii: dict, nodes: dict, position_p
                 unpaired.append(row)
             elif key not in seen:
                 other.append(row)
+            if renumber[c] != c and (not seen or key not in seen):
+                moved_ends.append({**row, "step10": renumber[c]})
         ends.append(tuple(keys))
+    confirm_renumbered(moved_ends)
     moved = sorted([[c, n] for c, n in renumber.items() if c != n], key=lambda r: float(r[0]))
     return {"ends": ends, "pairs": pairs,
             "report": {"elements": len(ends), "renumbered": moved,
