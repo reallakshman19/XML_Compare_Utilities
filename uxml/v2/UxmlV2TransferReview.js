@@ -17,6 +17,7 @@ import {runUnderLocksOrExplain, NOT_THROUGH_STEP_10} from './transfer/NotThrough
 import {transferWithNewNodes} from './transfer/TransferWithNewNodes.js';
 import {newNodeValueRows} from './transfer/CiiNewNodes.js';
 import {supportRows, supportsLine} from './transfer/SupportLines.js';
+import {byIdLine} from './transfer/ByIdLine.js';
 import {materialFollowRows} from './transfer/MaterialFollowRows.js';
 
 const $ = id => document.getElementById(id);
@@ -28,6 +29,10 @@ const SAMPLE_EF05 = {xml: 'uxml-v2-transfer/EF05/base.xml', cii: 'uxml-v2-transf
 const SAMPLE_EF05_SUPPORTS = {xml: SAMPLE_EF05.xml, cii: 'uxml-v2-transfer/EF05/supports-edits.cii'};
 // Group 2 (Owner 19 Nov): step 10's CII of the same XML with pipe 2490 -> 2520 broken at its midpoint, node 2505 with +Y (EF05/README.md).
 const SAMPLE_EF05_BROKEN = {xml: SAMPLE_EF05.xml, cii: 'uxml-v2-transfer/EF05/broken-pipe.cii'};
+// T2 (Owner 22 Nov 2026): step 10 with "Engine reads UXML" on, its CII sidecar, and a CII changed at the 45 points
+// where several XML records sit (fixtures/uxml-v2-transfer/EF05-on; tests/test_u2d_by_id.py made the CII).
+const SAMPLE_EF05_BY_ID = {xml: 'uxml-v2-transfer/EF05-on/enriched.xml', cii: 'uxml-v2-transfer/EF05-on/shared-points.cii',
+  sidecar: 'uxml-v2-transfer/EF05-on/step10.cii.sidecar.json'};
 const DEFAULT_ROWS = 'uxml-v2-supports/bench/default-material-map-rows.json';
 let out = null, name = 'model', u2d = null;
 
@@ -127,21 +132,23 @@ async function guarded(fn) {
 }
 
 /** Section 5 without a receipt: the page runs the transfer from the CAESAR II file, then the usual run under locks. */
-async function fromCii(xmlFile = $('trXml').files[0], ciiFile = $('trCii').files[0]) {
+async function fromCii(xmlFile, ciiFile, sidecarFile = null) {
   u2d = null;
   $('trU2d').replaceChildren();
   if (!xmlFile || !ciiFile) throw new Error('open the Enriched XML and the CAESAR II file first');
   if (!$('trScale').value) throw new Error('choose the unit of the CII weights first (N for a file from the XML to CII tab)');
   name = xmlFile.name.replace(/\.[^.]+$/, '');
   const targetBytes = new Uint8Array(await xmlFile.arrayBuffer());
-  const made = await transferWithNewNodes({targetBytes, ciiBytes: new Uint8Array(await ciiFile.arrayBuffer()), weightScale: Number($('trScale').value),
-    names: {cii: ciiFile.name, target: xmlFile.name, revised: `${name}_transferred.xml`}, onStatus: text => say(text, false)});
+  const sidecarBytes = sidecarFile ? new Uint8Array(await sidecarFile.arrayBuffer()) : null;
+  const made = await transferWithNewNodes({targetBytes, ciiBytes: new Uint8Array(await ciiFile.arrayBuffer()), sidecarBytes, weightScale: Number($('trScale').value),
+    names: {cii: ciiFile.name, target: xmlFile.name, revised: `${name}_transferred.xml`, sidecar: sidecarFile?.name}, onStatus: text => say(text, false)});
   u2d = made.u2d;
   const {summary} = u2d.receipt;
   const refused = Object.entries(summary.refused).map(([code, n]) => `${code} ${n}`).join(', ') || 'none';
   $('trU2d').textContent = `Transfer from ${ciiFile.name}: ${summary.edits} value(s) differ and were transferred, ${summary.pairs} node pairs, `
     + `${summary.ciiElements} CII elements; refused: ${refused}. ${(u2d.ms / 1000).toFixed(1)} s in this browser.`;
   if (summary.supports) $('trU2d').textContent += ' ' + supportsLine(summary.supports);
+  if (u2d.receipt.byId) $('trU2d').textContent += ' ' + byIdLine(u2d.receipt.byId);
   run({xmlText: made.xmlText, doc: made.doc, newNodes: made.newNodes, receiptText: u2d.receiptText, stagedJsonText: await fileText('supStaged'),
     configText: await fileText('supConfig'), rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
 }
@@ -157,7 +164,7 @@ function wire() {
     run({xmlText, receiptText, stagedJsonText: await fileText('supStaged'), configText: await fileText('supConfig'),
       rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
   }));
-  $('trFromCii').addEventListener('click', () => guarded(() => fromCii()));
+  $('trFromCii').addEventListener('click', () => guarded(() => fromCii($('trXml').files[0], $('trCii').files[0], $('trSidecar').files[0])));
   const file = async (path, fileName) => {
     const res = await fetch(BENCH + path);
     if (!res.ok) throw new Error(`could not load ${path} (${res.status})`);
@@ -174,6 +181,10 @@ function wire() {
   }));
   $('trCiiSampleEf05Broken').addEventListener('click', () => guarded(async () => {
     await fromCii(await file(SAMPLE_EF05_BROKEN.xml, 'EF-05-step10-enriched.xml'), await file(SAMPLE_EF05_BROKEN.cii, 'EF-05-broken-pipe.cii'));
+  }));
+  $('trCiiSampleEf05ById').addEventListener('click', () => guarded(async () => {
+    await fromCii(await file(SAMPLE_EF05_BY_ID.xml, 'EF-05-step10-on-enriched.xml'), await file(SAMPLE_EF05_BY_ID.cii, 'EF-05-shared-points.cii'),
+      await file(SAMPLE_EF05_BY_ID.sidecar, 'EF-05-PRO.TEST_xml_to_cii2019_standalone.cii.sidecar.json'));
   }));
   $('trSample').addEventListener('click', () => guarded(async () => {
     u2d = null;

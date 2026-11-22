@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "u3b-cii-check"))
 from u3b_core import element_label, num, parse_cii, same  # noqa: E402
+from u2d_sidecar import by_id  # noqa: E402
 from u2d_supports import support_report  # noqa: E402
 
 NAME_LIMIT = 25          # CII NODENAME keeps 25 characters
@@ -81,15 +82,22 @@ def record_for(cii_node: str, pairs: dict, nodes: dict):
     return positive[0] if len(positive) == 1 else None
 
 
-def node_values(cii: dict, pairs: dict, nodes: dict, items: set, weight_scale: float) -> tuple[dict, list]:
-    """(node key, field) -> set of CII-derived texts; plus refusals for unclear nodes."""
-    want, refused = {}, []
+def records_by_position(cii: dict, pairs: dict, nodes: dict) -> tuple[list, list]:
+    """Each element's {"from", "to"} records by position (record_for), and refusals for unclear points."""
+    recs, refused = [], []
     for el in cii["elements"]:
         ends = {"from": node_key(el["E"][0][0]), "to": node_key(el["E"][0][1])}
-        recs = {end: record_for(n, pairs, nodes) for end, n in ends.items()}
-        for end, rec in recs.items():
+        recs.append({end: record_for(n, pairs, nodes) for end, n in ends.items()})
+        for end, rec in recs[-1].items():
             if rec is None and ends[end] in pairs:
                 refused.append({"code": "U2D_NODE_AMBIGUOUS", "ciiNode": ends[end], "detail": "several PSI116 records at this point"})
+    return recs, refused
+
+
+def node_values(cii: dict, ends: list, items: set, weight_scale: float) -> dict:
+    """(node key, field) -> set of CII-derived texts; ends[k] = element k's {"from", "to"} records (None: not taken)."""
+    want = {}
+    for el, recs in zip(cii["elements"], ends):
         add = lambda end, field, text: recs[end] and want.setdefault((key(recs[end]["ref"]), field), set()).add(text)  # noqa: E731
         if "name" in items:
             add("from", "Node/NodeName", el["name"][0])
@@ -101,7 +109,7 @@ def node_values(cii: dict, pairs: dict, nodes: dict, items: set, weight_scale: f
                 v = num(el["E"][li][ci])
                 if v is not None and not (field == "Node/WallThickness" and same(v, WALL_MISSING)):
                     add(end, field, text_number(v))
-    return want, refused
+    return want
 
 
 def node_key(text: str) -> str:
@@ -231,15 +239,24 @@ def check_weight_scale(edits: list, weight_scale: float) -> None:
                          f"XML weight; the CII weight unit (--weight-scale {weight_scale:g}) is probably wrong. Nothing was transferred.")
 
 
-def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, items=("name", "weight", "element")) -> dict:
+def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, items=("name", "weight", "element"),
+         sidecar: dict | None = None) -> dict:
+    """sidecar (T2, Owner 22 Nov 2026): step 10's CII sidecar for this Enriched XML; each element end then goes to the
+    record of its node id (u2d_sidecar.by_id), and the branches take the pairs those ids give."""
     nodes, brs = read_target(target_bytes)
     cii = parse_cii(cii_text)
     pairs = {}
     for p in match.get("nodePairs", []):
         pairs.setdefault(str(p["cii"]), []).append(key(p["xml"]))
+    ids = by_id(sidecar, target_bytes, cii, nodes, pairs) if sidecar is not None else None
+    if ids:
+        ends, refused_nodes = [{"from": nodes[f], "to": nodes[t]} for f, t in ids["ends"]], []
+        pairs = ids["pairs"]
+    else:
+        ends, refused_nodes = records_by_position(cii, pairs, nodes)
     items = set(items)
     edits, refused = [], []
-    nv, refused_nodes = node_values(cii, pairs, nodes, items, weight_scale)
+    nv = node_values(cii, ends, items, weight_scale)
     refused += [dict(t) for t in sorted({tuple(sorted((k, str(v)) for k, v in r.items())) for r in refused_nodes})]
     for (k, field), texts in sorted(nv.items()):
         n = nodes[k]
@@ -283,7 +300,13 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
         codes[r["code"]] = codes.get(r["code"], 0) + 1
     # Supports from CAESAR II (Owner 18 Nov 2026): listed in the receipt (step 2); not applied to the XML yet.
     supports = support_report(target_bytes, cii_text, match)
-    return {"ok": True, "edits": edits, "refused": refused,
-            "supports": {"changes": supports["changes"], "refused": supports["refused"]},
-            "summary": {"pairs": len(match.get("nodePairs", [])), "ciiElements": len(cii["elements"]),
-                        "edits": len(edits), "byField": by, "refused": codes, "supports": supports["summary"]}}
+    out = {"ok": True, "edits": edits, "refused": refused,
+           "supports": {"changes": supports["changes"], "refused": supports["refused"]},
+           "summary": {"pairs": len(match.get("nodePairs", [])), "ciiElements": len(cii["elements"]),
+                       "edits": len(edits), "byField": by, "refused": codes, "supports": supports["summary"]}}
+    if ids:
+        check = ids["report"]["positionCheck"]
+        out["byId"] = ids["report"]
+        out["summary"]["byId"] = {"renumbered": len(ids["report"]["renumbered"]), "otherPlace": len(check["otherPlace"]),
+                                  "notPairedByPosition": len(check["notPairedByPosition"])}
+    return out

@@ -104,8 +104,8 @@ def source_of(change: dict, result: dict) -> dict:
 
 def build_receipt(*, names, cii_bytes, target, revised, u1, items, weight_scale, result, created_at=None) -> dict:
     """The u2.transfer-receipt; names = (CII file, target file, revised file)."""
-    cii_name, target_name, out_name = names
-    return {"ok": True, "format": "u2.transfer-receipt", "version": 1, "kind": "cii-source",
+    cii_name, target_name, out_name = names[:3]
+    receipt = {"ok": True, "format": "u2.transfer-receipt", "version": 1, "kind": "cii-source",
             "createdAt": created_at or datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "source": {"fileName": cii_name, "sha256": sha256(cii_bytes)},
             "base": {"fileName": target_name, "sha256": sha256(target)},
@@ -115,6 +115,24 @@ def build_receipt(*, names, cii_bytes, target, revised, u1, items, weight_scale,
             "refused": result["refused"], "summary": result["summary"],
             # Supports from CAESAR II (Owner 18 Nov 2026): listed only; TransferStage does not apply them yet.
             "supports": result.get("supports", {"changes": [], "refused": []})}
+    if result.get("byId"):
+        # T2 (Owner 22 Nov 2026): transferred by node id with step 10's CII sidecar (names[3] is its file name).
+        receipt["byId"] = {**result["byId"], "sidecarFileName": names[3] if len(names) > 3 else None}
+    return receipt
+
+
+def plan_with_sidecar(target: bytes, cii_bytes: bytes, match: dict, weight_scale: float, items: list,
+                      sidecar: bytes | None) -> dict:
+    """plan(), by node id when step 10's CII sidecar (its file bytes) is given (T2, Owner 22 Nov 2026)."""
+    if sidecar is None:
+        return plan(target, cii_bytes.decode("utf-8"), match, weight_scale, items)
+    try:
+        side = json.loads(bytes(sidecar).decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        raise ValueError(f"U2D_SIDECAR_INVALID: the sidecar is not JSON ({e}). Nothing was transferred.") from e
+    result = plan(target, cii_bytes.decode("utf-8"), match, weight_scale, items, sidecar=side)
+    result["byId"]["sidecarSha256"] = sha256(bytes(sidecar))
+    return result
 
 
 def main(argv=None) -> int:
@@ -125,6 +143,7 @@ def main(argv=None) -> int:
     p.add_argument("--weight-scale", required=True, type=float, choices=[1.0, 10.0],
                    help="RIGID weight units of the CII per kg: 10 = the standalone tab default (kg x 10 = N), 1 = kg")
     p.add_argument("--items", default="name,weight,element")
+    p.add_argument("--sidecar", type=Path, help="step 10's CII sidecar for --target: transfer by node id (T2)")
     a = p.parse_args(argv)
     created = False
     try:
@@ -134,7 +153,8 @@ def main(argv=None) -> int:
         target, cii_bytes = a.target.read_bytes(), a.cii.read_bytes()
         match = json.loads(a.match.read_text(encoding="utf-8"))
         check_inputs(target, cii_bytes, a.cii_v14.read_bytes(), match)
-        result = plan(target, cii_bytes.decode("utf-8"), match, a.weight_scale, a.items.split(","))
+        side = a.sidecar.read_bytes() if a.sidecar else None
+        result = plan_with_sidecar(target, cii_bytes, match, a.weight_scale, a.items.split(","), side)
         with tempfile.TemporaryDirectory() as tmp:
             edits = Path(tmp) / "edits.json"
             edits.write_text(json.dumps(u1_envelope(target, result)), encoding="utf-8")
@@ -149,7 +169,8 @@ def main(argv=None) -> int:
         if u1["changes"]:
             revised = protect(revised, u1["changes"])
             a.out.write_bytes(revised)
-        receipt = build_receipt(names=(a.cii.name, a.target.name, a.out.name), cii_bytes=cii_bytes, target=target,
+        names = (a.cii.name, a.target.name, a.out.name) + ((a.sidecar.name,) if a.sidecar else ())
+        receipt = build_receipt(names=names, cii_bytes=cii_bytes, target=target,
                                 revised=revised, u1=u1, items=a.items.split(","), weight_scale=a.weight_scale, result=result)
         with open(a.changes, "x", encoding="utf-8") as f:
             json.dump(receipt, f, indent=1)

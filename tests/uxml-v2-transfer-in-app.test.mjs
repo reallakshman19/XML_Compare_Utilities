@@ -53,3 +53,28 @@ test('BM2: the page transfer gives the receipt and values of the command-line tr
   const old = cli.refused.filter(x => !(x.code === 'U2D_MATERIAL_CARRIED' && moved.has(x.branch)));
   assert.deepEqual(r.receipt.refused.filter(x => x.code !== 'U2D_BRANCH_NOT_PAIRED').map(key).sort(), old.map(key).sort());
 });
+
+// T2 (Owner 22 Nov 2026): with step 10's CII sidecar the page transfers by node id. EF05-on/shared-points.cii changes a
+// value on every element end at the 45 points where today's transfer refuses (several XML records at one point).
+const EF05_ON = new URL('fixtures/uxml-v2-transfer/EF05-on/', ROOT);
+test('EF-05: the page transfers by node id with the CII sidecar, and refuses a sidecar for another XML', {skip: !process.env.U2D_PYODIDE && 'U2D_PYODIDE not set'}, async () => {
+  const dir = process.env.U2D_PYODIDE;
+  const {loadPyodide} = await import(pathToFileURL(join(dir, 'pyodide.mjs')));
+  const sidecarBytes = new Uint8Array(readFileSync(new URL('step10.cii.sidecar.json', EF05_ON)));
+  const args = {ciiBytes: new Uint8Array(readFileSync(new URL('shared-points.cii', EF05_ON))), weightScale: 10, loadPyodide,
+    names: {cii: 'shared-points.cii', target: 'enriched.xml', revised: 'revised.xml', sidecar: 'step10.cii.sidecar.json'}, indexURL: dir.replace(/[\/]?$/, '/')};
+  const target = new Uint8Array(readFileSync(new URL('enriched.xml', EF05_ON)));
+  const today = await transferCiiIntoXml({targetBytes: target, ...args});
+  assert.equal(today.receipt.summary.edits, 0);
+  assert.equal(today.receipt.summary.refused.U2D_NODE_AMBIGUOUS, 45);
+  assert.equal(today.receipt.byId, undefined);
+  const r = await transferCiiIntoXml({targetBytes: target, sidecarBytes, ...args});
+  assert.equal(r.receipt.summary.edits, 112);
+  assert.equal(r.receipt.summary.refused.U2D_NODE_AMBIGUOUS, undefined);
+  assert.equal(r.receipt.byId.elements, 616);
+  assert.equal(r.receipt.byId.sidecarFileName, 'step10.cii.sidecar.json');
+  const sha = Buffer.from(await crypto.subtle.digest('SHA-256', sidecarBytes)).toString('hex');
+  assert.equal(r.receipt.byId.sidecarSha256, sha);
+  const other = new Uint8Array(readFileSync(new URL('fixtures/uxml-v2-transfer/EF05/base.xml', ROOT)));
+  await assert.rejects(transferCiiIntoXml({targetBytes: other, sidecarBytes, ...args}), /U2D_SIDECAR_OTHER_XML/);
+});

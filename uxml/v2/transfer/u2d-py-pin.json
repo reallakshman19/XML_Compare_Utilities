@@ -7,19 +7,23 @@
  "files": {
   "prototypes/u2d-cii-source/u2d.py": {
    "to": "u2d-cii-source/u2d.py",
-   "sha256": "30594df16cdf81a920c800cadc2efc8feb0e7bad9372f8cb29d701edb5cd8ea9"
+   "sha256": "39c1dbddf91f97f725e7823051b183208c638258b85e066717e75686ad8a414d"
   },
   "prototypes/u2d-cii-source/u2d_plan.py": {
    "to": "u2d-cii-source/u2d_plan.py",
-   "sha256": "e5d856897d0e0aea6323faee1c0b7fe452dd8cf3e720d1880bed27c64debe8c8"
+   "sha256": "85a3f44326ec460789672edbd9fc5c4368773010dbc6c1f1cba28ad884bec235"
   },
   "prototypes/u2d-cii-source/u2d_browser.py": {
    "to": "u2d-cii-source/u2d_browser.py",
-   "sha256": "e404d8646a9ecba8eeb7a1089e77f1ce5926f6b5f78f425fbda7846500b9c49e"
+   "sha256": "922ecb69ef5eec7f2729f69feb77d2de70d9a50666ae07963483eb9481f7f5bc"
   },
   "prototypes/u2d-cii-source/u2d_supports.py": {
    "to": "u2d-cii-source/u2d_supports.py",
    "sha256": "880cada342438d153118be7abbedf803ee23fc573fabf0a588a49db460c6eb20"
+  },
+  "prototypes/u2d-cii-source/u2d_sidecar.py": {
+   "to": "u2d-cii-source/u2d_sidecar.py",
+   "sha256": "b3451411169beeb5ba88036928e792ab8b0d1c045292f051a23c72f241867e5d"
   },
   "prototypes/u3b-cii-check/u3b_core.py": {
    "to": "u3b-cii-check/u3b_core.py",
