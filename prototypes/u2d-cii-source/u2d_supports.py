@@ -18,6 +18,8 @@ Rules, from 3D_Converters' step 10 writer (converters/scripts/xml_to_cii2019.py)
 - S-fix step 1 (Owner 23 Nov 2026): step 10 also writes supports the XML does not hold on that node (moved from an
   unnumbered node; ANCI and keyword rules). A change at such a node is refused, U2D_SUPPORT_MAY_BE_STEP10, never
   written or locked (step10_may_write).
+- S-fix step 3 (Owner 23 Nov 2026): with step 10's CII sidecar listing what it wrote (ciiSupports), the CII's
+  supports are compared with those instead (written_report); step 1's refusal stays for a CII without one.
 """
 from __future__ import annotations
 
@@ -391,6 +393,225 @@ def support_report(target_bytes: bytes, cii_text: str, match: dict) -> dict:
     for r in refused:
         codes[r["code"]] = codes.get(r["code"], 0) + 1
     return {"summary": {**counts, "byKind": by_kind, "refused": codes,
+                        "xmlSupports": sum(len(v) for v in xml.values()), "xmlSupportNodes": len(xml),
+                        "ciiSupports": sum(len(v) for v in cii.values()), "ciiSupportNodes": len(cii),
+                        "unknownXmlTypes": len(unknown)},
+            "changes": changes, "refused": refused, "unknownXmlTypes": unknown}
+
+
+# S-fix step 3 (Owner 23 Nov 2026, "ok proceed"): with step 10's CII sidecar (3D_Converters PR 443, `ciiSupports`) the
+# CII's supports are compared with the supports step 10 wrote at that CII node, each with where it came from, instead of
+# with the XML's supports on the position pairs. Then a support step 10 moved or made itself is no longer a change.
+WRITTEN_DETAIL = {
+    "U2D_SUPPORT_RULE_REMOVED": ("step 10 made this support by its own rule for this component (no support in the XML), "
+                                 "and CAESAR II deleted it; the XML cannot say \"no support here\" without changing the "
+                                 "Support Mapper rules, so it is not transferred"),
+    "U2D_SUPPORT_OPEN_END_REMOVED": ("step 10 writes this anchor at an open pipe end itself, and CAESAR II deleted it; "
+                                     "the XML cannot keep that, so it is not transferred"),
+    "U2D_SUPPORT_SOURCE_UNKNOWN": "the sidecar does not say where step 10 got this support, so its change is not transferred",
+    "U2D_SUPPORT_MERGED_COPY": ("step 10 wrote one support from identical supports on several XML nodes at this point; "
+                                "a change cannot be placed on one of them"),
+    "U2D_SUPPORT_NOT_ON_NODE": "the XML node step 10 took this support from does not hold it, so the change is not placed",
+    "U2D_SUPPORT_TARGET_UNCLEAR": "several XML nodes at this point could take this support",
+}
+
+
+def written_support(w: dict) -> tuple:
+    """The compared form of one support the sidecar lists as step 10 wrote it."""
+    return support(int(w["type"]), float(w["stiffness"]), float(w["gap"]), float(w["friction"]),
+                   unit([float(x) for x in w["cosines"]]))
+
+
+def pair_up(gone: list, new: list) -> tuple[list, list, list]:
+    """(edited [(w, c)], removed [w], added [c]): step 10's supports CAESAR II no longer has, and CAESAR II's that step 10
+    did not write, paired same type first, then in order (as restraint_ops pairs them)."""
+    gone, new, edited = list(gone), list(new), []
+    for w in list(gone):
+        c = next((c for c in new if c[0][0] == w[0][0]), None)
+        if c is not None:
+            gone.remove(w)
+            new.remove(c)
+            edited.append((w, c))
+    while gone and new:
+        edited.append((gone.pop(0), new.pop(0)))
+    return edited, gone, new
+
+
+def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict) -> dict:
+    """support_report's result, compared with what step 10 wrote (the sidecar's ciiSupports). Read-only.
+
+    Per CII node (its step 10 number through the element order, u2d_sidecar.renumber_map): CAESAR II's supports against
+    step 10's. Equal: no change. Otherwise each support goes to the XML node that keeps it:
+    - xml: the node id it was read from; moved: the unnumbered (or dropped) node id it came from, never a second
+      support on the numbered node;
+    - rule (componentType, keyword) edited: written as a support on its one node id, so the XML then wins over the rule;
+      deleted: refused (U2D_SUPPORT_RULE_REMOVED; the Support Mapper rules stay as they are);
+    - openEnd edited: CAESAR II's support is added on the node; deleted: refused (U2D_SUPPORT_OPEN_END_REMOVED);
+    - added: on the node id step 10 wrote that CII node from (the only one there, or the only one its elements use).
+    - a node id that gets a support this way loses step 10's rule there, so the rule supports CAESAR II kept at that CII
+      node are written on it too.
+    A changed support that step 10 wrote from identical copies on several node ids is refused (U2D_SUPPORT_MERGED_COPY).
+    """
+    xml, unknown = xml_supports(target_bytes)
+    refs = xml_node_refs(target_bytes)
+    texts = xml_restraint_texts(target_bytes)
+    at, renumber = ids["at"], ids["renumber"]
+    id_of = {k: i for i, k in at.items()}
+    ids_at, used_at, written = {}, {}, {}
+    for n in sidecar["nodes"]:
+        ids_at[str(n["cii"])] = [i["id"] for i in n["ids"]]
+    for el in sidecar["elements"]:
+        for end in ("from", "to"):
+            used_at.setdefault(str(el[end]), set()).add(el[end + "Id"])
+    for b in sidecar["ciiSupports"]:
+        written[str(b["cii"])] = [(written_support(w), w) for w in b["written"]]
+    cii = cii_supports(cii_text)
+    step10_of = {c: n for c, n in renumber.items()}
+    counts = {"pointsSame": 0, "step10Anchors": 0, "changes": 0, "notWrittenByStep10": 0}
+    refused, plans = [], {}
+
+    def refuse(code, c, **more):
+        refused.append({"code": code, "ciiNode": c, "detail": WRITTEN_DETAIL.get(code, ""), **more})
+
+    def plan_for(k, c, src):
+        p = plans.setdefault(k, {"cii": c, "drop": [], "add": [], "from": set()})
+        if p["cii"] != c:
+            return None
+        p["from"].add(src)
+        return p
+
+    def home(w):
+        """The XML record that keeps step 10's support w."""
+        if w["from"] == "xml":
+            return at.get(w.get("id"))
+        if w["from"] == "moved":
+            return at.get(w.get("fromId"))
+        rule_ids = w.get("ids") or []
+        return at.get(rule_ids[0]) if len(rule_ids) == 1 else None
+
+    def target_for_added(n):
+        here = [i for i in ids_at.get(n, []) if i in at]
+        used = [i for i in here if i in used_at.get(n, set())]
+        pick = here if len(here) == 1 else used
+        return at[pick[0]] if len(pick) == 1 else None
+
+    for c in sorted(set(cii) | set(step10_of), key=lambda x: (num(x) is None, num(x) or 0, x)):
+        n = step10_of.get(c)
+        if n is None:
+            theirs = [s for s, own, _ in cii.get(c, []) if not own]
+            if theirs:
+                refused.append({"code": "U2D_SUPPORT_NEW_NODE", "ciiNode": c, "detail": "this support is on a node the XML does not have",
+                                "supports": [text_of(s) for s in theirs]})
+            continue
+        mine = list(written.get(str(n), []))
+        pool, new = list(mine), []
+        for s, _, raw in cii.get(c, []):
+            hit = next((m for m in pool if m[0] == s), None)
+            if hit is None:
+                new.append((s, raw))
+            else:
+                pool.remove(hit)
+        if not pool and not new:
+            if mine:
+                counts["pointsSame"] += 1
+                counts["step10Anchors"] += sum(1 for _, w in mine if w["from"] == "openEnd")
+            continue
+        edited, removed, added = pair_up(pool, new)
+        for (s, w), (cs, raw) in edited:
+            if w["from"] == "openEnd":
+                added.append((cs, raw))
+            elif w["from"] not in ("xml", "moved", "rule"):
+                refuse("U2D_SUPPORT_SOURCE_UNKNOWN", c, before=[text_of(s)], after=[text_of(cs)])
+            elif (k := home(w)) is None:
+                refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, before=[text_of(s)], after=[text_of(cs)])
+            elif (p := plan_for(k, c, w["from"])) is None:
+                refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, ref=refs[k], before=[text_of(s)], after=[text_of(cs)])
+            else:
+                if w["from"] != "rule":       # a rule support is in no XML: CAESAR II's support is added on its node
+                    p["drop"].append(s)
+                p["add"].append((cs, raw))
+        for s, w in removed:
+            if w["from"] == "rule":
+                refuse("U2D_SUPPORT_RULE_REMOVED", c, before=[text_of(s)])
+            elif w["from"] == "openEnd":
+                refuse("U2D_SUPPORT_OPEN_END_REMOVED", c, before=[text_of(s)])
+            elif w["from"] not in ("xml", "moved"):
+                refuse("U2D_SUPPORT_SOURCE_UNKNOWN", c, before=[text_of(s)])
+            elif (k := home(w)) is None or (p := plan_for(k, c, w["from"])) is None:
+                refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, before=[text_of(s)])
+            else:
+                p["drop"].append(s)
+        for cs, raw in added:
+            k = target_for_added(str(n))
+            if k is None or (p := plan_for(k, c, "added")) is None:
+                refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, after=[text_of(cs)])
+            else:
+                p["add"].append((cs, raw))
+        # A node id that now gets a support in the XML loses step 10's rule there (the XML wins over the rule), so the
+        # rule supports CAESAR II kept unchanged on it are written into the XML too.
+        raws = {s: raw for s, _, raw in cii.get(c, [])}
+        matched = list(mine)
+        for m in pool:
+            matched.remove(m)
+        for s, w in matched:
+            k = home(w) if w["from"] == "rule" else None
+            if k is not None and k in plans and plans[k]["cii"] == c and plans[k]["add"]:
+                plans[k]["add"].append((s, raws[s]))
+                plans[k]["from"].add("rule")
+    changes = []
+    for k, p in sorted(plans.items()):
+        c, n = p["cii"], str(step10_of[p["cii"]])
+        have = list(xml.get(k, []))
+        after, why = [(s, None) for s in have], None
+        for s in p["drop"]:
+            hit = next((i for i, (x, _) in enumerate(after) if matches(x, s)), None)
+            if hit is None:
+                why = "U2D_SUPPORT_NOT_ON_NODE"
+            elif any(i != id_of.get(k) and i in at and any(matches(x, s) for x in xml.get(at[i], [])) for i in ids_at.get(n, [])):
+                why = "U2D_SUPPORT_MERGED_COPY"
+            else:
+                after.pop(hit)
+                continue
+            break
+        if why:
+            refuse(why, c, ref=refs[k], before=[text_of(s) for s in p["drop"]], after=[text_of(s) for s, _ in p["add"]])
+            continue
+        after += p["add"]
+        want = [s for s, _ in after]
+        kind = "added" if not have else "removed" if not want else "edited"
+        changes.append({"ciiNode": c, "kind": kind, "ref": refs[k], "restraintCount": len(texts[k]),
+                        "restraints": restraint_ops(have, texts[k], after), "step10": sorted(p["from"]),
+                        "before": [describe(s) for s in have], "after": [describe(s) for s in want],
+                        "beforeText": "; ".join(map(text_of, have)) or "none", "afterText": "; ".join(map(text_of, want)) or "none"})
+    # XML supports step 10 did not write: neither listed as read from their node, nor equal to one step 10 wrote at the
+    # CII node of that node id (step 10 writes identical supports at one point once).
+    kept, merged = {}, {}
+    for b in sidecar["ciiSupports"]:
+        for w in b["written"]:
+            uid = w.get("id") if w["from"] == "xml" else w.get("fromId") if w["from"] == "moved" else None
+            if uid in at:
+                kept.setdefault(at[uid], []).append(written_support(w))
+    for n, sup in written.items():
+        for i in ids_at.get(n, []):
+            if i in at:
+                merged.setdefault(at[i], []).extend(s for s, _ in sup)
+    for k, sup in sorted(xml.items()):
+        left = list(kept.get(k, []))
+        for s in sup:
+            hit = next((x for x in left if matches(s, x)), None)
+            if hit is not None:
+                left.remove(hit)
+            elif not any(matches(s, x) for x in merged.get(k, [])):
+                counts["notWrittenByStep10"] += 1
+                refused.append({"code": "U2D_SUPPORT_NOT_IN_CII", "ref": refs[k],
+                                "detail": "step 10 did not write this support (its sidecar does not list it), so CAESAR II never had it"})
+    counts["changes"] = len(changes)
+    by_kind, codes = {}, {}
+    for ch in changes:
+        by_kind[ch["kind"]] = by_kind.get(ch["kind"], 0) + 1
+    for r in refused:
+        codes[r["code"]] = codes.get(r["code"], 0) + 1
+    return {"summary": {**counts, "byKind": by_kind, "refused": codes, "comparedWith": "step10",
                         "xmlSupports": sum(len(v) for v in xml.values()), "xmlSupportNodes": len(xml),
                         "ciiSupports": sum(len(v) for v in cii.values()), "ciiSupportNodes": len(cii),
                         "unknownXmlTypes": len(unknown)},

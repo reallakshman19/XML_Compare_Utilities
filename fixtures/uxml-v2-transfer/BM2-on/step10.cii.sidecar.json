@@ -83082,6 +83082,1188 @@
    "toId": "u:qvi5hso73hckwpzo"
   }
  ],
+ "ciiSupports": [
+  {
+   "cii": 20,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270031350,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "moved",
+     "support": "u:ctgblgctq57ocsec",
+     "fromId": "u:esghtq6hfs5o5fef"
+    }
+   ]
+  },
+  {
+   "cii": 40,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "xml",
+     "support": "u:sa17794776c84a0f",
+     "id": "u:4mfvzzwjukkhkhzo"
+    }
+   ]
+  },
+  {
+   "cii": 120,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:6gsbc6ktlfqbpo3d"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 210,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:uk4c6dgdks7ts52t"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 280,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:gwpk7txbqgzhq6jp"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 319,
+   "written": [
+    {
+     "type": 1,
+     "stiffness": 94195200000000000000,
+     "gap": 0,
+     "friction": 0,
+     "cosines": [
+      0,
+      0,
+      0
+     ],
+     "from": "openEnd"
+    }
+   ]
+  },
+  {
+   "cii": 400,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:dda6ffy5pylbgrph"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 460,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:yeqa67uelj5f3pgh"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 590,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:dlqayjih57ogyw6w"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 610,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "xml",
+     "support": "u:sd735ea3487be6a2",
+     "id": "u:asf3g4u3xlz3ec3k"
+    }
+   ]
+  },
+  {
+   "cii": 720,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:27l265e2gsqrdqxs"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 730,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:h4xm6q6fuytirjbl"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 860,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:e3ekxqy5hlg2wyad"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 880,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:jp45arlb7bterwfi"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 930,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:ouv5aw5qjdnljadi"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 1070,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:7sik4wzh2prvwm7m"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 1090,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "xml",
+     "support": "u:sc671dbd8b189859",
+     "id": "u:o4n243c3ynkqzacs"
+    }
+   ]
+  },
+  {
+   "cii": 1200,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:pslvpdbxjyz3hizk"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 1320,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:qmfriss56g3rjqgy"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 1340,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:lovw2tzkfazgpb5g"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 1390,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:kvyh4qlbzcdpqzrh"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 1530,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:4r566ii2anew7k4w"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 1550,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "xml",
+     "support": "u:s98f1a94000f54a0",
+     "id": "u:7jyosapwqfv5sqaa"
+    }
+   ]
+  },
+  {
+   "cii": 1660,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:tgqokfqyj5ucuevx"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 1780,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:5ej3r6cmmjtav5zq"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 1800,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:bcq6wwjh46sc5ggy"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 1850,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:eu6nv5kzk7vcpjwg"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 1990,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:z5dv5j5v24zl6rpn"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 2010,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "xml",
+     "support": "u:sd179166a81a3ace",
+     "id": "u:2t5i4vga5q6ws26v"
+    }
+   ]
+  },
+  {
+   "cii": 2120,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:mzey4qpz77rplccu"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 2250,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:dtpy2xz3gb76p6hy"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 2270,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:xkwxyvkqx7rbbdcp"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 2320,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:tqd6oo2opaaoox5c"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 2460,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:sc3kx5wcge25pgzr"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 2480,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "xml",
+     "support": "u:sb48e4869d8b4129",
+     "id": "u:poyjtwuthnvji4bo"
+    }
+   ]
+  },
+  {
+   "cii": 2590,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:j3veurcbofvkn275"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 300,
+   "written": [
+    {
+     "type": 1,
+     "stiffness": 94195200000000000000,
+     "gap": 0,
+     "friction": 0,
+     "cosines": [
+      0,
+      0,
+      0
+     ],
+     "from": "openEnd"
+    }
+   ]
+  },
+  {
+   "cii": 2720,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:r5ouwdpkz3r7yjdy"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 2740,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:43jecsvis4lg6ezc"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 2790,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:rs6wcn4yvmxweosz"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 2930,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:je25v3se3nw5dqvw"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 2950,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "xml",
+     "support": "u:sb8759060c6f1b44",
+     "id": "u:q3njv2jj54kcp7k2"
+    }
+   ]
+  },
+  {
+   "cii": 3060,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:z3dox3cpgndl6rql"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 3140,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:xlazi4ijm6fhfzii"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 3160,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "xml",
+     "support": "u:s5bcbda2224cb65c",
+     "id": "u:oti2hmyxbanticji"
+    }
+   ]
+  },
+  {
+   "cii": 3190,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:pu7hj35blcytqfw2"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 3210,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:p6i4bnri2e37zq43"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 3240,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:pwtkqlqykeuer56q"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 3290,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270031350,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "xml",
+     "support": "u:kusige53ak4frthj",
+     "id": "u:fyqyujxqaqx3xq33"
+    }
+   ]
+  },
+  {
+   "cii": 3330,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270031350,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "xml",
+     "support": "u:unmnone42zzyhoih",
+     "id": "u:h5nysmwkdf64jkas"
+    }
+   ]
+  },
+  {
+   "cii": 3410,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:ncnclrmi7fkzsq2n"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 3420,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:5fz4f6tpg7u2v7jt"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 3430,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:iwrd6ango7oa55ba"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 3450,
+   "written": [
+    {
+     "type": 1,
+     "stiffness": 94195200000000000000,
+     "gap": 0,
+     "friction": 0,
+     "cosines": [
+      0,
+      0,
+      0
+     ],
+     "from": "openEnd"
+    }
+   ]
+  },
+  {
+   "cii": 3500,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270031350,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "moved",
+     "support": "u:enwypc5oztqqer7a",
+     "fromId": "u:7j2uxvsiokvowekz"
+    }
+   ]
+  },
+  {
+   "cii": 3530,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "xml",
+     "support": "u:s01c21538f056f89",
+     "id": "u:z4wqvw3vq2zn33pt"
+    }
+   ]
+  },
+  {
+   "cii": 3590,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:c4qenvc5qqyhvtz6"
+     ]
+    }
+   ]
+  },
+  {
+   "cii": 3600,
+   "written": [
+    {
+     "type": 14,
+     "stiffness": 1751270000000,
+     "gap": 0,
+     "friction": 0.3,
+     "cosines": [
+      0,
+      1,
+      0
+     ],
+     "from": "rule",
+     "rule": "componentType",
+     "ids": [
+      "u:4dqebrgjpzx7uqpo"
+     ]
+    }
+   ]
+  }
+ ],
  "enriched": {
   "sha256": "7e7b7eb1993d469a0f9825a95499a5d5b0b32064f945496f21d6b66a46fb4050",
   "branches": [
