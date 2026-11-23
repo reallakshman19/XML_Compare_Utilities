@@ -138,11 +138,11 @@ def step10_may_write(xml_bytes: bytes) -> dict:
     - moved: a node numbered 0 or less with a support. Step 10 puts it on a numbered node of the same branch at that
       point (within 1 mm), or after a bend on the bend's node (_place_unnumbered_restraints). Here: every numbered
       node of that branch within 1 mm of it, and the numbered node just before it.
-    - rule: a numbered node that step 10 may give a support by its own rule: ComponentType ANCI (+Y), or DTXR_POS /
-      DTXR_PS keyword text (xml_to_cii2019_direction / xml_to_cii2019_patched). With step 10's switch "use restraint
-      type based on JSON" on (default) these fill only nodes without an XML support; switched off, step 10 adds them
-      to the XML's support too (_merge_spec_maps). The CII and its sidecar do not record the switch, so nodes with a
-      support are marked as well (review of PR 309).
+    - rule: a numbered ANCI node without a support, which step 10 gives its +Y (xml_to_cii2019_direction).
+    - ruleOnTop: a numbered ANCI node with its own support. With step 10's switch "use restraint type based on JSON"
+      off, step 10 adds its +Y to the XML's support (_merge_spec_maps); the CII and its sidecar do not record the
+      switch. support_report refuses a change here only when the CII holds the XML's supports plus exactly that +Y.
+    DTXR text is not used (Owner 23 Nov 2026, "just transfer it"): supports at nodes with DTXR text are transferred.
     """
     root = ET.fromstring(xml_bytes)
     branches = [b for p in root if local(p.tag) == "Pipe" for b in p if local(b.tag) == "Branch"] \
@@ -154,8 +154,8 @@ def step10_may_write(xml_bytes: bytes) -> dict:
         for ni, n in enumerate(nodes):
             held = any(local(c.tag) == "Restraint" for c in n)
             if ni in numbered:
-                if child(n, "ComponentType").upper() == "ANCI" or child(n, "DTXR_POS") or child(n, "DTXR_PS"):
-                    out.setdefault((bi, ni), "rule")
+                if child(n, "ComponentType").upper() == "ANCI":
+                    out.setdefault((bi, ni), "ruleOnTop" if held else "rule")
                 continue
             if not held:
                 continue
@@ -164,6 +164,22 @@ def step10_may_write(xml_bytes: bytes) -> dict:
             for k in [k for k in numbered if k < ni][-1:] + near:
                 out[(bi, k)] = "moved"
     return out
+
+
+STEP10_ANCI = support(TYPE_CODES["+Y"], 1.75127e12, 0.0, 0.3, (0.0, 1.0, 0.0))   # step 10's ANCI +Y (default stiffness, friction)
+
+
+def step10_on_top(xml: list, cii: list) -> bool:
+    """True when the CII holds the XML's supports plus exactly step 10's ANCI +Y: what step 10 writes at an ANCI node
+    with its own support when its switch "use restraint type based on JSON" is off. Compared without direction."""
+    def key(s):
+        return s[:4]
+    left = [key(s) for s in cii]
+    for s in xml:
+        if key(s) not in left:
+            return False
+        left.remove(key(s))
+    return left == [key(STEP10_ANCI)]
 
 
 def xml_restraint_texts(xml_bytes: bytes) -> dict:
@@ -342,8 +358,8 @@ def support_report(target_bytes: bytes, cii_text: str, match: dict) -> dict:
             continue
         kind = "added" if not want else "removed" if not theirs else "edited"
         after = sorted(set(theirs), key=str)
-        how = sorted({made[k] for k in records if k in made})
-        if how:                        # S-fix step 1: maybe step 10's own support; never written or locked
+        how = sorted({made[k] for k in records if k in made} - ({"ruleOnTop"} if not step10_on_top(want, after) else set()))
+        if how:                       # S-fix step 1: maybe step 10's own support; never written or locked
             refused.append({"code": "U2D_SUPPORT_MAY_BE_STEP10", "ciiNode": node, "kind": kind, "step10": how,
                             "detail": STEP10_DETAIL, "before": [text_of(s) for s in want], "after": [text_of(s) for s in after]})
             continue
