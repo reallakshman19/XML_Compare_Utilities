@@ -15,6 +15,9 @@ Rules, from 3D_Converters' step 10 writer (converters/scripts/xml_to_cii2019.py)
 - The XML type becomes the CAESAR II type code as step 10 writes it (TYPE_CODES, bare axes below).
 - A negative XML friction (-1.0101 on BM2's guides) is not a friction; it counts as 0.
 - Direction is compared only where the XML gives direction cosines.
+- S-fix step 1 (Owner 23 Nov 2026): step 10 also writes supports the XML does not hold on that node (moved from an
+  unnumbered node; ANCI and keyword rules). A change at such a node is refused, U2D_SUPPORT_MAY_BE_STEP10, never
+  written or locked (step10_may_write).
 """
 from __future__ import annotations
 
@@ -114,6 +117,69 @@ def xml_node_refs(xml_bytes: bytes) -> dict:
 
 RESTRAINT_TAGS = ("Type", "Stiffness", "Gap", "Friction", "DirectionCosineX", "DirectionCosineY", "DirectionCosineZ")
 COSINES = RESTRAINT_TAGS[4:]
+
+
+STEP10_NEAR_MM = 1.0      # step 10's UNNUMBERED_RESTRAINT_TOLERANCE_MM
+STEP10_DETAIL = ("step 10 may have written this support itself (moved here from an unnumbered node, or by its own "
+                 "rule for this component), so it is not written or locked")
+
+
+def position(node) -> tuple | None:
+    p = [num(x) for x in child(node, "Position").split()]
+    return tuple(p) if len(p) == 3 and all(x is not None for x in p) else None
+
+
+def step10_may_write(xml_bytes: bytes) -> dict:
+    """(branchOrdinal, nodeOrdinal) -> "moved" or "rule": numbered nodes where step 10 may write a support that the XML
+    does not hold on that node. S-fix step 1 (Owner 23 Nov 2026, "Yes, as suggested"): from the CII alone such a support
+    cannot be told from one added in CAESAR II, so support changes at these nodes are refused, never written or locked.
+
+    From 3D_Converters' step 10 (kept a little wider than step 10's own rules, so that a change there stays refused):
+    - moved: a node numbered 0 or less with a support. Step 10 puts it on a numbered node of the same branch at that
+      point (within 1 mm), or after a bend on the bend's node (_place_unnumbered_restraints). Here: every numbered
+      node of that branch within 1 mm of it, and the numbered node just before it.
+    - rule: a numbered ANCI node without a support, which step 10 gives its +Y (xml_to_cii2019_direction).
+    - ruleOnTop: a numbered ANCI node with its own support. With step 10's switch "use restraint type based on JSON"
+      off, step 10 adds its +Y to the XML's support (_merge_spec_maps); the CII and its sidecar do not record the
+      switch. support_report refuses a change here only when the CII holds the XML's supports plus exactly that +Y.
+    DTXR text is not used (Owner 23 Nov 2026, "just transfer it"): supports at nodes with DTXR text are transferred.
+    """
+    root = ET.fromstring(xml_bytes)
+    branches = [b for p in root if local(p.tag) == "Pipe" for b in p if local(b.tag) == "Branch"] \
+        or [b for b in root if local(b.tag) == "Branch"]
+    out = {}
+    for bi, b in enumerate(branches):
+        nodes = [c for c in b if local(c.tag) == "Node"]
+        numbered = [ni for ni, n in enumerate(nodes) if (num(child(n, "NodeNumber")) or 0) > 0]
+        for ni, n in enumerate(nodes):
+            held = any(local(c.tag) == "Restraint" for c in n)
+            if ni in numbered:
+                if child(n, "ComponentType").upper() == "ANCI":
+                    out.setdefault((bi, ni), "ruleOnTop" if held else "rule")
+                continue
+            if not held:
+                continue
+            here = position(n)
+            near = [k for k in numbered if here and position(nodes[k]) and math.dist(here, position(nodes[k])) <= STEP10_NEAR_MM]
+            for k in [k for k in numbered if k < ni][-1:] + near:
+                out[(bi, k)] = "moved"
+    return out
+
+
+STEP10_ANCI = support(TYPE_CODES["+Y"], 1.75127e12, 0.0, 0.3, (0.0, 1.0, 0.0))   # step 10's ANCI +Y (default stiffness, friction)
+
+
+def step10_on_top(xml: list, cii: list) -> bool:
+    """True when the CII holds the XML's supports plus exactly step 10's ANCI +Y: what step 10 writes at an ANCI node
+    with its own support when its switch "use restraint type based on JSON" is off. Compared without direction."""
+    def key(s):
+        return s[:4]
+    left = [key(s) for s in cii]
+    for s in xml:
+        if key(s) not in left:
+            return False
+        left.remove(key(s))
+    return left == [key(STEP10_ANCI)]
 
 
 def xml_restraint_texts(xml_bytes: bytes) -> dict:
@@ -249,6 +315,7 @@ def support_report(target_bytes: bytes, cii_text: str, match: dict) -> dict:
     xml, unknown = xml_supports(target_bytes)
     refs = xml_node_refs(target_bytes)
     texts = xml_restraint_texts(target_bytes)
+    made = step10_may_write(target_bytes)
     not_written = sorted(k for k in xml if (num(refs[k]["nodeNumber"]) or 0) <= 0)
     for k in not_written:          # step 10 skips every node numbered 0 or less, with its supports
         xml.pop(k)
@@ -291,6 +358,11 @@ def support_report(target_bytes: bytes, cii_text: str, match: dict) -> dict:
             continue
         kind = "added" if not want else "removed" if not theirs else "edited"
         after = sorted(set(theirs), key=str)
+        how = sorted({made[k] for k in records if k in made} - ({"ruleOnTop"} if not step10_on_top(want, after) else set()))
+        if how:                       # S-fix step 1: maybe step 10's own support; never written or locked
+            refused.append({"code": "U2D_SUPPORT_MAY_BE_STEP10", "ciiNode": node, "kind": kind, "step10": how,
+                            "detail": STEP10_DETAIL, "before": [text_of(s) for s in want], "after": [text_of(s) for s in after]})
+            continue
         target, why = target_of(kind, node, records, xml, refs)
         if target is None:
             refused.append({"code": "U2D_SUPPORT_TARGET_UNCLEAR", "ciiNode": node, "kind": kind, "detail": why,
