@@ -21,6 +21,9 @@ Refusals (ValueError; nothing is transferred):
                                 taken as renumbered is not at its node id's place by position (elements shifted along a
                                 run in CAESAR II: an element deleted at one end and one added elsewhere; T2 review B1)
 A sidecar whose content is malformed (a place or number that is not one) is U2D_SIDECAR_INVALID (T2 review N1).
+S-fix step 3 (Owner 23 Nov 2026, "ok proceed"; T2 review K12): a place that is not a number (at ["a", 0]) and an
+`enriched.sha256` that is not text are U2D_SIDECAR_INVALID too, not a bare Python error.
+by_id also gives `at` (id -> place) and `renumber` (CII number -> step 10's) for the support comparison (u2d_supports).
 """
 from __future__ import annotations
 
@@ -40,6 +43,8 @@ def check_header(sidecar: dict, target_bytes: bytes) -> None:
             or not isinstance(sidecar.get("elements"), list) or not isinstance(sidecar.get("nodes"), list):
         raise ValueError("U2D_SIDECAR_INVALID: this is not a CII sidecar (xml-cii-sidecar v1) from step 10. Nothing was transferred.")
     enriched = sidecar.get("enriched")
+    if isinstance(enriched, dict) and enriched.get("sha256") is not None and not isinstance(enriched["sha256"], str):
+        raise ValueError("U2D_SIDECAR_INVALID: the sidecar's Enriched XML sha256 is not text. Nothing was transferred.")
     if not isinstance(enriched, dict) or enriched.get("error") or not enriched.get("sha256"):
         why = (enriched or {}).get("error") if isinstance(enriched, dict) else None
         raise ValueError("U2D_SIDECAR_NO_PLACES: the sidecar does not place its node ids in an Enriched XML"
@@ -63,7 +68,11 @@ def places(sidecar: dict, nodes: dict) -> dict:
         at = i.get("at")
         if not (isinstance(at, list) and len(at) == 2):
             raise ValueError(f"U2D_SIDECAR_INVALID: node id {i.get('id')} has no place in the Enriched XML. Nothing was transferred.")
-        k = (int(at[0]), int(at[1]))
+        try:
+            k = (int(at[0]), int(at[1]))
+        except (TypeError, ValueError):
+            raise ValueError(f"U2D_SIDECAR_INVALID: node id {i.get('id')} has a place that is not a number ({at}). "
+                             "Nothing was transferred.") from None
         rec = nodes.get(k)
         name = (rec or {}).get("values", {}).get("Node/NodeName") or ""
         if rec is None or k in taken or rec["ref"]["componentRefNo"] != joined(i.get("ComponentRefNo")) or name != joined(i.get("NodeName")):
@@ -137,6 +146,6 @@ def follow(sidecar: dict, cii: dict, nodes: dict, position_pairs: dict) -> dict:
         ends.append(tuple(keys))
     confirm_renumbered(moved_ends)
     moved = sorted([[c, n] for c, n in renumber.items() if c != n], key=lambda r: float(r[0]))
-    return {"ends": ends, "pairs": pairs,
+    return {"ends": ends, "pairs": pairs, "at": at, "renumber": renumber,
             "report": {"elements": len(ends), "renumbered": moved,
                        "positionCheck": {"ends": 2 * len(ends), "otherPlace": other, "notPairedByPosition": unpaired}}}

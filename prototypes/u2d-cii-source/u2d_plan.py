@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "u3b-cii-check"))
 from u3b_core import element_label, num, parse_cii, same  # noqa: E402
 from u2d_sidecar import by_id  # noqa: E402
-from u2d_supports import support_report  # noqa: E402
+from u2d_supports import support_report, written_report  # noqa: E402
 
 NAME_LIMIT = 25          # CII NODENAME keeps 25 characters
 DENSITY_FACTOR = 1e-6    # converter writes kg/m3 as kg/cm3
@@ -239,6 +239,23 @@ def check_weight_scale(edits: list, weight_scale: float) -> None:
                          f"XML weight; the CII weight unit (--weight-scale {weight_scale:g}) is probably wrong. Nothing was transferred.")
 
 
+def step10_supports(target_bytes: bytes, cii_text: str, match: dict, sidecar: dict | None, ids: dict | None) -> dict:
+    """S-fix step 3 (Owner 23 Nov 2026): a sidecar that lists the supports step 10 wrote (3D_Converters PR 443,
+    `ciiSupports`) is compared with those; a CII without one keeps the position compare and step 1's refusals."""
+    listed = (sidecar or {}).get("ciiSupports") if ids else None
+    if listed is None:
+        return support_report(target_bytes, cii_text, match)
+    if not isinstance(listed, list):
+        raise ValueError("U2D_SIDECAR_INVALID: the sidecar's ciiSupports is not a list. Nothing was transferred.")
+    try:
+        return written_report(target_bytes, cii_text, sidecar, ids)
+    except (TypeError, AttributeError, KeyError, IndexError, ValueError) as e:
+        if isinstance(e, ValueError) and str(e).startswith("U2D_"):
+            raise
+        raise ValueError(f"U2D_SIDECAR_INVALID: the sidecar's support list is malformed ({type(e).__name__}: {e}). "
+                         "Nothing was transferred.") from e
+
+
 def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, items=("name", "weight", "element"),
          sidecar: dict | None = None) -> dict:
     """sidecar (T2, Owner 22 Nov 2026): step 10's CII sidecar for this Enriched XML; each element end then goes to the
@@ -298,8 +315,8 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
     codes = {}
     for r in refused:
         codes[r["code"]] = codes.get(r["code"], 0) + 1
-    # Supports from CAESAR II (Owner 18 Nov 2026): listed in the receipt (step 2); not applied to the XML yet.
-    supports = support_report(target_bytes, cii_text, match)
+    # Supports from CAESAR II (Owner 18 Nov 2026): listed in the receipt; section 5 applies and locks them.
+    supports = step10_supports(target_bytes, cii_text, match, sidecar, ids)
     out = {"ok": True, "edits": edits, "refused": refused,
            "supports": {"changes": supports["changes"], "refused": supports["refused"]},
            "summary": {"pairs": len(match.get("nodePairs", [])), "ciiElements": len(cii["elements"]),

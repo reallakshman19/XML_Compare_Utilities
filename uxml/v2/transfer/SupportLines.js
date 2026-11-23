@@ -11,6 +11,12 @@ const PLAIN = {
   U2D_SUPPORT_NOT_IN_CII: 'in the XML that step 10 does not write',
   // S-fix step 1 (Owner 23 Nov 2026): moved by step 10 from an unnumbered node, or made by its own rule; never applied
   U2D_SUPPORT_MAY_BE_STEP10: 'that step 10 may have written itself (not applied)',
+  // S-fix step 3 (Owner 23 Nov 2026): compared with what step 10 wrote (the CII sidecar's support list)
+  U2D_SUPPORT_RULE_REMOVED: "made by step 10's own rule and deleted in CAESAR II (not applied)",
+  U2D_SUPPORT_OPEN_END_REMOVED: "that are step 10's open-end anchors, deleted in CAESAR II (not applied)",
+  U2D_SUPPORT_SOURCE_UNKNOWN: 'whose source the sidecar does not give (not applied)',
+  U2D_SUPPORT_MERGED_COPY: 'that step 10 wrote once from identical copies on several nodes (not applied)',
+  U2D_SUPPORT_NOT_ON_NODE: 'whose XML node no longer holds them (not applied)',
 };
 const KIND = {edited: 'support edited', added: 'support added', removed: 'support removed'};
 const where = r => (r.ref ? `${r.ref.branchName} node ${r.ref.nodeNumber}` : `CII node ${r.ciiNode}`);
@@ -19,7 +25,8 @@ const where = r => (r.ref ? `${r.ref.branchName} node ${r.ref.nodeNumber}` : `CI
 export function supportsLine(s) {
   const left = Object.entries(s.refused || {})
     .map(([code, n]) => `${n} ${n === 1 ? 'support' : 'supports'} ${PLAIN[code] || code}`).join(', ') || 'none';
-  return `Supports (applied and locked, listed below): ${s.pointsSame} points the same, ${s.changes} changed in CAESAR II, `
+  const how = s.comparedWith === 'step10' ? ', compared with what step 10 wrote' : '';
+  return `Supports (applied and locked, listed below${how}): ${s.pointsSame} points the same, ${s.changes} changed in CAESAR II, `
     + `${s.step10Anchors} open-end anchors step 10 adds; not compared: ${left}.`;
 }
 

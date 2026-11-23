@@ -78,3 +78,37 @@ test('EF-05: the page transfers by node id with the CII sidecar, and refuses a s
   const other = new Uint8Array(readFileSync(new URL('fixtures/uxml-v2-transfer/EF05/base.xml', ROOT)));
   await assert.rejects(transferCiiIntoXml({targetBytes: other, sidecarBytes, ...args}), /U2D_SIDECAR_OTHER_XML/);
 });
+
+// S-fix step 3 (Owner 23 Nov 2026): with the sidecar's list of the supports step 10 wrote, CAESAR II's supports are
+// compared with those. EF-05 node 800 holds a support step 10 moved from an unnumbered node (NodeNumber -2): its friction
+// changed in CAESAR II is one edit on that unnumbered node, applied there by section 5; without the sidecar it is refused.
+test('EF-05: a support step 10 moved, edited in CAESAR II, goes to its unnumbered node with the sidecar', {skip: !process.env.U2D_PYODIDE && 'U2D_PYODIDE not set'}, async () => {
+  const {runStage, sha256Hex} = await import('../uxml/v2/UxmlV2Kernel.js');
+  const {readPsi116V2} = await import('../uxml/v2/UxmlV2Psi116Reader.js');
+  const {transferStage} = await import('../uxml/v2/transfer/TransferStage.js');
+  const dir = process.env.U2D_PYODIDE;
+  const {loadPyodide} = await import(pathToFileURL(join(dir, 'pyodide.mjs')));
+  const cii = readFileSync(new URL('step10.cii', EF05_ON), 'utf8');
+  const old = '        800.000      14.0000 1.751270E+12     0.000000     0.300000     0.000000';
+  assert.equal(cii.split(old).length, 2);
+  const ciiBytes = new TextEncoder().encode(cii.replace(old, old.replace('0.300000', '0.200000')));
+  const targetBytes = new Uint8Array(readFileSync(new URL('enriched.xml', EF05_ON)));
+  const sidecarBytes = new Uint8Array(readFileSync(new URL('step10.cii.sidecar.json', EF05_ON)));
+  const args = {targetBytes, ciiBytes, weightScale: 10, loadPyodide, indexURL: dir.replace(/[\/]?$/, '/'),
+    names: {cii: 'edited.cii', target: 'enriched.xml', revised: 'revised.xml', sidecar: 'step10.cii.sidecar.json'}};
+  const today = await transferCiiIntoXml(args);
+  assert.deepEqual(today.receipt.supports.changes, []);
+  assert.equal(today.receipt.supports.refused.filter(r => r.code === 'U2D_SUPPORT_MAY_BE_STEP10' && r.ciiNode === '800').length, 1);
+  const r = await transferCiiIntoXml({...args, sidecarBytes});
+  assert.equal(r.receipt.summary.supports.comparedWith, 'step10');
+  assert.deepEqual(r.receipt.supports.refused, []);
+  assert.deepEqual(r.receipt.supports.changes.map(c => [c.ciiNode, c.kind, c.ref.nodeNumber, c.step10]), [['800', 'edited', '-2', ['moved']]]);
+  const text = new TextDecoder('utf-8', {ignoreBOM: true}).decode(targetBytes);
+  const doc = readPsi116V2(text, {fileSha256: sha256Hex(text)});
+  const t = runStage(transferStage, doc, {receipt: r.receipt, receiptSha256: sha256Hex(r.receiptText)});
+  const {ref} = r.receipt.supports.changes[0];
+  const comp = t.uxml.pipelines[ref.branchOrdinal].components[ref.nodeOrdinal];
+  assert.equal(comp.values.NodeNumber.text, '-2');
+  assert.deepEqual(comp.restraints.map(x => x.values.Friction?.text), ['0.2']);
+  assert.ok(comp.restraints[0].values.Friction.lock && comp.values.NodeNumber.lock, 'edited and locked');
+});
