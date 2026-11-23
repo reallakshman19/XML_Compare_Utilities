@@ -29,7 +29,7 @@ export function supportRows(supports) {
   if (!supports) return {rows: [], refused: [], none: 'This receipt was made before supports were read; it lists none.'};
   const rows = supports.changes.map(c => [c.ref.branchName, c.ref.nodeNumber, KIND[c.kind] || c.kind, c.beforeText, c.afterText]);
   const refused = supports.refused.filter(r => r.code !== 'U2D_SUPPORT_NOT_IN_CII').map(r => [where(r), r.detail]);
-  const none = refused.length ? 'No support change was applied; the differences listed below were not compared.'
+  const none = refused.length ? 'No support change was applied; the XML keeps its supports where the points listed below differ.'
     : 'CAESAR II has the same supports as the XML on every paired node.';
   return {rows, refused, none};
 }

@@ -37,6 +37,7 @@ test('S-fix step 1: supports step 10 may have written itself are counted in plai
   assert.doesNotMatch(line, /U2D_/);
   const r = supportRows({changes: [], refused: [{code: 'U2D_SUPPORT_MAY_BE_STEP10', ciiNode: '120', detail: 'step 10 may have ...'}]});
   assert.deepEqual([r.rows, r.refused], [[], [['CII node 120', 'step 10 may have ...']]]);
-  assert.match(r.none, /^No support change was applied/);         // not "the same supports" above refused ones
+  assert.match(r.none, /^No support change was applied; the XML keeps its supports/);   // not "the same supports" above refused ones
+  assert.doesNotMatch(r.none, /not compared/);                    // review of PR 309: they were compared, not applied
   assert.match(supportRows({changes: [], refused: []}).none, /same supports as the XML/);
 });

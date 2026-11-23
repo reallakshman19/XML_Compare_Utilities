@@ -269,6 +269,49 @@ class Step10OwnSupports(unittest.TestCase):
         self.assertEqual(made[(2, 15)], "moved")          # CII 800: the bend's node before the unnumbered support
         self.assertNotIn((0, 7), made)                     # node 50 holds its own support
 
+    def test_an_edited_support_at_a_rule_node_is_refused_too(self):
+        """Review of PR 309: with step 10's switch "use restraint type based on JSON" off, step 10 adds its ANCI +Y
+        to the XML's own support there. The XML gets a +X at a BM2 ANCI node; the CII's +Y now reads as "edited"
+        and must still be refused, not written."""
+        text = self.files["BM2"][0].decode("utf-8")
+        node = next(x["ciiNode"] for x in self.report("BM2")["refused"] if x["code"] == "U2D_SUPPORT_MAY_BE_STEP10")
+        m = re.search(rf"<NodeNumber>{node}</NodeNumber>.*?(</Node>)", text, re.S)
+        extra = "<Restraint><Type>+X</Type><Stiffness>1751270031350</Stiffness><Gap>0</Gap><Friction>0.3</Friction></Restraint>\n"
+        r = self.report("BM2", xml=(text[:m.start(1)] + extra + text[m.start(1):]).encode("utf-8"))
+        self.assertEqual(r["changes"], [])
+        mine = [x for x in r["refused"] if x["code"] == "U2D_SUPPORT_MAY_BE_STEP10" and x["ciiNode"] == node]
+        self.assertEqual([(x["kind"], x["step10"], x["before"]) for x in mine], [("edited", ["rule"], ["+X, stiffness 1.7513E+12, friction 0.3"])])
+
+
+SMALL = """<Doc><Branch>
+<Node><NodeNumber>10</NodeNumber><ComponentType>PIPE</ComponentType><Position>0 0 0</Position></Node>
+<Node><NodeNumber>-2</NodeNumber><ComponentType>ATTA</ComponentType><Position>1000 0 0</Position><Restraint><Type>+Y</Type></Restraint></Node>
+<Node><NodeNumber>20</NodeNumber><ComponentType>PIPE</ComponentType><Position>{x20} 0 0</Position></Node>
+<Node><NodeNumber>30</NodeNumber><ComponentType>PIPE</ComponentType><Position>2000 0 0</Position></Node>
+<Node><NodeNumber>40</NodeNumber><ComponentType>{t40}</ComponentType><Position>3000 0 0</Position>{r40}</Node>
+<Node><NodeNumber>50</NodeNumber><ComponentType>PIPE</ComponentType><Position>4000 0 0</Position><DTXR_POS>PS-1</DTXR_POS></Node>
+</Branch></Doc>"""
+
+
+class Step10MarksSmall(unittest.TestCase):
+    """Each of step10_may_write's rules on a small XML (review of PR 309: these rules had no test of their own)."""
+
+    def marks(self, x20="1000.5", t40="ANCI", r40=""):
+        from u2d_supports import step10_may_write
+        return step10_may_write(SMALL.format(x20=x20, t40=t40, r40=r40).encode("utf-8"))
+
+    def test_moved_marks_the_node_before_and_the_numbered_nodes_within_1_mm(self):
+        self.assertEqual(self.marks(), {(0, 0): "moved", (0, 2): "moved", (0, 4): "rule", (0, 5): "rule"})
+
+    def test_a_node_more_than_1_mm_away_is_not_marked(self):
+        self.assertNotIn((0, 2), self.marks(x20="1001.5"))
+        self.assertIn((0, 2), self.marks(x20="1000.99"))
+
+    def test_rule_marks_anci_with_or_without_its_own_support_and_dtxr_text(self):
+        self.assertEqual(self.marks(r40="<Restraint><Type>+X</Type></Restraint>")[(0, 4)], "rule")   # switch off
+        self.assertNotIn((0, 4), self.marks(t40="PIPE"))
+        self.assertEqual(self.marks()[(0, 5)], "rule")
+
 
 class SupportRules(unittest.TestCase):
     def test_a_negative_friction_counts_as_zero(self):

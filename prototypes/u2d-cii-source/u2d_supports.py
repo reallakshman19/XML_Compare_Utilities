@@ -138,8 +138,11 @@ def step10_may_write(xml_bytes: bytes) -> dict:
     - moved: a node numbered 0 or less with a support. Step 10 puts it on a numbered node of the same branch at that
       point (within 1 mm), or after a bend on the bend's node (_place_unnumbered_restraints). Here: every numbered
       node of that branch within 1 mm of it, and the numbered node just before it.
-    - rule: a numbered node without a <Restraint> that step 10 gives a support by its own rule: ComponentType ANCI
-      (+Y), or DTXR_POS / DTXR_PS keyword text (xml_to_cii2019_direction / xml_to_cii2019_patched).
+    - rule: a numbered node that step 10 may give a support by its own rule: ComponentType ANCI (+Y), or DTXR_POS /
+      DTXR_PS keyword text (xml_to_cii2019_direction / xml_to_cii2019_patched). With step 10's switch "use restraint
+      type based on JSON" on (default) these fill only nodes without an XML support; switched off, step 10 adds them
+      to the XML's support too (_merge_spec_maps). The CII and its sidecar do not record the switch, so nodes with a
+      support are marked as well (review of PR 309).
     """
     root = ET.fromstring(xml_bytes)
     branches = [b for p in root if local(p.tag) == "Pipe" for b in p if local(b.tag) == "Branch"] \
@@ -151,7 +154,7 @@ def step10_may_write(xml_bytes: bytes) -> dict:
         for ni, n in enumerate(nodes):
             held = any(local(c.tag) == "Restraint" for c in n)
             if ni in numbered:
-                if not held and (child(n, "ComponentType").upper() == "ANCI" or child(n, "DTXR_POS") or child(n, "DTXR_PS")):
+                if child(n, "ComponentType").upper() == "ANCI" or child(n, "DTXR_POS") or child(n, "DTXR_PS"):
                     out.setdefault((bi, ni), "rule")
                 continue
             if not held:
