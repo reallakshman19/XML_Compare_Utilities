@@ -30,3 +30,13 @@ test('the summary line counts in plain words, with no codes', () => {
     + '30 open-end anchors step 10 adds; not compared: 11 supports in the XML that step 10 does not write, 1 support on a node the XML does not have.');
   assert.doesNotMatch(line, /U2D_/);
 });
+
+test('S-fix step 1: supports step 10 may have written itself are counted in plain words and listed as refused', () => {
+  const line = supportsLine({pointsSame: 11, changes: 0, step10Anchors: 3, refused: {U2D_SUPPORT_MAY_BE_STEP10: 30}});
+  assert.match(line, /0 changed in CAESAR II, .*not compared: 30 supports that step 10 may have written itself \(not applied\)\.$/);
+  assert.doesNotMatch(line, /U2D_/);
+  const r = supportRows({changes: [], refused: [{code: 'U2D_SUPPORT_MAY_BE_STEP10', ciiNode: '120', detail: 'step 10 may have ...'}]});
+  assert.deepEqual([r.rows, r.refused], [[], [['CII node 120', 'step 10 may have ...']]]);
+  assert.match(r.none, /^No support change was applied/);         // not "the same supports" above refused ones
+  assert.match(supportRows({changes: [], refused: []}).none, /same supports as the XML/);
+});

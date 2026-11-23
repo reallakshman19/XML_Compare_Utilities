@@ -9,6 +9,8 @@ const PLAIN = {
   U2D_SUPPORT_TARGET_UNCLEAR: 'at a point where the XML node is unclear',
   U2D_SUPPORT_NOT_PAIRED: 'in the XML with no CII node at its point',
   U2D_SUPPORT_NOT_IN_CII: 'in the XML that step 10 does not write',
+  // S-fix step 1 (Owner 23 Nov 2026): moved by step 10 from an unnumbered node, or made by its own rule; never applied
+  U2D_SUPPORT_MAY_BE_STEP10: 'that step 10 may have written itself (not applied)',
 };
 const KIND = {edited: 'support edited', added: 'support added', removed: 'support removed'};
 const where = r => (r.ref ? `${r.ref.branchName} node ${r.ref.nodeNumber}` : `CII node ${r.ciiNode}`);
@@ -27,5 +29,7 @@ export function supportRows(supports) {
   if (!supports) return {rows: [], refused: [], none: 'This receipt was made before supports were read; it lists none.'};
   const rows = supports.changes.map(c => [c.ref.branchName, c.ref.nodeNumber, KIND[c.kind] || c.kind, c.beforeText, c.afterText]);
   const refused = supports.refused.filter(r => r.code !== 'U2D_SUPPORT_NOT_IN_CII').map(r => [where(r), r.detail]);
-  return {rows, refused, none: 'CAESAR II has the same supports as the XML on every paired node.'};
+  const none = refused.length ? 'No support change was applied; the differences listed below were not compared.'
+    : 'CAESAR II has the same supports as the XML on every paired node.';
+  return {rows, refused, none};
 }
