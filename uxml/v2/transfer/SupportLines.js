@@ -17,6 +17,7 @@ const PLAIN = {
   U2D_SUPPORT_SOURCE_UNKNOWN: 'whose source the sidecar does not give (not applied)',
   U2D_SUPPORT_MERGED_COPY: 'that step 10 wrote once from identical copies on several nodes (not applied)',
   U2D_SUPPORT_NOT_ON_NODE: 'whose XML node no longer holds them (not applied)',
+  U2D_SUPPORT_SOME_COPIES_CHANGED: 'changed on only some of identical copies on one XML node (not applied)',
   U2D_SUPPORT_ALREADY_ON_NODE: 'added in CAESAR II where the XML node already holds the same support (not written twice)',
 };
 const KIND = {edited: 'support edited', added: 'support added', removed: 'support removed'};
