@@ -18,7 +18,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 sys.path[:0] = [str(HERE.parent), str(HERE.parents[1] / "u3b-cii-check"), str(ROOT / "uxml" / "v2" / "vendor" / "cii-v11-v14")]
-from u2d_supports import STEP10_DETAIL, TYPE_CODES, support, support_report  # noqa: E402
+from u2d_supports import STEP10_DETAIL, TYPE_CODES, restraint_ops, support, support_report  # noqa: E402
 
 EF05 = ROOT / "fixtures" / "uxml-v2-transfer" / "EF05"
 MATCHER = HERE.parents[1] / "p11-cii-map" / "cli.mjs"
@@ -381,6 +381,14 @@ class Step10MarksSmall(unittest.TestCase):
 
 
 class SupportRules(unittest.TestCase):
+    def test_a_repeat_of_a_kept_support_stays_on_step_1_and_goes_with_repeats_off(self):
+        """Step 3g (review of PR 315 N4): two identical restraints and CAESAR II's one copy. Step 1 keeps both (step 10
+        merges repeats); repeats=False, as the step 3 path passes it, removes the one left over."""
+        s = support(14, 1.7513e12, 0.0, 0.3, (0.0, 1.0, 0.0))
+        texts = [{"Type": "+Y"}, {"Type": "+Y"}]
+        self.assertEqual([o["op"] for o in restraint_ops([s, s], texts, [(s, None)])], ["keep", "keep"])
+        self.assertEqual([o["op"] for o in restraint_ops([s, s], texts, [(s, None)], repeats=False)], ["keep", "remove"])
+
     def test_a_negative_friction_counts_as_zero(self):
         self.assertEqual(support(8, 1.75127e12, 5.0, -1.0101, None), support(8, 1.75127e12, 5.0, 0.0, None))
 
