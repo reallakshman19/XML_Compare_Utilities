@@ -299,6 +299,86 @@ class SupportsByStep10Ef05(SupportsByStep10):
         self.assertEqual({c["kind"] for c in s["changes"]}, {"added"})
 
 
+    # S-fix step 3c: guides and limits without cosines in the XML (review of PR 311 round 2) -------------------------
+    X, Z = (1.0, 0.0, 0.0), (0.0, 0.0, 1.0)
+
+    @staticmethod
+    def restraint(typ, cos=None, friction="0.3"):
+        s = (f"<Restraint>\n<Type>{typ}</Type>\n<Stiffness>1.751270E+12</Stiffness>\n<Gap>0</Gap>\n"
+             f"<Friction>{friction}</Friction>\n")
+        if cos:
+            s += "".join(f"<DirectionCosine{a}>{c:.9f}</DirectionCosine{a}>\n" for a, c in zip("XYZ", cos))
+        return s + "</Restraint>"
+
+    def at50(self, blocks, wrote):
+        """Node 50's <Restraint> replaced by `blocks`; the sidecar says step 10 wrote `wrote` [(type, cosines)] there.
+        Returns a runner of plan() taking CAESAR II's node 50 as [(type, cosines, friction)]."""
+        text = self.xml.decode("utf-8")
+        start = text.index("<Restraint", text.index("<NodeNumber>50</NodeNumber>"))
+        end = text.index("</Restraint>", start) + len("</Restraint>")
+        xml2 = (text[:start] + "\n".join(blocks) + text[end:]).encode("utf-8")
+        side = json.loads(json.dumps(self.sidecar))
+        side["enriched"]["sha256"] = hashlib.sha256(xml2).hexdigest()
+        b = next(b for b in side["ciiSupports"] if b["cii"] == 50)
+        b["written"] = [dict(b["written"][0], type=typ, cosines=list(cos), friction=0.3) for typ, cos in wrote]
+
+        def run(slots):
+            nl = "\r\n" if "\r\n" in self.cii else "\n"
+            lines = self.cii.split(nl)
+            first = lines[slot_line(lines, 50)]
+            for k, (typ, cos, fr) in enumerate(slots):
+                j = slot_line(lines, 50, k)
+                lines[j] = field(field(field(first, 0, f"{50:13.3f}"), 1, f"{typ:13.4f}"), 4, f"{fr:13.6f}")
+                lines[j + 1] = "  " + "".join(f"{c:13.6f}" for c in cos)
+            return plan(xml2, nl.join(lines), self.match, 10.0, sidecar=side)["supports"]
+        return run
+
+    def ops(self, s):
+        self.assertEqual(self.listed_refusals(s), [])
+        self.assertEqual(len(s["changes"]), 1, s["changes"])
+        return [(o["op"], o.get("after", {}).get("DirectionCosineZ"), o.get("after", {}).get("Friction"))
+                for o in s["changes"][0]["restraints"]]
+
+    def test_a_direction_only_change_of_a_guide_or_limit_without_cosines_is_written(self):
+        for typ, code in (("GUI", 8), ("LIM", 9)):
+            run = self.at50([self.restraint(typ)], [(code, self.X)])
+            self.assertEqual(run([(code, self.X, 0.3)])["changes"], [])
+            self.assertEqual(self.ops(run([(code, self.Z, 0.3)])), [("edit", "1.000000000", "0.3")], typ)
+
+    def test_a_guide_without_cosines_edited_while_a_new_guide_is_added(self):
+        run = self.at50([self.restraint("GUI")], [(8, self.X)])
+        self.assertEqual(self.ops(run([(8, self.X, 0.1), (8, self.Z, 0.3)])),
+                         [("edit", "0.000000000", "0.1"), ("add", "1.000000000", "0.3")])
+
+    def test_a_guide_without_cosines_next_to_one_with_cosines(self):
+        run = self.at50([self.restraint("GUI"), self.restraint("GUI", self.Z)], [(8, self.X), (8, self.Z)])
+        self.assertEqual(run([(8, self.X, 0.3), (8, self.Z, 0.3)])["changes"], [])
+        self.assertEqual(self.ops(run([(8, self.X, 0.3)])), [("keep", None, None), ("remove", None, None)])
+        self.assertEqual(self.ops(run([(8, self.Z, 0.3)])), [("remove", None, None), ("keep", None, None)])
+        self.assertEqual(self.ops(run([(8, self.X, 0.3), (8, self.Z, 0.1)])), [("keep", None, None), ("edit", "1.000000000", "0.1")])
+
+    def test_a_rule_copy_of_an_xml_support_does_not_block_its_edit(self):
+        """Step 3c (review N2): the sidecar lists node 50's xml +Y and an identical rule +Y; only copies from one XML
+        record count as copies of one support, so an edit of one is carried, not refused."""
+        side = json.loads(json.dumps(self.sidecar))
+        b = next(b for b in side["ciiSupports"] if b["cii"] == 50)
+        w = b["written"][0]
+        b["written"].insert(0, {**{k: v for k, v in w.items() if k != "id"}, "from": "rule", "ids": [w["id"]]})
+        two = edited(self.cii, 50, add=(w["type"], tuple(w["cosines"])))
+        nl = "\r\n" if "\r\n" in two else "\n"
+        lines = two.split(nl)
+        j = slot_line(lines, 50, 1)
+        lines[j] = field(lines[j], 4, f"{0.1:13.6f}")
+        s = plan(self.xml, nl.join(lines), self.match, 10.0, sidecar=side)["supports"]
+        self.assertEqual(self.listed_refusals(s), [])
+        self.assertEqual([[o["op"] for o in c["restraints"]] for c in s["changes"]], [["keep", "add"]])
+
+    def test_identical_guides_written_in_two_directions_keep_the_one_caesar_ii_keeps(self):
+        run = self.at50([self.restraint("GUI"), self.restraint("GUI")], [(8, self.X), (8, self.Z)])
+        self.assertEqual(run([(8, self.X, 0.3), (8, self.Z, 0.3)])["changes"], [])
+        self.assertEqual(self.ops(run([(8, self.X, 0.3)])), [("edit", "0.000000000", "0.3"), ("remove", None, None)])
+
+
 class SupportsByStep10Bm2(SupportsByStep10):
     MODEL = "BM2"
 
