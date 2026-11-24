@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import math
 import xml.etree.ElementTree as ET
+from functools import partial
 
 from u3b_core import num, sections_of
 
@@ -268,6 +269,20 @@ def text_of(s: tuple) -> str:
     return ", ".join(words)
 
 
+DIRECTED_CODES = {8, 9, 25, 26}   # GUI, LIM, +LIM, -LIM: the direction cosines, not the type, give the axis
+
+
+def text_dir(s: tuple) -> str:
+    """text_of plus the direction of a guide or limit (step 3 receipt, review of PR 312 N4), so a direction-only change
+    reads as one: 'GUI, stiffness 1.7513E+12, friction 0.3, direction +Z' ('direction not given' without cosines)."""
+    if s[0] not in DIRECTED_CODES:
+        return text_of(s)
+    if s[4] is None:
+        return text_of(s) + ", direction not given"
+    axis = next((("+" if x > 0 else "-") + a for a, x in zip("XYZ", s[4]) if abs(abs(x) - 1.0) < 1e-4), None)
+    return text_of(s) + ", direction " + (axis or "(" + ", ".join(f"{x:g}" for x in s[4]) + ")")
+
+
 def target_of(kind: str, node: str, records: list, xml: dict, refs: dict):
     """The one XML node a change belongs to, or (None, reason). Edited/removed: the node that holds the
     supports at this point; added: the node numbered like the CII node, else the only numbered node there."""
@@ -466,6 +481,57 @@ def pair_up(gone: list, new: list) -> tuple[list, list, list]:
     return edited, gone, new
 
 
+def node_plan(have: list, stands: list, drop: list, add: list, still: dict, check) -> tuple:
+    """One XML record's supports after CAESAR II's change (S-fix step 3, steps 3c-3d). Pure.
+
+    have: the record's <Restraint>s in compared form; stands[i]: the supports restraint i stands for as step 10 wrote
+    them, besides itself (written_report.stands_for); drop: step 10's supports CAESAR II changed or deleted here; add:
+    [(support, raw)] CAESAR II's supports for this record; still: {support: raw} every support CAESAR II holds at the
+    CII node; check(s): a refusal code for dropping s (copies elsewhere or on this record), or None.
+    Returns (code, kept, added, already): code refuses the whole record (None: no refusal); kept, the indexes of the
+    restraints that stay as they are; added, [(support, raw)] to write; already, the adds the record keeps already.
+    """
+    def same(i, x):
+        return x == have[i] or x in stands[i]
+
+    kept, removed, dropped = list(range(len(have))), [], []
+    for s in drop:
+        hits = [i for i in kept if same(i, s)]
+        if not hits and s in dropped:
+            continue
+        if not hits and not any(same(i, s) for i in removed):
+            return "U2D_SUPPORT_NOT_ON_NODE", kept, [], []
+        # with no hit left, a restraint removed already stood for it too (review of PR 312 N2); either way its copies on
+        # this record and on other node ids are checked (review of PR 313 N1)
+        code = check(s)
+        if code:
+            return code, kept, [], []
+        kept = [i for i in kept if i not in hits]
+        removed += hits
+        dropped.append(s)
+    # A removed restraint without cosines may also have stood for a support CAESAR II still holds (step 10 wrote
+    # several directions from it or from identical restraints): that support is written back, with its direction.
+    added, already = [], []
+    for i in removed:
+        for w in stands[i]:
+            if w in still and w not in dropped and not any(same(j, w) for j in kept) and all(a != w for a, _ in added):
+                added.append((w, still[w]))
+    for cs, raw in add:
+        if any(same(i, cs) for i in kept):
+            already.append(cs)
+        elif all(a != cs for a, _ in added):    # a repeat of CAESAR II's own support: step 10 writes it once (N3)
+            added.append((cs, raw))
+    return None, kept, added, already
+
+
+def kept_restraint(have: list, stands: list, kept: list):
+    """same(i, x) for restraint_ops on the step 3 path: restraint i already is x. A removed restraint is only itself, so a
+    support written back takes it with its direction."""
+    def same(i, x):
+        return x == have[i] or (i in kept and x in stands[i])
+    return same
+
+
 def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict) -> dict:
     """support_report's result, compared with what step 10 wrote (the sidecar's ciiSupports). Read-only.
 
@@ -534,14 +600,22 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
 
     def stands_for(k):
         """Per <Restraint> of XML record k, the supports it stands for as step 10 wrote them (step 3c). One with cosines
-        stands only for itself. One without stands for the supports step 10 wrote from this record that equal it apart
-        from direction and that no restraint with cosines on the record already is."""
-        have = xml.get(k, [])
-        pool = list(home_written.get(k, []))
-        for x in have:
-            if x[4] is not None and x in pool:
-                pool.remove(x)
-        return [[] if x[4] is not None else [w for w in pool if matches(x, w)] for x in have]
+        stands only for itself. One without stands for every support step 10 wrote from this record that equals it apart
+        from direction, also one a restraint with cosines is too: step 10 may have merged the two (review of PR 312 N1)."""
+        return [[] if x[4] is not None else [w for w in home_written.get(k, []) if matches(x, w)] for x in xml.get(k, [])]
+
+    def copy_refusal(k, c, n, s):
+        """Dropping step 10's support s from record k (CII node c, step 10 node n): refused where step 10 wrote it from
+        identical supports on several node ids, or where only some of its copies on this record changed."""
+        if any(i != id_of.get(k) and i in at and any(matches(x, s) for x in xml.get(at[i], [])) for i in ids_at.get(n, [])):
+            return "U2D_SUPPORT_MERGED_COPY"
+        # step 10 writes identical supports on one node once: CAESAR II's change replaces every copy (review B1). Where
+        # the sidecar lists it more than once and CAESAR II still holds it, only some copies changed: the XML edit cannot
+        # tell the copies apart (restraint_ops keeps every copy of a kept support), so refuse.
+        listed = sum(1 for ws, w in written.get(n, []) if ws == s and w["from"] in ("xml", "moved") and home(w) == k)
+        if listed > 1 and any(cs == s for cs, _, _ in cii.get(c, [])):
+            return "U2D_SUPPORT_SOME_COPIES_CHANGED"
+        return None
 
     def target_for_added(n):
         here = [i for i in ids_at.get(n, []) if i in at]
@@ -555,7 +629,7 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
             theirs = [s for s, own, _ in cii.get(c, []) if not own]
             if theirs:
                 refused.append({"code": "U2D_SUPPORT_NEW_NODE", "ciiNode": c, "detail": "this support is on a node the XML does not have",
-                                "supports": [text_of(s) for s in theirs]})
+                                "supports": [text_dir(s) for s in theirs]})
             continue
         mine = list(written.get(_cii_key(n), []))
         pool, new = list(mine), []
@@ -575,30 +649,30 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
             if w["from"] == "openEnd":
                 added.append((cs, raw))
             elif w["from"] not in ("xml", "moved", "rule"):
-                refuse("U2D_SUPPORT_SOURCE_UNKNOWN", c, before=[text_of(s)], after=[text_of(cs)])
+                refuse("U2D_SUPPORT_SOURCE_UNKNOWN", c, before=[text_dir(s)], after=[text_dir(cs)])
             elif (k := home(w)) is None:
-                refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, before=[text_of(s)], after=[text_of(cs)])
+                refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, before=[text_dir(s)], after=[text_dir(cs)])
             elif (p := plan_for(k, c, w["from"])) is None:
-                refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, ref=refs[k], before=[text_of(s)], after=[text_of(cs)])
+                refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, ref=refs[k], before=[text_dir(s)], after=[text_dir(cs)])
             else:
                 if w["from"] != "rule":       # a rule support is in no XML: CAESAR II's support is added on its node
                     p["drop"].append(s)
                 p["add"].append((cs, raw))
         for s, w in removed:
             if w["from"] == "rule":
-                refuse("U2D_SUPPORT_RULE_REMOVED", c, before=[text_of(s)])
+                refuse("U2D_SUPPORT_RULE_REMOVED", c, before=[text_dir(s)])
             elif w["from"] == "openEnd":
-                refuse("U2D_SUPPORT_OPEN_END_REMOVED", c, before=[text_of(s)])
+                refuse("U2D_SUPPORT_OPEN_END_REMOVED", c, before=[text_dir(s)])
             elif w["from"] not in ("xml", "moved"):
-                refuse("U2D_SUPPORT_SOURCE_UNKNOWN", c, before=[text_of(s)])
+                refuse("U2D_SUPPORT_SOURCE_UNKNOWN", c, before=[text_dir(s)])
             elif (k := home(w)) is None or (p := plan_for(k, c, w["from"])) is None:
-                refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, before=[text_of(s)])
+                refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, before=[text_dir(s)])
             else:
                 p["drop"].append(s)
         for cs, raw in added:
             k = target_for_added(_cii_key(n))
             if k is None or (p := plan_for(k, c, "added")) is None:
-                refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, after=[text_of(cs)])
+                refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, after=[text_dir(cs)])
             else:
                 p["add"].append((cs, raw))
         # A node id that now gets a support in the XML loses step 10's rule there (the XML wins over the rule), so the
@@ -615,57 +689,23 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
     changes = []
     for k, p in sorted(plans.items()):
         c, n = p["cii"], _cii_key(step10_of[p["cii"]])
-        have = list(xml.get(k, []))
-        stands = stands_for(k)
-        same = lambda i, x, have=have, stands=stands: x == have[i] or x in stands[i]   # noqa: E731
-        kept, added, why, dropped, removed = list(range(len(have))), [], None, [], []
-        for s in p["drop"]:
-            hits = [i for i in kept if same(i, s)]
-            if not hits and s in dropped:
-                continue
-            if not hits:
-                why = "U2D_SUPPORT_NOT_ON_NODE"
-            elif any(i != id_of.get(k) and i in at and any(matches(x, s) for x in xml.get(at[i], [])) for i in ids_at.get(n, [])):
-                why = "U2D_SUPPORT_MERGED_COPY"
-            else:
-                # step 10 writes identical supports on one node once: CAESAR II's change replaces every copy (review B1).
-                # Where the sidecar lists it more than once and CAESAR II still holds it, only some copies changed: the
-                # XML edit cannot tell the copies apart (restraint_ops keeps every copy of a kept support), so refuse.
-                listed = sum(1 for ws, w in written.get(n, []) if ws == s and w["from"] in ("xml", "moved") and home(w) == k)
-                if listed > 1 and any(cs == s for cs, _, _ in cii.get(c, [])):
-                    why = "U2D_SUPPORT_SOME_COPIES_CHANGED"
-                    break
-                kept = [i for i in kept if i not in hits]
-                removed += hits
-                dropped.append(s)
-                continue
-            break
+        have, stands = list(xml.get(k, [])), stands_for(k)
+        why, kept, added, already = node_plan(have, stands, p["drop"], p["add"], {s: raw for s, _, raw in cii.get(c, [])},
+                                              partial(copy_refusal, k, c, n))
         if why:
-            refuse(why, c, ref=refs[k], before=[text_of(s) for s in p["drop"]], after=[text_of(s) for s, _ in p["add"]])
+            refuse(why, c, ref=refs[k], before=[text_dir(s) for s in p["drop"]], after=[text_dir(s) for s, _ in p["add"]])
             continue
-        # A removed restraint without cosines may also have stood for a support CAESAR II still holds (step 10 wrote
-        # several directions from identical restraints): that support is written back, with its direction.
-        still = {s: raw for s, _, raw in cii.get(c, [])}
-        for i in removed:
-            for w in stands[i]:
-                if w in still and w not in dropped and not any(same(j, w) for j in kept) and all(a != w for a, _ in added):
-                    added.append((w, still[w]))
-        for cs, raw in p["add"]:
-            if any(same(i, cs) for i in kept) or any(a == cs for a, _ in added):
-                refuse("U2D_SUPPORT_ALREADY_ON_NODE", c, ref=refs[k], after=[text_of(cs)])
-            else:
-                added.append((cs, raw))
+        for cs in already:
+            refuse("U2D_SUPPORT_ALREADY_ON_NODE", c, ref=refs[k], after=[text_dir(cs)])
         after = [(have[i], None) for i in kept] + added
-        # in the XML edit a removed restraint is only itself, so a support written back takes it with its direction
-        kept_same = lambda i, x: x == have[i] or (i in kept and x in stands[i])   # noqa: E731
         if [x for x, _ in after] == have:
             continue
         want = [s for s, _ in after]
         kind = "added" if not have else "removed" if not want else "edited"
         changes.append({"ciiNode": c, "kind": kind, "ref": refs[k], "restraintCount": len(texts[k]),
-                        "restraints": restraint_ops(have, texts[k], after, kept_same), "step10": sorted(p["from"]),
-                        "before": [describe(s) for s in have], "after": [describe(s) for s in want],
-                        "beforeText": "; ".join(map(text_of, have)) or "none", "afterText": "; ".join(map(text_of, want)) or "none"})
+                        "restraints": restraint_ops(have, texts[k], after, kept_restraint(have, stands, kept)),
+                        "step10": sorted(p["from"]), "before": [describe(s) for s in have], "after": [describe(s) for s in want],
+                        "beforeText": "; ".join(map(text_dir, have)) or "none", "afterText": "; ".join(map(text_dir, want)) or "none"})
     # XML supports step 10 did not write: neither listed as read from their node, nor equal to one step 10 wrote at the
     # CII node of that node id (step 10 writes identical supports at one point once).
     kept, merged = {}, {}
