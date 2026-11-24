@@ -171,6 +171,21 @@ class SupportsByStep10Ef05(SupportsByStep10):
     def xml_support_node(self):
         return next(b for b in self.sidecar["ciiSupports"] if [w["from"] for w in b["written"]] == ["xml"])
 
+    def test_a_moved_support_edited_and_copied_gets_one_written_once_row(self):
+        """Step 3f (review of PR 314 N1): CAESAR II edits node 800's moved support and adds an identical copy. The edit
+        goes to the unnumbered source and the copy to node 800, so two XML nodes write it; the receipt says once that
+        CAESAR II's two copies are written once, not once per XML node."""
+        w = next(w for b in self.sidecar["ciiSupports"] if b["cii"] == 800 for w in b["written"])
+        two = edited(edited(self.cii, 800, friction=0.2), 800, add=(w["type"], tuple(w["cosines"])))
+        nl = "\r\n" if "\r\n" in two else "\n"
+        lines = two.split(nl)
+        j = slot_line(lines, 800, 1)
+        lines[j] = field(lines[j], 4, f"{0.2:13.6f}")
+        s = self.supports(nl.join(lines))
+        self.assertEqual([(r["code"], r["ciiNode"]) for r in self.listed_refusals(s)], [("U2D_SUPPORT_COPIES_WRITTEN_ONCE", "800")])
+        self.assertEqual(sorted(c["kind"] for c in s["changes"]), ["added", "edited"])
+        self.assertEqual(self.summary(nl.join(lines))["refused"], {"U2D_SUPPORT_COPIES_WRITTEN_ONCE": 1})
+
     def test_an_xml_support_deleted_is_removed_from_its_own_node(self):
         b = self.xml_support_node()
         s = self.supports(edited(self.cii, b["cii"], delete=True))
