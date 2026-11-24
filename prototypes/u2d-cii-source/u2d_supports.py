@@ -412,12 +412,36 @@ WRITTEN_DETAIL = {
     "U2D_SUPPORT_MERGED_COPY": ("step 10 wrote one support from identical supports on several XML nodes at this point; "
                                 "a change cannot be placed on one of them"),
     "U2D_SUPPORT_NOT_ON_NODE": "the XML node step 10 took this support from does not hold it, so the change is not placed",
-    "U2D_SUPPORT_TARGET_UNCLEAR": "several XML nodes at this point could take this support",
+    "U2D_SUPPORT_TARGET_UNCLEAR": ("the sidecar does not name one XML node for this support (several nodes at this point, "
+                                   "or a node id with no place in the XML)"),
+    "U2D_SUPPORT_ALREADY_ON_NODE": ("the XML node already holds this support and step 10 writes identical supports at one "
+                                    "node once, so a second copy is not written"),
 }
+
+
+def _invalid(what: str) -> ValueError:
+    return ValueError(f"U2D_SIDECAR_INVALID: the sidecar's support list (ciiSupports) {what}. Nothing was transferred.")
+
+
+def _cii_key(value) -> str:
+    """A CII node number of the sidecar as one key ("50" for 50 and 50.0); anything else is refused (PR 310 review B2)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise _invalid(f"has a CII node that is not a number ({value!r})")
+    try:
+        v = float(value)
+    except ValueError:
+        raise _invalid(f"has a CII node that is not a number ({value!r})") from None
+    if not math.isfinite(v):
+        raise _invalid(f"has a CII node that is not a number ({value!r})")
+    return str(int(v)) if v == int(v) else repr(v)
 
 
 def written_support(w: dict) -> tuple:
     """The compared form of one support the sidecar lists as step 10 wrote it."""
+    cos = w["cosines"]
+    if not (isinstance(cos, list) and len(cos) == 3 and all(isinstance(x, (int, float)) and not isinstance(x, bool)
+                                                            and math.isfinite(x) for x in cos)):
+        raise _invalid(f"has a support whose direction cosines are not 3 numbers ({cos!r})")
     return support(int(w["type"]), float(w["stiffness"]), float(w["gap"]), float(w["friction"]),
                    unit([float(x) for x in w["cosines"]]))
 
@@ -459,13 +483,20 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
     id_of = {k: i for i, k in at.items()}
     ids_at, used_at, written = {}, {}, {}
     for n in sidecar["nodes"]:
-        ids_at[str(n["cii"])] = [i["id"] for i in n["ids"]]
+        ids_at[_cii_key(n["cii"])] = [i["id"] for i in n["ids"]]
     for el in sidecar["elements"]:
         for end in ("from", "to"):
-            used_at.setdefault(str(el[end]), set()).add(el[end + "Id"])
+            used_at.setdefault(_cii_key(el[end]), set()).add(el[end + "Id"])
     for b in sidecar["ciiSupports"]:
-        written[str(b["cii"])] = [(written_support(w), w) for w in b["written"]]
+        key = _cii_key(b["cii"])
+        if key in written:
+            raise _invalid(f"lists CII node {key} twice")
+        if not isinstance(b["written"], list):
+            raise _invalid(f"has no list of supports at CII node {key}")
+        written[key] = [(written_support(w), w) for w in b["written"]]
     cii = cii_supports(cii_text)
+    if not any(written.values()) and any(cii.values()):
+        raise _invalid("lists no support, but the CII has supports (step 10 lists every support it writes)")
     step10_of = {c: n for c, n in renumber.items()}
     counts = {"pointsSame": 0, "step10Anchors": 0, "changes": 0, "notWrittenByStep10": 0}
     refused, plans = [], {}
@@ -503,7 +534,7 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
                 refused.append({"code": "U2D_SUPPORT_NEW_NODE", "ciiNode": c, "detail": "this support is on a node the XML does not have",
                                 "supports": [text_of(s) for s in theirs]})
             continue
-        mine = list(written.get(str(n), []))
+        mine = list(written.get(_cii_key(n), []))
         pool, new = list(mine), []
         for s, _, raw in cii.get(c, []):
             hit = next((m for m in pool if m[0] == s), None)
@@ -542,7 +573,7 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
             else:
                 p["drop"].append(s)
         for cs, raw in added:
-            k = target_for_added(str(n))
+            k = target_for_added(_cii_key(n))
             if k is None or (p := plan_for(k, c, "added")) is None:
                 refuse("U2D_SUPPORT_TARGET_UNCLEAR", c, after=[text_of(cs)])
             else:
@@ -560,23 +591,34 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
                 plans[k]["from"].add("rule")
     changes = []
     for k, p in sorted(plans.items()):
-        c, n = p["cii"], str(step10_of[p["cii"]])
+        c, n = p["cii"], _cii_key(step10_of[p["cii"]])
         have = list(xml.get(k, []))
         after, why = [(s, None) for s in have], None
+        dropped = []
         for s in p["drop"]:
-            hit = next((i for i, (x, _) in enumerate(after) if matches(x, s)), None)
-            if hit is None:
+            hits = [i for i, (x, _) in enumerate(after) if matches(x, s)]
+            if not hits and any(matches(d, s) for d in dropped):
+                continue
+            if not hits:
                 why = "U2D_SUPPORT_NOT_ON_NODE"
             elif any(i != id_of.get(k) and i in at and any(matches(x, s) for x in xml.get(at[i], [])) for i in ids_at.get(n, [])):
                 why = "U2D_SUPPORT_MERGED_COPY"
             else:
-                after.pop(hit)
+                # step 10 writes identical supports on one node once: CAESAR II's change replaces every copy (review B1)
+                after = [a for i, a in enumerate(after) if i not in hits]
+                dropped.append(s)
                 continue
             break
         if why:
             refuse(why, c, ref=refs[k], before=[text_of(s) for s in p["drop"]], after=[text_of(s) for s, _ in p["add"]])
             continue
-        after += p["add"]
+        for cs, raw in p["add"]:
+            if any(matches(x, cs) for x, _ in after):
+                refuse("U2D_SUPPORT_ALREADY_ON_NODE", c, ref=refs[k], after=[text_of(cs)])
+            else:
+                after.append((cs, raw))
+        if [x for x, _ in after] == have:
+            continue
         want = [s for s, _ in after]
         kind = "added" if not have else "removed" if not want else "edited"
         changes.append({"ciiNode": c, "kind": kind, "ref": refs[k], "restraintCount": len(texts[k]),
