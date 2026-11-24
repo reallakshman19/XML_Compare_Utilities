@@ -19,6 +19,8 @@ const PLAIN = {
   U2D_SUPPORT_NOT_ON_NODE: 'whose XML node no longer holds them (not applied)',
   U2D_SUPPORT_SOME_COPIES_CHANGED: 'changed on only some of identical copies on one XML node (not applied)',
   U2D_SUPPORT_ALREADY_ON_NODE: 'added in CAESAR II where the XML node already holds the same support (not written twice)',
+  // S-fix step 3e (Owner 24 Nov 2026): step 10 writes identical supports at one node once
+  U2D_SUPPORT_COPIES_WRITTEN_ONCE: 'held more than once in CAESAR II at one point (written once)',
 };
 const KIND = {edited: 'support edited', added: 'support added', removed: 'support removed'};
 const where = r => (r.ref ? `${r.ref.branchName} node ${r.ref.nodeNumber}` : `CII node ${r.ciiNode}`);
