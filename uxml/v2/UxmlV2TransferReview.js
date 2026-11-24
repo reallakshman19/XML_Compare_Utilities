@@ -103,7 +103,7 @@ function render() {
   $('trConflicts').replaceChildren(conflicts.length
     ? table(['Branch', 'Node', 'Field', 'Kept (transfer)', 'The stage wanted'], conflicts.map(c => [c.branch, c.node ?? 'branch', c.key.replace(/\./g, '/'), c.kept, c.stageWanted]))
     : el('div', {className: 'muted', textContent: 'The stage did not try to change any transferred value.'}));
-  const sup = supportRows(receipt.supports);
+  const sup = supportRows(receipt.supports, receipt.summary?.supports?.comparedWith);
   $('trSupports').replaceChildren(sup.rows.length
     ? table(['Branch', 'Node', 'Change', 'In the XML', 'In CAESAR II'], sup.rows)
     : el('div', {className: 'muted', textContent: sup.none}),

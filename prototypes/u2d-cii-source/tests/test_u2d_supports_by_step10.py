@@ -16,6 +16,7 @@ Inputs: fixtures/uxml-v2-transfer/{EF05,BM2}-on (step 10 with "Engine reads UXML
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import sys
@@ -119,9 +120,26 @@ class SupportsByStep10(unittest.TestCase):
         bad_at["nodes"][0]["ids"][0]["at"] = ["a", 0]        # T2 review K12
         bad_sha = json.loads(json.dumps(self.sidecar))
         bad_sha["enriched"]["sha256"] = 12345                # T2 review K12
-        for side in (bad_list, bad_entry, bad_at, bad_sha):
+        sides = [bad_list, bad_entry, bad_at, bad_sha]
+        # PR 310 review B2: a node key that is not one number, a node listed twice, bad cosines, an empty list
+        for change in (lambda b: b[0].update(cii=None), lambda b: b[0].update(cii=True), lambda b: b[0].update(cii="x"),
+                       lambda b: b.append({"cii": b[0]["cii"], "written": []}), lambda b: b[0].update(written={}),
+                       lambda b: b[0]["written"][0].update(cosines=["a", 0, 1]),
+                       lambda b: b[0]["written"][0].update(cosines=[0, 1]), lambda b: b.clear()):
+            side = json.loads(json.dumps(self.sidecar))
+            change(side["ciiSupports"])
+            sides.append(side)
+        for side in sides:
             with self.assertRaisesRegex(ValueError, "^U2D_SIDECAR_INVALID"):
                 self.supports(sidecar=side)
+
+    def test_a_node_number_written_as_a_decimal_is_the_same_node(self):
+        side = json.loads(json.dumps(self.sidecar))
+        for b in side["ciiSupports"]:
+            b["cii"] = float(b["cii"])
+        s = self.supports(sidecar=side)
+        self.assertEqual(s["changes"], [])
+        self.assertEqual(self.listed_refusals(s), [])
 
     def test_an_open_end_anchor_deleted_in_caesar_ii_is_refused(self):
         node = next(b["cii"] for b in self.sidecar["ciiSupports"] if [w["from"] for w in b["written"]] == ["openEnd"])
@@ -148,6 +166,137 @@ class SupportsByStep10Ef05(SupportsByStep10):
         self.assertEqual([c["ref"]["branchOrdinal"], c["ref"]["nodeOrdinal"]], at, "the node the sidecar names")
         ops = [o for o in c["restraints"] if o["op"] != "keep"]
         self.assertEqual([(o["op"], o["before"].get("Friction"), o["after"].get("Friction")) for o in ops], [("edit", "0.3", "0.2")])
+
+
+    def xml_support_node(self):
+        return next(b for b in self.sidecar["ciiSupports"] if [w["from"] for w in b["written"]] == ["xml"])
+
+    def test_an_xml_support_deleted_is_removed_from_its_own_node(self):
+        b = self.xml_support_node()
+        s = self.supports(edited(self.cii, b["cii"], delete=True))
+        self.assertEqual(self.listed_refusals(s), [])
+        self.assertEqual([(c["ciiNode"], c["kind"]) for c in s["changes"]], [(str(b["cii"]), "removed")])
+        at = next(i["at"] for n in self.sidecar["nodes"] for i in n["ids"] if i["id"] == b["written"][0]["id"])
+        self.assertEqual([s["changes"][0]["ref"]["branchOrdinal"], s["changes"][0]["ref"]["nodeOrdinal"]], at)
+
+    def test_a_moved_support_deleted_is_removed_from_its_unnumbered_node(self):
+        s = self.supports(edited(self.cii, 800, delete=True))
+        self.assertEqual(self.listed_refusals(s), [])
+        self.assertEqual([(c["ciiNode"], c["kind"], c["step10"]) for c in s["changes"]], [("800", "removed", ["moved"])])
+        self.assertLessEqual(float(s["changes"][0]["ref"]["nodeNumber"]), 0)
+
+    def test_an_open_end_anchor_edited_is_added_on_its_node(self):
+        node = next(b["cii"] for b in self.sidecar["ciiSupports"] if [w["from"] for w in b["written"]] == ["openEnd"])
+        s = self.supports(edited(self.cii, node, friction=0.2))
+        self.assertEqual(self.listed_refusals(s), [])
+        self.assertEqual([(c["ciiNode"], c["kind"], c["step10"]) for c in s["changes"]], [(str(node), "added", ["added"])])
+        self.assertEqual([a["type"] for a in s["changes"][0]["after"]], [1])
+
+    def test_identical_copies_on_one_node_are_all_replaced(self):
+        """PR 310 review B1: step 10 writes two identical supports on one XML node once; CAESAR II's change replaces both."""
+        b = self.xml_support_node()
+        text = self.xml.decode("utf-8")
+        i = text.index(f"<NodeNumber>{b['cii']}</NodeNumber>")
+        start = text.index("<Restraint", i)
+        end = text.index("</Restraint>", start) + len("</Restraint>")
+        xml2 = (text[:end] + "\n" + text[start:end] + text[end:]).encode("utf-8")
+        side = json.loads(json.dumps(self.sidecar))
+        side["enriched"]["sha256"] = hashlib.sha256(xml2).hexdigest()
+        run = lambda cii: plan(xml2, cii, self.match, 10.0, sidecar=side)["supports"]
+        self.assertEqual(run(self.cii)["changes"], [])
+        for cii, after in ((edited(self.cii, b["cii"], friction=0.1), ["0.1"]), (edited(self.cii, b["cii"], delete=True), [])):
+            s = run(cii)
+            self.assertEqual(self.listed_refusals(s), [])
+            self.assertEqual(len(s["changes"]), 1, s["changes"])
+            self.assertEqual(len(s["changes"][0]["before"]), 2)
+            self.assertEqual([f"{a['friction']:g}" for a in s["changes"][0]["after"]], after)
+
+    def test_a_support_added_in_caesar_ii_identical_to_the_xml_nodes_is_not_written_twice(self):
+        b = self.xml_support_node()
+        w = b["written"][0]
+        cii = edited(self.cii, b["cii"], add=(w["type"], tuple(w["cosines"])))
+        nl = "\r\n" if "\r\n" in cii else "\n"
+        lines = cii.split(nl)
+        j = slot_line(lines, b["cii"], 1)
+        lines[j] = field(lines[j], 4, f"{w['friction']:13.6f}")      # the copy equals the XML's support
+        s = self.supports(nl.join(lines))
+        self.assertEqual(s["changes"], [])
+        self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_ALREADY_ON_NODE"])
+
+    # PR 311 review round 2 ------------------------------------------------------------------------------------------
+    def node50(self, restraint=None, copies=0):
+        """EF05 with node 50's <Restraint> replaced by `restraint` and/or followed by `copies` identical copies, its
+        sidecar re-hashed, and a runner of plan() on that pair."""
+        b = next(b for b in self.sidecar["ciiSupports"] if b["cii"] == 50)
+        self.assertEqual([w["from"] for w in b["written"]], ["xml"])
+        text = self.xml.decode("utf-8")
+        start = text.index("<Restraint", text.index("<NodeNumber>50</NodeNumber>"))
+        end = text.index("</Restraint>", start) + len("</Restraint>")
+        block = restraint or text[start:end]
+        xml2 = (text[:start] + block + ("\n" + block) * copies + text[end:]).encode("utf-8")
+        side = json.loads(json.dumps(self.sidecar))
+        side["enriched"]["sha256"] = hashlib.sha256(xml2).hexdigest()
+        return side, next(b for b in side["ciiSupports"] if b["cii"] == 50), \
+            lambda cii: plan(xml2, cii, self.match, 10.0, sidecar=side)["supports"]
+
+    def slot(self, cii, slot, k, text):
+        nl = "\r\n" if "\r\n" in cii else "\n"
+        lines = cii.split(nl)
+        j = slot_line(lines, 50, slot)
+        lines[j] = field(lines[j], k, text)
+        return nl.join(lines)
+
+    def test_a_new_guide_where_the_xml_guide_has_no_direction_is_written(self):
+        """An XML GUI without cosines, written by step 10 along X: a second guide along Z is new, a copy along X is not."""
+        side, b, run = self.node50("<Restraint>\n<Type>GUI</Type>\n<Stiffness>1.751270E+12</Stiffness>\n<Gap>0</Gap>\n"
+                                   "<Friction>0.3</Friction>\n</Restraint>")
+        b["written"][0].update(type=8, cosines=[1, 0, 0])
+        nl = "\r\n" if "\r\n" in self.cii else "\n"
+        lines = self.cii.split(nl)
+        j = slot_line(lines, 50)
+        lines[j] = field(lines[j], 1, f"{8:13.4f}")
+        lines[j + 1] = "  " + "".join(f"{c:13.6f}" for c in (1, 0, 0))
+        guide = nl.join(lines)
+        self.assertEqual(run(guide)["changes"], [])
+        s = run(self.slot(edited(guide, 50, add=(8, (0.0, 0.0, 1.0))), 1, 4, f"{0.3:13.6f}"))
+        self.assertEqual(self.listed_refusals(s), [])
+        self.assertEqual([[o["op"] for o in c["restraints"]] for c in s["changes"]], [["keep", "add"]])
+        s = run(self.slot(edited(guide, 50, add=(8, (1.0, 0.0, 0.0))), 1, 4, f"{0.3:13.6f}"))
+        self.assertEqual(s["changes"], [])
+        self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_ALREADY_ON_NODE"])
+
+    def test_copies_step_10_listed_one_by_one_are_changed_all_or_refused(self):
+        """The sidecar lists node 50's support twice (step 10 did not merge them): CAESAR II changing one copy is refused
+        (the XML cannot tell the copies apart); deleting both removes both."""
+        side, b, run = self.node50(copies=1)
+        b["written"].append(dict(b["written"][0]))
+        w = b["written"][0]
+        two = self.slot(edited(self.cii, 50, add=(w["type"], tuple(w["cosines"]))), 1, 4, f"{w['friction']:13.6f}")
+        self.assertEqual(run(two)["changes"], [])
+        for cii in (self.slot(two, 1, 0, f"{0:13.6f}"), self.slot(two, 1, 4, f"{0.1:13.6f}")):
+            s = run(cii)
+            self.assertEqual(s["changes"], [])
+            self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_SOME_COPIES_CHANGED"])
+        s = run(self.slot(self.slot(two, 1, 0, f"{0:13.6f}"), 0, 0, f"{0:13.6f}"))
+        self.assertEqual(self.listed_refusals(s), [])
+        self.assertEqual([[o["op"] for o in c["restraints"]] for c in s["changes"]], [["remove", "remove"]])
+
+    def test_an_empty_list_is_refused_only_when_the_xml_has_supports(self):
+        """Step 10 wrote no support from an XML without any: a support added in CAESAR II is not a broken sidecar."""
+        side = json.loads(json.dumps(self.sidecar))
+        for b in side["ciiSupports"]:
+            b["written"] = []
+        with self.assertRaisesRegex(ValueError, "U2D_SIDECAR_INVALID"):
+            plan(self.xml, self.cii, self.match, 10.0, sidecar=side)
+        text = self.xml.decode("utf-8")
+        while "<Restraint" in text:
+            start = text.index("<Restraint")
+            text = text[:start] + text[text.index("</Restraint>", start) + len("</Restraint>"):]
+        bare = text.encode("utf-8")
+        side["enriched"]["sha256"] = hashlib.sha256(bare).hexdigest()
+        s = plan(bare, self.cii, self.match, 10.0, sidecar=side)["supports"]
+        self.assertTrue(s["changes"], "CAESAR II's supports are carried as added")
+        self.assertEqual({c["kind"] for c in s["changes"]}, {"added"})
 
 
 class SupportsByStep10Bm2(SupportsByStep10):

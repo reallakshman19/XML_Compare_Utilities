@@ -17,6 +17,8 @@ const PLAIN = {
   U2D_SUPPORT_SOURCE_UNKNOWN: 'whose source the sidecar does not give (not applied)',
   U2D_SUPPORT_MERGED_COPY: 'that step 10 wrote once from identical copies on several nodes (not applied)',
   U2D_SUPPORT_NOT_ON_NODE: 'whose XML node no longer holds them (not applied)',
+  U2D_SUPPORT_SOME_COPIES_CHANGED: 'changed on only some of identical copies on one XML node (not applied)',
+  U2D_SUPPORT_ALREADY_ON_NODE: 'added in CAESAR II where the XML node already holds the same support (not written twice)',
 };
 const KIND = {edited: 'support edited', added: 'support added', removed: 'support removed'};
 const where = r => (r.ref ? `${r.ref.branchName} node ${r.ref.nodeNumber}` : `CII node ${r.ciiNode}`);
@@ -32,11 +34,12 @@ export function supportsLine(s) {
 
 /** The receipt's support changes and refusals as table rows. A receipt made before supports were read has no
  * supports block. Supports step 10 never writes (nodes numbered 0 or less) are counted in the line, not listed. */
-export function supportRows(supports) {
+export function supportRows(supports, comparedWith) {
   if (!supports) return {rows: [], refused: [], none: 'This receipt was made before supports were read; it lists none.'};
   const rows = supports.changes.map(c => [c.ref.branchName, c.ref.nodeNumber, KIND[c.kind] || c.kind, c.beforeText, c.afterText]);
   const refused = supports.refused.filter(r => r.code !== 'U2D_SUPPORT_NOT_IN_CII').map(r => [where(r), r.detail]);
   const none = refused.length ? 'No support change was applied; the XML keeps its supports where the points listed below differ.'
-    : 'CAESAR II has the same supports as the XML on every paired node.';
+    : comparedWith === 'step10' ? 'CAESAR II has the same supports as step 10 wrote, on every node.'
+      : 'CAESAR II has the same supports as the XML on every paired node.';
   return {rows, refused, none};
 }
