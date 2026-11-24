@@ -45,7 +45,7 @@ test('S-fix step 1: supports step 10 may have written itself are counted in plai
 test('S-fix step 3: compared with what step 10 wrote, every new code is in plain words', () => {
   const codes = ['U2D_SUPPORT_RULE_REMOVED', 'U2D_SUPPORT_OPEN_END_REMOVED', 'U2D_SUPPORT_SOURCE_UNKNOWN', 'U2D_SUPPORT_MERGED_COPY',
     'U2D_SUPPORT_NOT_ON_NODE', 'U2D_SUPPORT_ALREADY_ON_NODE', 'U2D_SUPPORT_TARGET_UNCLEAR',
-    'U2D_SUPPORT_SOME_COPIES_CHANGED'];
+    'U2D_SUPPORT_SOME_COPIES_CHANGED', 'U2D_SUPPORT_COPIES_WRITTEN_ONCE'];
   const line = supportsLine({pointsSame: 203, changes: 0, step10Anchors: 30, comparedWith: 'step10', refused: Object.fromEntries(codes.map(c => [c, 1]))});
   assert.match(line, /^Supports \(applied and locked, listed below, compared with what step 10 wrote\): 203 points the same/);
   assert.doesNotMatch(line, /U2D_/);
