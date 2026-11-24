@@ -399,6 +399,20 @@ class SupportsByStep10Ef05(SupportsByStep10):
         self.assertEqual(self.listed_refusals(s), [])
         self.assertEqual([c["kind"] for c in s["changes"]], ["removed"])
 
+    def test_copies_are_still_checked_for_a_support_a_removed_guide_stood_for(self):
+        """Review of PR 313 N1: three identical GUIs without cosines, the sidecar lists Z once and X twice. Removing Z's
+        restraints also removes the X copies they stood for, so CAESAR II changing only one X copy is refused, not lost."""
+        Y = (0.0, 1.0, 0.0)
+        run = self.at50([self.restraint("GUI")] * 3, [(8, self.Z), (8, self.X), (8, self.X)])
+        self.assertEqual(run([(8, self.Z, 0.3), (8, self.X, 0.3), (8, self.X, 0.3)])["changes"], [])
+        for slots in ([(8, self.X, 0.3), (8, Y, 0.3)], [(8, self.X, 0.3)], [(8, self.X, 0.3), (8, self.X, 0.1)]):
+            s = run(slots)
+            self.assertEqual(s["changes"], [], slots)
+            self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_SOME_COPIES_CHANGED"], slots)
+        s = run([None])
+        self.assertEqual(self.listed_refusals(s), [])
+        self.assertEqual([c["kind"] for c in s["changes"]], ["removed"])
+
     def test_a_direction_only_change_reads_as_one(self):
         """Review of PR 312 N4: the receipt texts name a guide's direction."""
         run = self.at50([self.restraint("GUI")], [(8, self.X)])

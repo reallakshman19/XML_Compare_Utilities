@@ -497,10 +497,13 @@ def node_plan(have: list, stands: list, drop: list, add: list, still: dict, chec
     kept, removed, dropped = list(range(len(have))), [], []
     for s in drop:
         hits = [i for i in kept if same(i, s)]
-        if not hits and (s in dropped or any(same(i, s) for i in removed)):
-            dropped.append(s)          # a restraint removed already stood for it too (review of PR 312 N2)
+        if not hits and s in dropped:
             continue
-        code = check(s) if hits else "U2D_SUPPORT_NOT_ON_NODE"
+        if not hits and not any(same(i, s) for i in removed):
+            return "U2D_SUPPORT_NOT_ON_NODE", kept, [], []
+        # with no hit left, a restraint removed already stood for it too (review of PR 312 N2); either way its copies on
+        # this record and on other node ids are checked (review of PR 313 N1)
+        code = check(s)
         if code:
             return code, kept, [], []
         kept = [i for i in kept if i not in hits]
