@@ -226,21 +226,24 @@ def restraint_texts(c: tuple, raw: dict, old: dict | None) -> dict:
     return out
 
 
-def restraint_ops(xml_list: list, texts: list, after: list) -> list:
+def restraint_ops(xml_list: list, texts: list, after: list, same=None) -> list:
     """The <Restraint> edits that turn one XML node's supports into CAESAR II's.
 
     xml_list[i] is the compared form of the node's i-th <Restraint>, texts[i] its tag texts; after is
     [(support, raw)] from the CII. A restraint already equal to a CII support is kept; the others are
-    edited into the remaining CII supports (same type first), removed, or the CII support is added."""
+    edited into the remaining CII supports (same type first), removed, or the CII support is added.
+    same(i, c) says whether restraint i already is CII support c (default: matches; the step 3 path passes a stricter one
+    that knows the direction step 10 wrote for a restraint without cosines)."""
+    same = same or (lambda i, c: matches(xml_list[i], c))
     ops, free, todo = [], list(range(len(xml_list))), []
     for c, raw in after:
-        hit = next((i for i in free if matches(xml_list[i], c)), None)
+        hit = next((i for i in free if same(i, c)), None)
         if hit is None:
             todo.append((c, raw))
         else:
             free.remove(hit)
             ops.append({"op": "keep", "index": hit, "before": texts[hit]})
-    for i in [i for i in free if any(matches(xml_list[i], c) for c, _ in after)]:
+    for i in [i for i in free if any(same(i, c) for c, _ in after)]:
         free.remove(i)                 # a repeat of a kept support (step 10 merges repeats)
         ops.append({"op": "keep", "index": i, "before": texts[i]})
     for c, raw in todo:
@@ -529,11 +532,16 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
             if w["from"] in ("xml", "moved") and (k := home(w)) is not None:
                 home_written.setdefault(k, []).append(s)
 
-    def already_on_node(x, raw, cs, k):
-        """CAESAR II's new support cs is one the XML record k already holds (x), as step 10 wrote it (PR 311 review)."""
-        if raw is not None or x[4] is not None:
-            return x == cs
-        return matches(x, cs) and cs in home_written.get(k, [])
+    def stands_for(k):
+        """Per <Restraint> of XML record k, the supports it stands for as step 10 wrote them (step 3c). One with cosines
+        stands only for itself. One without stands for the supports step 10 wrote from this record that equal it apart
+        from direction and that no restraint with cosines on the record already is."""
+        have = xml.get(k, [])
+        pool = list(home_written.get(k, []))
+        for x in have:
+            if x[4] is not None and x in pool:
+                pool.remove(x)
+        return [[] if x[4] is not None else [w for w in pool if matches(x, w)] for x in have]
 
     def target_for_added(n):
         here = [i for i in ids_at.get(n, []) if i in at]
@@ -608,11 +616,12 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
     for k, p in sorted(plans.items()):
         c, n = p["cii"], _cii_key(step10_of[p["cii"]])
         have = list(xml.get(k, []))
-        after, why = [(s, None) for s in have], None
-        dropped = []
+        stands = stands_for(k)
+        same = lambda i, x, have=have, stands=stands: x == have[i] or x in stands[i]   # noqa: E731
+        kept, added, why, dropped, removed = list(range(len(have))), [], None, [], []
         for s in p["drop"]:
-            hits = [i for i, (x, _) in enumerate(after) if matches(x, s)]
-            if not hits and any(matches(d, s) for d in dropped):
+            hits = [i for i in kept if same(i, s)]
+            if not hits and s in dropped:
                 continue
             if not hits:
                 why = "U2D_SUPPORT_NOT_ON_NODE"
@@ -622,28 +631,39 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
                 # step 10 writes identical supports on one node once: CAESAR II's change replaces every copy (review B1).
                 # Where the sidecar lists it more than once and CAESAR II still holds it, only some copies changed: the
                 # XML edit cannot tell the copies apart (restraint_ops keeps every copy of a kept support), so refuse.
-                listed = sum(1 for ws, _ in written.get(n, []) if ws == s)
+                listed = sum(1 for ws, w in written.get(n, []) if ws == s and w["from"] in ("xml", "moved") and home(w) == k)
                 if listed > 1 and any(cs == s for cs, _, _ in cii.get(c, [])):
                     why = "U2D_SUPPORT_SOME_COPIES_CHANGED"
                     break
-                after = [a for i, a in enumerate(after) if i not in hits]
+                kept = [i for i in kept if i not in hits]
+                removed += hits
                 dropped.append(s)
                 continue
             break
         if why:
             refuse(why, c, ref=refs[k], before=[text_of(s) for s in p["drop"]], after=[text_of(s) for s, _ in p["add"]])
             continue
+        # A removed restraint without cosines may also have stood for a support CAESAR II still holds (step 10 wrote
+        # several directions from identical restraints): that support is written back, with its direction.
+        still = {s: raw for s, _, raw in cii.get(c, [])}
+        for i in removed:
+            for w in stands[i]:
+                if w in still and w not in dropped and not any(same(j, w) for j in kept) and all(a != w for a, _ in added):
+                    added.append((w, still[w]))
         for cs, raw in p["add"]:
-            if any(already_on_node(x, xraw, cs, k) for x, xraw in after):
+            if any(same(i, cs) for i in kept) or any(a == cs for a, _ in added):
                 refuse("U2D_SUPPORT_ALREADY_ON_NODE", c, ref=refs[k], after=[text_of(cs)])
             else:
-                after.append((cs, raw))
+                added.append((cs, raw))
+        after = [(have[i], None) for i in kept] + added
+        # in the XML edit a removed restraint is only itself, so a support written back takes it with its direction
+        kept_same = lambda i, x: x == have[i] or (i in kept and x in stands[i])   # noqa: E731
         if [x for x, _ in after] == have:
             continue
         want = [s for s, _ in after]
         kind = "added" if not have else "removed" if not want else "edited"
         changes.append({"ciiNode": c, "kind": kind, "ref": refs[k], "restraintCount": len(texts[k]),
-                        "restraints": restraint_ops(have, texts[k], after), "step10": sorted(p["from"]),
+                        "restraints": restraint_ops(have, texts[k], after, kept_same), "step10": sorted(p["from"]),
                         "before": [describe(s) for s in have], "after": [describe(s) for s in want],
                         "beforeText": "; ".join(map(text_of, have)) or "none", "afterText": "; ".join(map(text_of, want)) or "none"})
     # XML supports step 10 did not write: neither listed as read from their node, nor equal to one step 10 wrote at the
