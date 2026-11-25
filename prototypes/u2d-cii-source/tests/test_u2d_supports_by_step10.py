@@ -209,6 +209,33 @@ class SupportsByStep10Ef05(SupportsByStep10):
         self.assertEqual([(c["ciiNode"], c["kind"], c["step10"]) for c in s["changes"]], [("800", "removed", ["moved"])])
         self.assertLessEqual(float(s["changes"][0]["ref"]["nodeNumber"]), 0)
 
+    def test_a_moved_support_merged_into_the_same_support_on_its_node_is_refused(self):
+        """S-fix 3i (PR 317 review N1): node 800 holds the same +Y as the unnumbered node step 10 moves onto it. Real
+        step 10 (3D_Converters 33e2c350, 25 Nov) then wrote one +Y at 800, the same CII, and a sidecar listing only
+        `from: xml` on node 800; this is that input. A change at 800 is refused: written on 800 alone, step 10 brings
+        the moved +Y back (2 supports where CAESAR II has 1). Untouched, the moved node is not reported NOT_IN_CII."""
+        w = next(w for b in self.sidecar["ciiSupports"] if b["cii"] == 800 for w in b["written"])
+        source = next(i for n in self.sidecar["nodes"] + [{"ids": self.sidecar["notInCii"]}]
+                      for i in n["ids"] if i["id"] == w["fromId"])
+        node = next(i for n in self.sidecar["nodes"] if n["cii"] == 800 for i in n["ids"])
+        text = self.xml.decode("utf-8")
+        start = text.index("<NodeNumber>800</NodeNumber>")
+        end = text.index("</Node>", start)
+        moved = text.index("<Restraint>", text.index(source["ComponentRefNo"][0] + "<"))
+        restraint = text[moved:text.index("</Restraint>", moved) + len("</Restraint>")]
+        xml = (text[:end] + restraint + "\n" + text[end:]).encode("utf-8")
+        side = json.loads(json.dumps(self.sidecar))
+        side["enriched"]["sha256"] = hashlib.sha256(xml).hexdigest()
+        for b in side["ciiSupports"]:
+            if b["cii"] == 800:
+                b["written"] = [{**{k: v for k, v in w.items() if k != "fromId"}, "from": "xml", "id": node["id"]}]
+        for cii in (self.cii, edited(self.cii, 800, friction=0.2), edited(self.cii, 800, delete=True)):
+            match = self.match if cii == self.cii else match_for(FIX / "EF05-on" / "enriched.xml", cii)
+            s = plan(xml, cii, match, 10.0, sidecar=side)["supports"]
+            self.assertEqual(s["changes"], [])
+            refused = [(r["code"], r.get("ciiNode")) for r in s["refused"]]
+            self.assertEqual(refused, [] if cii == self.cii else [("U2D_SUPPORT_MERGED_COPY", "800")])
+
     def test_an_open_end_anchor_edited_is_added_on_its_node(self):
         node = next(b["cii"] for b in self.sidecar["ciiSupports"] if [w["from"] for w in b["written"]] == ["openEnd"])
         s = self.supports(edited(self.cii, node, friction=0.2))

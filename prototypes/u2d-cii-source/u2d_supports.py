@@ -132,6 +132,32 @@ def position(node) -> tuple | None:
     return tuple(p) if len(p) == 3 and all(x is not None for x in p) else None
 
 
+def branch_nodes(xml_bytes: bytes) -> list:
+    """Per branch, its <Node> elements in order."""
+    root = ET.fromstring(xml_bytes)
+    branches = [b for p in root if local(p.tag) == "Pipe" for b in p if local(b.tag) == "Branch"] \
+        or [b for b in root if local(b.tag) == "Branch"]
+    return [[c for c in b if local(c.tag) == "Node"] for b in branches]
+
+
+def step10_moves(xml_bytes: bytes) -> dict:
+    """(branchOrdinal, nodeOrdinal) of a numbered node -> the nodes numbered 0 or less with a support that step 10 may
+    move onto it: those on its branch within 1 mm, and those after it up to the next numbered node (step 10 puts these
+    on a bend's node, _place_unnumbered_restraints)."""
+    out = {}
+    for bi, nodes in enumerate(branch_nodes(xml_bytes)):
+        numbered = [ni for ni, n in enumerate(nodes) if (num(child(n, "NodeNumber")) or 0) > 0]
+        for ni, n in enumerate(nodes):
+            if ni in numbered or not any(local(c.tag) == "Restraint" for c in n):
+                continue
+            here = position(n)
+            near = [k for k in numbered
+                    if here and position(nodes[k]) and math.dist(here, position(nodes[k])) <= STEP10_NEAR_MM]
+            for k in [k for k in numbered if k < ni][-1:] + near:
+                out.setdefault((bi, k), []).append((bi, ni))
+    return out
+
+
 def step10_may_write(xml_bytes: bytes) -> dict:
     """(branchOrdinal, nodeOrdinal) -> "moved" or "rule": numbered nodes where step 10 may write a support that the XML
     does not hold on that node. S-fix step 1 (Owner 23 Nov 2026, "Yes, as suggested"): from the CII alone such a support
@@ -147,26 +173,12 @@ def step10_may_write(xml_bytes: bytes) -> dict:
       switch. support_report refuses a change here only when the CII holds the XML's supports plus exactly that +Y.
     DTXR text is not used (Owner 23 Nov 2026, "just transfer it"): supports at nodes with DTXR text are transferred.
     """
-    root = ET.fromstring(xml_bytes)
-    branches = [b for p in root if local(p.tag) == "Pipe" for b in p if local(b.tag) == "Branch"] \
-        or [b for b in root if local(b.tag) == "Branch"]
     out = {}
-    for bi, b in enumerate(branches):
-        nodes = [c for c in b if local(c.tag) == "Node"]
-        numbered = [ni for ni, n in enumerate(nodes) if (num(child(n, "NodeNumber")) or 0) > 0]
+    for bi, nodes in enumerate(branch_nodes(xml_bytes)):
         for ni, n in enumerate(nodes):
-            held = any(local(c.tag) == "Restraint" for c in n)
-            if ni in numbered:
-                if child(n, "ComponentType").upper() == "ANCI":
-                    out.setdefault((bi, ni), "ruleOnTop" if held else "rule")
-                continue
-            if not held:
-                continue
-            here = position(n)
-            near = [k for k in numbered if here and position(nodes[k]) and math.dist(here, position(nodes[k])) <= STEP10_NEAR_MM]
-            for k in [k for k in numbered if k < ni][-1:] + near:
-                out[(bi, k)] = "moved"
-    return out
+            if (num(child(n, "NodeNumber")) or 0) > 0 and child(n, "ComponentType").upper() == "ANCI":
+                out[(bi, ni)] = "ruleOnTop" if any(local(c.tag) == "Restraint" for c in n) else "rule"
+    return {**out, **{k: "moved" for k in step10_moves(xml_bytes)}}
 
 
 STEP10_ANCI = support(TYPE_CODES["+Y"], 1.75127e12, 0.0, 0.3, (0.0, 1.0, 0.0))   # step 10's ANCI +Y (default stiffness, friction)
@@ -492,10 +504,11 @@ def node_plan(have: list, stands: list, drop: list, add: list, check) -> tuple:
     33e2c350, 25 Nov 2026), so copies count: each support CAESAR II dropped removes one restraint, each one it added
     writes one.
     have: the record's <Restraint>s in compared form; stands[i]: [the support step 10 wrote for restraint i] where the
-    XML gives no direction, [] where it does (written_report.stands_for); drop: step 10's supports CAESAR II changed or
-    deleted here; add: [(support, raw)] CAESAR II's supports for this record; check(s): a refusal code for dropping s,
-    or None. Returns (code, kept, added): code refuses the whole record (None: no refusal); kept, the indexes of the
-    restraints that stay as they are; added, [(support, raw)] to write.
+    XML gives no direction, [] where it does, None where the sidecar does not say which support is this restraint's
+    (written_report.stands_for; None never matches a drop); drop: step 10's supports CAESAR II changed or deleted here;
+    add: [(support, raw)] CAESAR II's supports for this record; check(s): a refusal code for dropping s, or None.
+    Returns (code, kept, added): code refuses the whole record (None: no refusal); kept, the indexes of the restraints
+    that stay as they are; added, [(support, raw)] to write.
     """
     kept = list(range(len(have)))
     for s in drop:
@@ -524,7 +537,8 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
     - added: on the node id step 10 wrote that CII node from (the only one there, or the only one its elements use).
     - a node id that gets a support this way loses step 10's rule there, so the rule supports CAESAR II kept at that CII
       node are written on it too.
-    A changed support that step 10 wrote from identical copies on several node ids is refused (U2D_SUPPORT_MERGED_COPY).
+    A changed support that step 10 wrote from identical copies on several node ids, or from the node and an identical
+    support it moved onto it (S-fix 3i), is refused (U2D_SUPPORT_MERGED_COPY).
     """
     xml, unknown = xml_supports(target_bytes)
     refs = xml_node_refs(target_bytes)
@@ -592,12 +606,33 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
             out.append([] if x[4] is not None else [one.pop()] if len(one) == 1 else None)
         return out
 
+    # The supports of each XML record that the sidecar does not list as read from it (by id, or as moved from it).
+    listed = {}
+    for sup in written.values():
+        for s, w in sup:
+            uid = w.get("id") if w["from"] == "xml" else w.get("fromId") if w["from"] == "moved" else None
+            if uid in at:
+                listed.setdefault(at[uid], []).append(s)
+    unlisted = {}
+    for k, sup in xml.items():
+        left = list(listed.get(k, []))
+        for s in sup:
+            hit = next((x for x in left if matches(s, x)), None)
+            if hit is None:
+                unlisted.setdefault(k, []).append(s)
+            else:
+                left.remove(hit)
+    moves = step10_moves(target_bytes)
+
     def copy_refusal(k, c, n, s):
         """Dropping step 10's support s from record k (CII node c, step 10 node n): refused where step 10 wrote it from
-        identical supports on several node ids (it merges those: 25 Nov check, node 10 of EF-05), or where the sidecar
-        does not list the record's supports one by one (step 10 writes each restraint of one record, copies
-        included)."""
+        identical supports on several node ids (it merges those: 25 Nov check, node 10 of EF-05), or from k and an
+        identical support it moved onto k that the sidecar does not list (S-fix 3i: step 10 drops an incoming support
+        equal to one already there), or where the sidecar does not list the record's supports one by one (step 10
+        writes each restraint of one record, copies included)."""
         if any(i != id_of.get(k) and i in at and any(matches(x, s) for x in xml.get(at[i], [])) for i in ids_at.get(n, [])):
+            return "U2D_SUPPORT_MERGED_COPY"
+        if any(matches(x, s) for j in moves.get(k, []) for x in unlisted.get(j, [])):
             return "U2D_SUPPORT_MERGED_COPY"
         have, stands = xml.get(k, []), stands_for(k)
         as_written = [x if st == [] else st[0] for x, st in zip(have, stands) if st is not None]
@@ -716,24 +751,19 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
                         "step10": sorted(p["from"]), "before": [describe(s) for s in have], "after": [describe(s) for s in want],
                         "beforeText": "; ".join(map(text_dir, have)) or "none", "afterText": "; ".join(map(text_dir, want)) or "none"})
     # XML supports step 10 did not write: neither listed as read from their node, nor equal to one step 10 wrote at the
-    # CII node of that node id (step 10 writes identical supports on several node ids at one point once).
-    kept, merged = {}, {}
-    for b in sidecar["ciiSupports"]:
-        for w in b["written"]:
-            uid = w.get("id") if w["from"] == "xml" else w.get("fromId") if w["from"] == "moved" else None
-            if uid in at:
-                kept.setdefault(at[uid], []).append(written_support(w))
+    # CII node of that node id, or of a numbered node it may be moved onto (step 10 writes identical supports on several
+    # node ids at one point once, and drops a moved support equal to one already there).
+    merged = {}
     for n, sup in written.items():
         for i in ids_at.get(n, []):
             if i in at:
                 merged.setdefault(at[i], []).extend(s for s, _ in sup)
-    for k, sup in sorted(xml.items()):
-        left = list(kept.get(k, []))
+    for k, js in moves.items():
+        for j in js:
+            merged.setdefault(j, []).extend(merged.get(k, []))
+    for k, sup in sorted(unlisted.items()):
         for s in sup:
-            hit = next((x for x in left if matches(s, x)), None)
-            if hit is not None:
-                left.remove(hit)
-            elif not any(matches(s, x) for x in merged.get(k, [])):
+            if not any(matches(s, x) for x in merged.get(k, [])):
                 counts["notWrittenByStep10"] += 1
                 refused.append({"code": "U2D_SUPPORT_NOT_IN_CII", "ref": refs[k],
                                 "detail": "step 10 did not write this support (its sidecar does not list it), so CAESAR II never had it"})
