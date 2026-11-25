@@ -14,10 +14,16 @@ const rows = [{line: 'L1', branches: ['/B1'], ordinals: [0], by: 'ids'},
 
 test('the branch table view lists the branches and turns picks into the user rows', () => {
   assert.deepEqual(branchChoices(rows), [{ordinal: 0, name: '/B1'}, {ordinal: 1, name: '/B2'}]);
-  assert.deepEqual(branchTableRows(rows)[3], ['L4', '(skipped)', 'set by you']);
+  const all = [{ordinal: 2, name: '/B3'}, {ordinal: 0, name: '/B1'}, {ordinal: 1, name: '/B2'}];
+  assert.deepEqual(branchChoices(rows, all).map(c => c.ordinal), [0, 1, 2], 'every XML branch, a skipped one too');
+  assert.deepEqual(branchTableRows(rows)[3], ['L4', '', '(skipped)', 'set by you']);
+  assert.deepEqual(branchTableRows([{line: 'L5', branches: ['/B1', '/B2'], ordinals: [0, 1], by: 'ids', elements: 3}]),
+    [['L5', '3', '/B1, /B2', 'from the node ids: several branches']]);
   assert.deepEqual(branchMapFrom(rows, {}), {L3: 0, L4: null}, 'rows you set before are kept');
   assert.deepEqual(branchMapFrom(rows, {L1: '0', L2: 'skip', L3: '1'}), {L2: null, L3: 1, L4: null},
     'a pick equal to the table is no change');
+  assert.deepEqual(branchMapFrom(rows, {L3: '0'}), {L3: 0, L4: null}, 'a branch picked for a row you set is sent');
+  assert.deepEqual(branchMapFrom(rows, {L3: 'ids', L4: '1'}), {L4: 1}, 'back to the node ids, and a skip undone');
   assert.throws(() => branchMapFrom(rows, {L1: 'x'}), /^Error: U2D_BRANCH_MAP_INVALID/);
 });
 
@@ -36,6 +42,7 @@ test('EF-05 by node id: the receipt carries the branch table, and a user row mov
   const r = await transferCiiIntoXml(args);
   const table = r.receipt.branchTable;
   assert.equal(table.length, 41);
+  assert.equal(r.receipt.xmlBranches.length, 41);
   assert.deepEqual(table.filter(x => x.by !== 'ids' || x.branches.length !== 1 || x.branches[0] !== x.line), []);
   assert.equal(r.receipt.summary.edits, 112, 'the table changes no value of the T2 sample');
   const [a, b] = table;

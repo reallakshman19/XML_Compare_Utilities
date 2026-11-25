@@ -120,6 +120,7 @@ def build_receipt(*, names, cii_bytes, target, revised, u1, items, weight_scale,
         receipt["byId"] = {**result["byId"], "sidecarFileName": names[3] if len(names) > 3 else None}
     if result.get("branchTable") is not None:
         receipt["branchTable"] = result["branchTable"]     # T3: the table the branch values went by
+        receipt["xmlBranches"] = result["xmlBranches"]     # T3: every XML branch, for the page's choices
     return receipt
 
 
@@ -159,7 +160,10 @@ def main(argv=None) -> int:
         match = json.loads(a.match.read_text(encoding="utf-8"))
         check_inputs(target, cii_bytes, a.cii_v14.read_bytes(), match)
         side = a.sidecar.read_bytes() if a.sidecar else None
-        branch_map = json.loads(a.branch_map.read_text(encoding="utf-8")) if a.branch_map else None
+        try:
+            branch_map = json.loads(a.branch_map.read_text(encoding="utf-8")) if a.branch_map else None
+        except json.JSONDecodeError as e:
+            raise ValueError(f"U2D_BRANCH_MAP_INVALID: the branch table file is not JSON ({e}).") from None
         result = plan_with_sidecar(target, cii_bytes, match, a.weight_scale, a.items.split(","), side, branch_map)
         with tempfile.TemporaryDirectory() as tmp:
             edits = Path(tmp) / "edits.json"

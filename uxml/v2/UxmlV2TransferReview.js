@@ -35,7 +35,7 @@ const SAMPLE_EF05_BROKEN = {xml: SAMPLE_EF05.xml, cii: 'uxml-v2-transfer/EF05/br
 const SAMPLE_EF05_BY_ID = {xml: 'uxml-v2-transfer/EF05-on/enriched.xml', cii: 'uxml-v2-transfer/EF05-on/shared-points.cii',
   sidecar: 'uxml-v2-transfer/EF05-on/step10.cii.sidecar.json'};
 const DEFAULT_ROWS = 'uxml-v2-supports/bench/default-material-map-rows.json';
-let out = null, name = 'model', u2d = null, last = null;
+let out = null, name = 'model', u2d = null;
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -132,24 +132,27 @@ async function guarded(fn) {
     say('Could not run: ' + String(error?.message || error) + (error?.details && Object.keys(error.details).length ? ' ' + JSON.stringify(error.details) : '')); }
 }
 
-/** T3: the branch table of a transfer by node id, one select per CII line; "Transfer again" runs with your changes. */
-function showBranchTable(rows) {
-  if (!rows) return;
-  const choices = branchChoices(rows);
+/** T3: the branch table of a transfer by node id, one select per CII line; "Transfer again" runs the same files
+ * (files: {xmlFile, ciiFile, sidecarFile}) with your changes. No table (no sidecar): the place is cleared. */
+function showBranchTable(rows, xmlBranches, files) {
+  if (!rows) { $('trBranches').replaceChildren(); return; }
+  const choices = branchChoices(rows, xmlBranches);
   const picks = {};
   const pick = r => {
     const s = el('select', {onchange: () => { picks[r.line] = s.value; }},
-      el('option', {value: '', textContent: 'as found'}), el('option', {value: 'skip', textContent: 'skip this line'}),
+      el('option', {value: '', textContent: 'as it is'}),
+      ...(r.by === 'user' ? [el('option', {value: 'ids', textContent: 'back to the node ids'})] : []),
+      el('option', {value: 'skip', textContent: 'skip this line'}),
       ...choices.map(c => el('option', {value: String(c.ordinal), textContent: c.name})));
     return s;
   };
   const shown = branchTableRows(rows);
   $('trBranches').replaceChildren(el('h3', {textContent: 'Branch table (CII line -> XML branch, by node id)'}),
     el('div', {className: 'scroll'}, el('table', {},
-      el('tr', {}, ...['CII line', 'XML branch', 'Found', 'Change'].map(h => el('th', {textContent: h}))),
+      el('tr', {}, ...['CII line', 'Elements', 'XML branch', 'Found', 'Change'].map(h => el('th', {textContent: h}))),
       ...rows.map((r, i) => el('tr', {}, ...shown[i].map(c => el('td', {textContent: c})), el('td', {}, pick(r)))))),
     el('button', {textContent: 'Transfer again with this branch table',
-      onclick: () => guarded(() => fromCii(last.xmlFile, last.ciiFile, last.sidecarFile,
+      onclick: () => guarded(() => fromCii(files.xmlFile, files.ciiFile, files.sidecarFile,
         branchMapFrom(rows, picks)))}));
 }
 
@@ -157,9 +160,7 @@ function showBranchTable(rows) {
  * branchMap (T3): your rows of the branch table, for a transfer by node id. */
 async function fromCii(xmlFile, ciiFile, sidecarFile = null, branchMap = null) {
   u2d = null;
-  last = {xmlFile, ciiFile, sidecarFile};
   $('trU2d').replaceChildren();
-  $('trBranches').replaceChildren();
   if (!xmlFile || !ciiFile) throw new Error('open the Enriched XML and the CAESAR II file first');
   if (!$('trScale').value) throw new Error('choose the unit of the CII weights first (N for a file from the XML to CII tab)');
   name = xmlFile.name.replace(/\.[^.]+$/, '');
@@ -176,7 +177,7 @@ async function fromCii(xmlFile, ciiFile, sidecarFile = null, branchMap = null) {
     + `${summary.ciiElements} CII elements; refused: ${refused}. ${(u2d.ms / 1000).toFixed(1)} s in this browser.`;
   if (summary.supports) $('trU2d').textContent += ' ' + supportsLine(summary.supports);
   if (u2d.receipt.byId) $('trU2d').textContent += ' ' + byIdLine(u2d.receipt.byId);
-  showBranchTable(u2d.receipt.branchTable);
+  showBranchTable(u2d.receipt.branchTable, u2d.receipt.xmlBranches, {xmlFile, ciiFile, sidecarFile});
   run({xmlText: made.xmlText, doc: made.doc, newNodes: made.newNodes, receiptText: u2d.receiptText, stagedJsonText: await fileText('supStaged'),
     configText: await fileText('supConfig'), rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
 }
@@ -189,6 +190,7 @@ function wire() {
     name = $('trXml').files[0].name.replace(/\.[^.]+$/, '');
     u2d = null;
     $('trU2d').replaceChildren();
+    $('trBranches').replaceChildren();
     run({xmlText, receiptText, stagedJsonText: await fileText('supStaged'), configText: await fileText('supConfig'),
       rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
   }));
@@ -217,6 +219,7 @@ function wire() {
   $('trSample').addEventListener('click', () => guarded(async () => {
     u2d = null;
     $('trU2d').replaceChildren();
+    $('trBranches').replaceChildren();
     name = 'BM2-transfer';
     run({xmlText: await fetchText(SAMPLE.xml), receiptText: await fetchText(SAMPLE.receipt), stagedJsonText: '', configText: '',
       rowsText: await fetchText(DEFAULT_ROWS)});

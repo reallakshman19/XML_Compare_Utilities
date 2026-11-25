@@ -19,7 +19,7 @@ sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE))
 from test_u2d_by_id import ELEMENT_LINES, FIX, load, section  # noqa: E402
 from test_u2d_supports import match_for  # noqa: E402
-from u2d_plan import parse_cii, plan, read_target  # noqa: E402
+from u2d_plan import branch_table, parse_cii, plan, read_target  # noqa: E402
 
 T1 = "Branch/Temperature/Temperature1"
 
@@ -70,6 +70,18 @@ class BranchTable(unittest.TestCase):
         self.assertEqual([x for x in rows if x["by"] != "ids" or x["branches"] != [x["line"]]], [])
         same = plan(self.xml, self.cii, self.match, 10.0, sidecar=self.sidecar, branch_map={})
         self.assertEqual(r["edits"], same["edits"])
+        self.assertEqual(sum(x["elements"] for x in rows), sum(1 for x in self.lines if x))
+        self.assertEqual(r["xmlBranches"], [{"ordinal": bi, "name": x["name"]} for bi, x in sorted(self.brs.items())])
+
+    def test_a_line_on_two_branches_is_refused_not_split(self):
+        """Review of PR 318 (4): CAESAR II names line a's elements after line b, so line b lands on two branches.
+        Its values are refused (U2D_BRANCH_LINE_SPLIT), none is written on either branch."""
+        a, b = sorted({x for x in self.lines if x})[:2]
+        r = self.run_plan(self.edited({a, b}, {a: b}))
+        row = next(x for x in r["branchTable"] if x["line"] == b)
+        self.assertEqual(sorted(row["branches"]), sorted([a, b]))
+        self.assertIn(("U2D_BRANCH_LINE_SPLIT", b), {(x["code"], x.get("branch")) for x in r["refused"]})
+        self.assertEqual(self.t1_branches(r), set())
 
     def test_a_line_renamed_in_caesar_ii_still_goes_to_its_branch(self):
         line = sorted({x for x in self.lines if x})[0]
@@ -102,11 +114,22 @@ class BranchTable(unittest.TestCase):
 
     def test_a_bad_table_is_refused(self):
         line = next(x for x in self.lines if x)
-        for bad in ({"NO-SUCH-LINE": 0}, {line: 10 ** 6}, {line: "1"}, {line: True}):
+        for bad in ({"NO-SUCH-LINE": 0}, {line: 10 ** 6}, {line: "1"}, {line: True}, [], "x"):
             with self.assertRaisesRegex(ValueError, "^U2D_BRANCH_MAP_INVALID"):
                 self.run_plan(self.cii, bad)
         with self.assertRaisesRegex(ValueError, "^U2D_BRANCH_MAP_INVALID"):
             self.run_plan(self.cii, {line: 0}, sidecar=None)
+
+
+class BranchTableByToEnd(unittest.TestCase):
+    def test_an_element_goes_by_its_to_end(self):
+        """Review of PR 318 (5): an element whose ends lie on two branches (a branch's first element starts on the
+        branch before it) belongs to the branch of its "to" end. Neither fixture has one, so a small table here."""
+        cii = {"elements": [{"lineNumber": "L1"}, {"lineNumber": "L2"}, {"lineNumber": "L2"}, {"lineNumber": None}]}
+        ids = {"ends": [((0, 0), (0, 1)), ((0, 1), (1, 0)), ((1, 0), (1, 1)), ((1, 1), (2, 0))]}
+        self.assertEqual(branch_table(cii, ids), {"L1": {"branches": [0], "by": "ids", "elements": 1},
+                                                  "L2": {"branches": [1], "by": "ids", "elements": 2}})
+        self.assertEqual(branch_table(cii, ids, {"L2": None})["L2"], {"branches": [], "by": "user", "elements": 2})
 
 
 class BranchTableBm2(BranchTable):

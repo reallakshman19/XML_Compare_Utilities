@@ -141,19 +141,24 @@ def paired_into(el: dict, bi: int, pairs: dict, nodes: dict) -> bool:
 def branch_table(cii: dict, ids: dict, branch_map: dict | None = None) -> dict:
     """T3 (Owner 22 Nov 2026: "filled from the ids, the user changes only what is wrong"): CII line name -> the XML
     branch ordinals its elements' node ids land on (each element by its "to" end, the end on its own branch).
-    branch_map {line: branch ordinal, or None to skip the line} replaces rows; an unknown line is refused."""
-    lines = {}
+    branch_map {line: branch ordinal, or None to skip the line} replaces rows; an unknown line is refused. Each row
+    also counts the line's elements."""
+    if branch_map is not None and not isinstance(branch_map, dict):
+        raise ValueError("U2D_BRANCH_MAP_INVALID: the branch table is not a JSON object {CII line: branch number or "
+                         "null}.")
+    lines, count = {}, {}
     for el, (_, to) in zip(cii["elements"], ids["ends"]):
         if element_branch(el):
             lines.setdefault(element_branch(el), set()).add(to[0])
-    table = {name: {"branches": sorted(bis), "by": "ids"} for name, bis in lines.items()}
+            count[element_branch(el)] = count.get(element_branch(el), 0) + 1
+    table = {name: {"branches": sorted(bis), "by": "ids", "elements": count[name]} for name, bis in lines.items()}
     for name, bi in (branch_map or {}).items():
         if name not in table:
             raise ValueError(f"U2D_BRANCH_MAP_INVALID: the branch table names CII line {name!r}, which this CII does "
                              "not have.")
         if bi is not None and not (isinstance(bi, int) and not isinstance(bi, bool)):
             raise ValueError(f"U2D_BRANCH_MAP_INVALID: CII line {name!r} is mapped to {bi!r}, not a branch number.")
-        table[name] = {"branches": [] if bi is None else [bi], "by": "user"}
+        table[name] = {"branches": [] if bi is None else [bi], "by": "user", "elements": count[name]}
     return table
 
 
@@ -362,7 +367,9 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
         out["byId"] = ids["report"]
         if "element" in items:
             out["branchTable"] = [{"line": name, "branches": [brs[bi]["name"] for bi in row["branches"]],
-                                   "ordinals": row["branches"], "by": row["by"]} for name, row in sorted(table.items())]
+                                   "ordinals": row["branches"], "by": row["by"], "elements": row["elements"]}
+                                  for name, row in sorted(table.items())]
+            out["xmlBranches"] = [{"ordinal": bi, "name": brs[bi]["name"]} for bi in sorted(brs)]
         out["summary"]["byId"] = {"renumbered": len(ids["report"]["renumbered"]), "otherPlace": len(check["otherPlace"]),
                                   "notPairedByPosition": len(check["notPairedByPosition"])}
     return out
