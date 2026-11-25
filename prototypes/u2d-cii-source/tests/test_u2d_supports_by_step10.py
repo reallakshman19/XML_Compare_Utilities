@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
+import tempfile
 import sys
 import unittest
 from pathlib import Path
@@ -235,6 +237,60 @@ class SupportsByStep10Ef05(SupportsByStep10):
             self.assertEqual(s["changes"], [])
             refused = [(r["code"], r.get("ciiNode")) for r in s["refused"]]
             self.assertEqual(refused, [] if cii == self.cii else [("U2D_SUPPORT_MERGED_COPY", "800")])
+
+    def with_atta(self, index: int, position: str, ref: str, moved_from_new: bool) -> tuple:
+        """(xml, sidecar): the EF-05 fixture with an unnumbered ATTA (+Y, like the fixture's ATTA at node 800's bend
+        end) put in branch 3 (ordinal 2) at node ordinal `index`, the later places shifted, and its id listed under
+        notInCii. moved_from_new: node 800's support is listed as moved from the new ATTA (else as before). This is
+        how real step 10 (3D_Converters 33e2c350, PR 319 review, m4 and m5) wrote these cases; the CII is unchanged."""
+        text = self.xml.decode("utf-8")
+        branch = [m.start() for m in re.finditer("<Branch>", text)][2]
+        nodes = [m.start() for m in re.finditer("<Node>", text[branch:])]
+        atta = text[text.rindex("<Node>", 0, text.index("=1006649732/121138<")):]
+        atta = atta[:atta.index("</Node>")] + "</Node>" + ("\r\n" if "\r\n" in text else "\n")
+        node = re.sub("<Position>[^<]*</Position>", f"<Position>{position}</Position>",
+                      atta.replace("=1006649732/121138<", ref + "<"))
+        cut = branch + nodes[index]
+        xml = (text[:cut] + node + text[cut:]).encode("utf-8")
+        side = json.loads(json.dumps(self.sidecar))
+        side["enriched"]["sha256"] = hashlib.sha256(xml).hexdigest()
+        for i in [i for n in side["nodes"] for i in n["ids"]] + side["notInCii"]:
+            if i["at"][0] == 2 and i["at"][1] >= index:
+                i["at"][1] += 1
+        branch_name = next(i["branch"] for i in side["notInCii"] if i["at"][0] == 2)
+        side["notInCii"].append({"id": "u:test-atta", "branch": branch_name, "NodeName": [], "ComponentRefNo": [ref],
+                                 "at": [2, index], "nodeNumber": "-2"})
+        if moved_from_new:
+            for b in side["ciiSupports"]:
+                if b["cii"] == 800:
+                    b["written"] = [{**w, "fromId": "u:test-atta"} for w in b["written"]]
+        return xml, side
+
+    def plan_rows(self, xml: bytes, side: dict, cii: str) -> tuple:
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "enriched.xml").write_bytes(xml)
+            match = match_for(Path(d) / "enriched.xml", cii)
+        s = plan(xml, cii, match, 10.0, sidecar=side)["supports"]
+        return ([(c["ciiNode"], c["kind"], c["afterText"]) for c in s["changes"]],
+                [(r["code"], r.get("ciiNode")) for r in s["refused"]])
+
+    def test_two_moved_supports_merged_into_one_are_refused(self):
+        """PR 319 review B1 (m4): a second ATTA at node 800's own point. Step 10 puts both +Y on 800, writes one and
+        lists it as moved from the ATTA at that point. A change at 800 is refused (written on one ATTA, step 10 would
+        bring the other back); untouched, no row."""
+        xml, side = self.with_atta(15, "444665.15 -1470651.70 100607.15", "=1006649732/129997", True)
+        self.assertEqual(self.plan_rows(xml, side, self.cii), ([], []))
+        for cii in (edited(self.cii, 800, friction=0.2), edited(self.cii, 800, delete=True)):
+            self.assertEqual(self.plan_rows(xml, side, cii), ([], [("U2D_SUPPORT_MERGED_COPY", "800")]))
+
+    def test_an_unnumbered_support_step_10_does_not_write_stays_not_in_cii(self):
+        """PR 319 review B2 (m5): a second ATTA on the straight after the bend. Step 10 writes it nowhere ("no
+        numbered node at that point"), so it is NOT_IN_CII, and node 800's own moved support is edited as before."""
+        xml, side = self.with_atta(18, "444665.15 -1470651.70 101500.00", "=1006649732/129998", False)
+        self.assertEqual(self.plan_rows(xml, side, self.cii), ([], [("U2D_SUPPORT_NOT_IN_CII", None)]))
+        changes, refused = self.plan_rows(xml, side, edited(self.cii, 800, friction=0.2))
+        self.assertEqual((changes, refused), ([("800", "edited", "+Y, stiffness 1.7513E+12, friction 0.2")],
+                                              [("U2D_SUPPORT_NOT_IN_CII", None)]))
 
     def test_an_open_end_anchor_edited_is_added_on_its_node(self):
         node = next(b["cii"] for b in self.sidecar["ciiSupports"] if [w["from"] for w in b["written"]] == ["openEnd"])
