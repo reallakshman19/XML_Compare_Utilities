@@ -73,6 +73,17 @@ def edited(cii: str, node: float, *, friction=None, delete=False, add=None) -> s
     return out
 
 
+def edited_and_copied(cii: str, node: float, written: dict, friction: float) -> str:
+    """step10.cii with node's first support at `friction` and an identical copy added in slot 2 (`written` is the
+    support step 10 wrote there, as the sidecar lists it)."""
+    two = edited(edited(cii, node, friction=friction), node, add=(written["type"], tuple(written["cosines"])))
+    nl = "\r\n" if "\r\n" in two else "\n"
+    lines = two.split(nl)
+    j = slot_line(lines, node, 1)
+    lines[j] = field(lines[j], 4, f"{friction:13.6f}")
+    return nl.join(lines)
+
+
 @unittest.skipUnless(shutil.which("node"), "node missing: NOT_RUN")
 class SupportsByStep10(unittest.TestCase):
     MODEL = "EF05"
@@ -176,15 +187,11 @@ class SupportsByStep10Ef05(SupportsByStep10):
         goes to the unnumbered source and the copy to node 800, so two XML nodes write it; the receipt says once that
         CAESAR II's two copies are written once, not once per XML node."""
         w = next(w for b in self.sidecar["ciiSupports"] if b["cii"] == 800 for w in b["written"])
-        two = edited(edited(self.cii, 800, friction=0.2), 800, add=(w["type"], tuple(w["cosines"])))
-        nl = "\r\n" if "\r\n" in two else "\n"
-        lines = two.split(nl)
-        j = slot_line(lines, 800, 1)
-        lines[j] = field(lines[j], 4, f"{0.2:13.6f}")
-        s = self.supports(nl.join(lines))
+        cii = edited_and_copied(self.cii, 800, w, 0.2)
+        s = self.supports(cii)
         self.assertEqual([(r["code"], r["ciiNode"]) for r in self.listed_refusals(s)], [("U2D_SUPPORT_COPIES_WRITTEN_ONCE", "800")])
         self.assertEqual(sorted(c["kind"] for c in s["changes"]), ["added", "edited"])
-        self.assertEqual(self.summary(nl.join(lines))["refused"], {"U2D_SUPPORT_COPIES_WRITTEN_ONCE": 1})
+        self.assertEqual(self.summary(cii)["refused"], {"U2D_SUPPORT_COPIES_WRITTEN_ONCE": 1})
 
     def test_an_xml_support_deleted_is_removed_from_its_own_node(self):
         b = self.xml_support_node()
@@ -442,6 +449,17 @@ class SupportsByStep10Ef05(SupportsByStep10):
             self.assertEqual(self.listed_refusals(s)[0]["after"], [f"GUI, stiffness 1.7513E+12, friction {fr:g}, direction +X"])
             self.assertEqual(self.wrote(s), [(8, self.X, fr)], fr)
 
+    def test_two_supports_each_held_twice_at_one_node_get_a_row_each(self):
+        """Step 3g (review of PR 315 N1): listed Z, X, X; CAESAR II turns Z to Y and adds a second Y, so it holds Y and X
+        twice each. One copy of each is written and each gets its own row (one row per support, not per node)."""
+        Y = (0.0, 1.0, 0.0)
+        run = self.at50([self.restraint("GUI")] * 3, [(8, self.Z), (8, self.X), (8, self.X)])
+        s = run([(8, Y, 0.3), (8, Y, 0.3), (8, self.X, 0.3), (8, self.X, 0.3)])
+        rows = [(r["code"], r["ciiNode"], r["after"][0].split(", ")[-1]) for r in self.listed_refusals(s)]
+        self.assertEqual(sorted(rows), [("U2D_SUPPORT_COPIES_WRITTEN_ONCE", "50", "direction +X"),
+                                        ("U2D_SUPPORT_COPIES_WRITTEN_ONCE", "50", "direction +Y")])
+        self.assertEqual(self.wrote(s), sorted([(8, Y, 0.3), (8, self.X, 0.3)]))
+
     def test_a_removed_twin_is_not_kept_as_a_repeat_of_a_written_back_guide(self):
         """Step 3e (review of PR 313 round 2 N2): four identical GUIs without cosines listed X, Y, Z and [0,0,0]; CAESAR
         II deletes Z. The guide without a direction is written back once, not kept four times next to GUI X and GUI Y."""
@@ -486,6 +504,20 @@ class SupportsByStep10Ef05(SupportsByStep10):
 
 class SupportsByStep10Bm2(SupportsByStep10):
     MODEL = "BM2"
+
+    def test_the_same_copies_at_two_moved_nodes_get_a_row_each(self):
+        """Step 3g (review of PR 315 N1): nodes 20 and 3500 (supports step 10 moved) each get the same friction edit and
+        an identical copy. Each CII node gets its own written-once row (one row per CII node, not per support)."""
+        cii = self.cii
+        for node in (20, 3500):
+            w = next(w for b in self.sidecar["ciiSupports"] if b["cii"] == node for w in b["written"])
+            self.assertEqual(w["from"], "moved", node)
+            cii = edited_and_copied(cii, node, w, 0.1)
+        s = self.supports(cii)
+        self.assertEqual(sorted((r["code"], r["ciiNode"]) for r in self.listed_refusals(s)),
+                         [("U2D_SUPPORT_COPIES_WRITTEN_ONCE", "20"), ("U2D_SUPPORT_COPIES_WRITTEN_ONCE", "3500")])
+        self.assertEqual(sorted((c["ciiNode"], c["kind"]) for c in s["changes"]),
+                         [("20", "added"), ("20", "edited"), ("3500", "added"), ("3500", "edited")])
 
     @classmethod
     def setUpClass(cls):

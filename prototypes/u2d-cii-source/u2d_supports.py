@@ -233,11 +233,11 @@ def restraint_ops(xml_list: list, texts: list, after: list, same=None, repeats: 
     xml_list[i] is the compared form of the node's i-th <Restraint>, texts[i] its tag texts; after is
     [(support, raw)] from the CII. A restraint already equal to a CII support is kept; the others are
     edited into the remaining CII supports (same type first), removed, or the CII support is added.
-    same(i, c) says whether restraint i already is CII support c (default: matches; the step 3 path passes a stricter one
-    that knows the direction step 10 wrote for a restraint without cosines). repeats: a restraint left over that equals a
-    kept support stays as a repeat (step 1). The step 3 path passes False: every restraint its plan keeps is in `after`
-    and matched above (identical restraints are dropped together), so one left over is one the plan removes, never a
-    repeat to keep (review of PR 313 round 2 N2, PR 314 N2)."""
+    same(i, c) says whether restraint i already is CII support c (default: matches; the step 3 path passes a stricter
+    one that knows the direction step 10 wrote for a restraint without cosines). repeats: a restraint left over that
+    equals a kept support stays as a repeat (step 1). The step 3 path passes False: every restraint its plan keeps is in
+    `after` and matched above (identical restraints are dropped together), so one left over is one the plan removes,
+    never a repeat to keep (review of PR 313 round 2 N2, PR 314 N2)."""
     same = same or (lambda i, c: matches(xml_list[i], c))
     ops, free, todo = [], list(range(len(xml_list))), []
     for c, raw in after:
@@ -707,8 +707,11 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
         for cs in already:
             refuse("U2D_SUPPORT_ALREADY_ON_NODE", c, ref=refs[k], after=[text_dir(cs)])
         for cs in once:
-            if (c, cs) not in told_once:       # one row per CII node and support, also where two XML nodes write it
-                told_once.add((c, cs))         # (a moved source and the numbered node; review of PR 314 N1)
+            # One row per CII node and support, also where two XML nodes write it (a moved source and the numbered
+            # node; review of PR 314 N1). Plans run in XML record order, so the row names the first of them: the
+            # numbered node in the EF-05 and BM2 cases, which comes before its unnumbered source.
+            if (c, cs) not in told_once:
+                told_once.add((c, cs))
                 refuse("U2D_SUPPORT_COPIES_WRITTEN_ONCE", c, ref=refs[k], after=[text_dir(cs)])
         after = [(have[i], None) for i in kept] + added
         if [x for x, _ in after] == have:
@@ -716,7 +719,8 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
         want = [s for s, _ in after]
         kind = "added" if not have else "removed" if not want else "edited"
         changes.append({"ciiNode": c, "kind": kind, "ref": refs[k], "restraintCount": len(texts[k]),
-                        "restraints": restraint_ops(have, texts[k], after, kept_restraint(have, stands, kept), repeats=False),
+                        "restraints": restraint_ops(have, texts[k], after, kept_restraint(have, stands, kept),
+                                                    repeats=False),
                         "step10": sorted(p["from"]), "before": [describe(s) for s in have], "after": [describe(s) for s in want],
                         "beforeText": "; ".join(map(text_dir, have)) or "none", "afterText": "; ".join(map(text_dir, want)) or "none"})
     # XML supports step 10 did not write: neither listed as read from their node, nor equal to one step 10 wrote at the
