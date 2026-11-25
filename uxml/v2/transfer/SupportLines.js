@@ -17,10 +17,11 @@ const PLAIN = {
   U2D_SUPPORT_SOURCE_UNKNOWN: 'whose source the sidecar does not give (not applied)',
   U2D_SUPPORT_MERGED_COPY: 'that step 10 wrote once from identical copies on several nodes (not applied)',
   U2D_SUPPORT_NOT_ON_NODE: 'whose XML node no longer holds them (not applied)',
-  U2D_SUPPORT_SOME_COPIES_CHANGED: 'changed on only some of identical copies on one XML node (not applied)',
-  U2D_SUPPORT_ALREADY_ON_NODE: 'added in CAESAR II where the XML node already holds the same support (not written twice)',
-  // S-fix step 3e (review of PR 313 round 2, 24 Nov 2026): step 10 writes identical supports at one node once
-  U2D_SUPPORT_COPIES_WRITTEN_ONCE: 'held more than once in CAESAR II at one point (written once)',
+  // S-fix step 3h (25 Nov 2026): step 10 writes every support of one XML node, copies included, so copies are written;
+  // it merges identical supports of several XML nodes at one point, so there only one copy is written
+  U2D_SUPPORT_COPIES_WRITTEN_ONCE: 'held more than once in CAESAR II where step 10 merges copies of several XML nodes '
+    + '(written once)',
+  U2D_SUPPORT_COPIES_NOT_LISTED: 'on an XML node whose supports the sidecar does not list one by one (not applied)',
 };
 const KIND = {edited: 'support edited', added: 'support added', removed: 'support removed'};
 const where = r => (r.ref ? `${r.ref.branchName} node ${r.ref.nodeNumber}` : `CII node ${r.ciiNode}`);

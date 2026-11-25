@@ -182,15 +182,17 @@ class SupportsByStep10Ef05(SupportsByStep10):
     def xml_support_node(self):
         return next(b for b in self.sidecar["ciiSupports"] if [w["from"] for w in b["written"]] == ["xml"])
 
-    def test_a_moved_support_edited_and_copied_gets_one_written_once_row(self):
-        """Step 3f (review of PR 314 N1): CAESAR II edits node 800's moved support and adds an identical copy. The edit
-        goes to the unnumbered source and the copy to node 800, so two XML nodes write it; the receipt says once that
-        CAESAR II's two copies are written once, not once per XML node."""
+    def test_a_moved_support_edited_and_copied_is_edited_on_its_source_with_a_row(self):
+        """Step 3h: CAESAR II edits node 800's moved support and adds an identical copy. The edit goes to the unnumbered
+        source. Step 10 merges identical supports of the source and node 800 into one (25 Nov round trip r2), so the
+        copy is not written on node 800; a row says it is written once."""
         w = next(w for b in self.sidecar["ciiSupports"] if b["cii"] == 800 for w in b["written"])
         cii = edited_and_copied(self.cii, 800, w, 0.2)
         s = self.supports(cii)
-        self.assertEqual([(r["code"], r["ciiNode"]) for r in self.listed_refusals(s)], [("U2D_SUPPORT_COPIES_WRITTEN_ONCE", "800")])
-        self.assertEqual(sorted(c["kind"] for c in s["changes"]), ["added", "edited"])
+        self.assertEqual([(r["code"], r["ciiNode"], r["after"]) for r in self.listed_refusals(s)],
+                         [("U2D_SUPPORT_COPIES_WRITTEN_ONCE", "800", ["+Y, stiffness 1.7513E+12, friction 0.2"])])
+        self.assertEqual([(c["kind"], float(c["ref"]["nodeNumber"]) > 0, c["afterText"]) for c in s["changes"]],
+                         [("edited", False, "+Y, stiffness 1.7513E+12, friction 0.2")])
         self.assertEqual(self.summary(cii)["refused"], {"U2D_SUPPORT_COPIES_WRITTEN_ONCE": 1})
 
     def test_an_xml_support_deleted_is_removed_from_its_own_node(self):
@@ -214,8 +216,10 @@ class SupportsByStep10Ef05(SupportsByStep10):
         self.assertEqual([(c["ciiNode"], c["kind"], c["step10"]) for c in s["changes"]], [(str(node), "added", ["added"])])
         self.assertEqual([a["type"] for a in s["changes"][0]["after"]], [1])
 
-    def test_identical_copies_on_one_node_are_all_replaced(self):
-        """PR 310 review B1: step 10 writes two identical supports on one XML node once; CAESAR II's change replaces both."""
+    def test_a_sidecar_listing_fewer_copies_than_the_xml_node_holds_is_refused(self):
+        """PR 310 review B1, step 3h: the XML node holds a support twice but the sidecar lists it once. Real step 10
+        lists both copies, so the sidecar does not give the copies one by one: a change there is refused, not
+        guessed."""
         b = self.xml_support_node()
         text = self.xml.decode("utf-8")
         i = text.index(f"<NodeNumber>{b['cii']}</NodeNumber>")
@@ -225,15 +229,13 @@ class SupportsByStep10Ef05(SupportsByStep10):
         side = json.loads(json.dumps(self.sidecar))
         side["enriched"]["sha256"] = hashlib.sha256(xml2).hexdigest()
         run = lambda cii: plan(xml2, cii, self.match, 10.0, sidecar=side)["supports"]
-        self.assertEqual(run(self.cii)["changes"], [])
-        for cii, after in ((edited(self.cii, b["cii"], friction=0.1), ["0.1"]), (edited(self.cii, b["cii"], delete=True), [])):
+        for cii in (edited(self.cii, b["cii"], friction=0.1), edited(self.cii, b["cii"], delete=True)):
             s = run(cii)
-            self.assertEqual(self.listed_refusals(s), [])
-            self.assertEqual(len(s["changes"]), 1, s["changes"])
-            self.assertEqual(len(s["changes"][0]["before"]), 2)
-            self.assertEqual([f"{a['friction']:g}" for a in s["changes"][0]["after"]], after)
+            self.assertEqual(s["changes"], [])
+            self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_COPIES_NOT_LISTED"])
 
-    def test_a_support_added_in_caesar_ii_identical_to_the_xml_nodes_is_not_written_twice(self):
+    def test_a_support_added_in_caesar_ii_identical_to_the_xml_nodes_is_written_as_a_copy(self):
+        """Step 3h: step 10 writes both copies of one XML node (25 Nov check), so CAESAR II's second copy is written."""
         b = self.xml_support_node()
         w = b["written"][0]
         cii = edited(self.cii, b["cii"], add=(w["type"], tuple(w["cosines"])))
@@ -242,8 +244,9 @@ class SupportsByStep10Ef05(SupportsByStep10):
         j = slot_line(lines, b["cii"], 1)
         lines[j] = field(lines[j], 4, f"{w['friction']:13.6f}")      # the copy equals the XML's support
         s = self.supports(nl.join(lines))
-        self.assertEqual(s["changes"], [])
-        self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_ALREADY_ON_NODE"])
+        self.assertEqual(self.listed_refusals(s), [])
+        self.assertEqual([(c["kind"], [o["op"] for o in c["restraints"]]) for c in s["changes"]],
+                         [("edited", ["keep", "add"])])
 
     # PR 311 review round 2 ------------------------------------------------------------------------------------------
     def node50(self, restraint=None, copies=0):
@@ -269,7 +272,8 @@ class SupportsByStep10Ef05(SupportsByStep10):
         return nl.join(lines)
 
     def test_a_new_guide_where_the_xml_guide_has_no_direction_is_written(self):
-        """An XML GUI without cosines, written by step 10 along X: a second guide along Z is new, a copy along X is not."""
+        """An XML GUI without cosines, written by step 10 along X: a second guide along Z is new; a copy along X is
+        written too (step 3h: copies count)."""
         side, b, run = self.node50("<Restraint>\n<Type>GUI</Type>\n<Stiffness>1.751270E+12</Stiffness>\n<Gap>0</Gap>\n"
                                    "<Friction>0.3</Friction>\n</Restraint>")
         b["written"][0].update(type=8, cosines=[1, 0, 0])
@@ -280,28 +284,25 @@ class SupportsByStep10Ef05(SupportsByStep10):
         lines[j + 1] = "  " + "".join(f"{c:13.6f}" for c in (1, 0, 0))
         guide = nl.join(lines)
         self.assertEqual(run(guide)["changes"], [])
-        s = run(self.slot(edited(guide, 50, add=(8, (0.0, 0.0, 1.0))), 1, 4, f"{0.3:13.6f}"))
-        self.assertEqual(self.listed_refusals(s), [])
-        self.assertEqual([[o["op"] for o in c["restraints"]] for c in s["changes"]], [["keep", "add"]])
-        s = run(self.slot(edited(guide, 50, add=(8, (1.0, 0.0, 0.0))), 1, 4, f"{0.3:13.6f}"))
-        self.assertEqual(s["changes"], [])
-        self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_ALREADY_ON_NODE"])
+        for cos in ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0)):
+            s = run(self.slot(edited(guide, 50, add=(8, cos)), 1, 4, f"{0.3:13.6f}"))
+            self.assertEqual(self.listed_refusals(s), [], cos)
+            self.assertEqual([[o["op"] for o in c["restraints"]] for c in s["changes"]], [["keep", "add"]], cos)
 
-    def test_copies_step_10_listed_one_by_one_are_changed_all_or_refused(self):
-        """The sidecar lists node 50's support twice (step 10 did not merge them): CAESAR II changing one copy is refused
-        (the XML cannot tell the copies apart); deleting both removes both."""
+    def test_copies_step_10_listed_one_by_one_are_changed_one_by_one(self):
+        """Step 3h: node 50 holds its support twice and the sidecar lists both (as step 10 writes them). CAESAR II
+        deleting or editing one copy changes one restraint; deleting both removes both."""
         side, b, run = self.node50(copies=1)
         b["written"].append(dict(b["written"][0]))
         w = b["written"][0]
         two = self.slot(edited(self.cii, 50, add=(w["type"], tuple(w["cosines"]))), 1, 4, f"{w['friction']:13.6f}")
         self.assertEqual(run(two)["changes"], [])
-        for cii in (self.slot(two, 1, 0, f"{0:13.6f}"), self.slot(two, 1, 4, f"{0.1:13.6f}")):
+        for cii, ops in ((self.slot(two, 1, 0, f"{0:13.6f}"), ["keep", "remove"]),
+                         (self.slot(two, 1, 4, f"{0.1:13.6f}"), ["keep", "edit"]),
+                         (self.slot(self.slot(two, 1, 0, f"{0:13.6f}"), 0, 0, f"{0:13.6f}"), ["remove", "remove"])):
             s = run(cii)
-            self.assertEqual(s["changes"], [])
-            self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_SOME_COPIES_CHANGED"])
-        s = run(self.slot(self.slot(two, 1, 0, f"{0:13.6f}"), 0, 0, f"{0:13.6f}"))
-        self.assertEqual(self.listed_refusals(s), [])
-        self.assertEqual([[o["op"] for o in c["restraints"]] for c in s["changes"]], [["remove", "remove"]])
+            self.assertEqual(self.listed_refusals(s), [], ops)
+            self.assertEqual([[o["op"] for o in c["restraints"]] for c in s["changes"]], [ops])
 
     def test_an_empty_list_is_refused_only_when_the_xml_has_supports(self):
         """Step 10 wrote no support from an XML without any: a support added in CAESAR II is not a broken sidecar."""
@@ -381,97 +382,69 @@ class SupportsByStep10Ef05(SupportsByStep10):
         return sorted((a["type"], tuple(a["direction"]) if a["direction"] else None, a["friction"]) for a in s["changes"][0]["after"])
 
     def test_a_guide_without_cosines_next_to_one_with_cosines(self):
-        """Step 3d (review of PR 312 N1): the direction-less guide also stands for Z, so a change of the Z guide removes
-        it too, and the X guide CAESAR II keeps is written back with its direction (step 3c kept it without cosines)."""
+        """Step 3d (review of PR 312 N1), step 3h: a GUI without cosines (step 10 wrote it along X) and a GUI along Z.
+        Each restraint is one support, so a change of one leaves the other as it is."""
         run = self.at50([self.restraint("GUI"), self.restraint("GUI", self.Z)], [(8, self.X), (8, self.Z)])
         self.assertEqual(run([(8, self.X, 0.3), (8, self.Z, 0.3)])["changes"], [])
-        s = run([(8, self.X, 0.3)])
-        self.assertEqual(self.ops(s), [("edit", "0.000000000", "0.3"), ("remove", None, None)])
-        self.assertEqual(self.wrote(s), [(8, self.X, 0.3)])
+        self.assertEqual(self.ops(run([(8, self.X, 0.3)])), [("keep", None, None), ("remove", None, None)])
         self.assertEqual(self.ops(run([(8, self.Z, 0.3)])), [("remove", None, None), ("keep", None, None)])
         s = run([(8, self.X, 0.3), (8, self.Z, 0.1)])
-        self.assertEqual(self.ops(s), [("edit", "0.000000000", "0.3"), ("edit", "1.000000000", "0.1")])
-        self.assertEqual(self.wrote(s), [(8, self.Z, 0.1), (8, self.X, 0.3)])
+        self.assertEqual(self.ops(s), [("keep", None, None), ("edit", "1.000000000", "0.1")])
+        self.assertEqual(s["changes"][0]["afterText"], "GUI, stiffness 1.7513E+12, friction 0.3, direction not given; "
+                                                       "GUI, stiffness 1.7513E+12, friction 0.1, direction +Z")
 
-    def test_a_guide_without_cosines_merged_with_an_identical_one_with_cosines(self):
-        """Review of PR 312 N1 (layout C): an XML GUI without cosines and an identical GUI along X; step 10 merged them
-        and wrote one GUI X. A delete removes both, an edit leaves one guide."""
+    def test_a_guide_without_cosines_and_an_identical_one_with_cosines(self):
+        """Review of PR 312 N1 (layout C), step 3h: an XML GUI without cosines and an identical GUI along X. Step 10
+        writes both (the one without along Z here; 25 Nov check, variant v8). A sidecar listing only one GUI X does not
+        give the restraints one by one, so a change there is refused."""
         for blocks in ([self.restraint("GUI"), self.restraint("GUI", self.X)], [self.restraint("GUI", self.X), self.restraint("GUI")]):
-            run = self.at50(blocks, [(8, self.X)])
-            self.assertEqual(run([(8, self.X, 0.3)])["changes"], [])
+            run = self.at50(blocks, [(8, self.Z), (8, self.X)])
+            self.assertEqual(run([(8, self.Z, 0.3), (8, self.X, 0.3)])["changes"], [])
+            self.assertEqual(self.wrote(run([(8, self.Z, 0.3)])), [(8, None, 0.3)])
+            self.assertEqual(self.wrote(run([(8, self.X, 0.3), (8, self.Z, 0.1)])),
+                             [(8, self.Z, 0.1), (8, self.X, 0.3)])
+            merged = self.at50(blocks, [(8, self.X)])
+            self.assertEqual(merged([(8, self.X, 0.3)])["changes"], [])
+            for slots in ([None], [(8, self.X, 0.1)]):
+                s = merged(slots)
+                self.assertEqual(s["changes"], [], slots)
+                self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_COPIES_NOT_LISTED"], slots)
+
+    def test_identical_guides_without_cosines_change_one_by_one(self):
+        """Step 3h: step 10 writes each GUI without cosines once, all in one direction (25 Nov check: two or three give
+        +Z each). Deleting, adding or turning one copy changes one restraint."""
+        Y = (0.0, 1.0, 0.0)
+        for n in (2, 3):
+            run = self.at50([self.restraint("GUI")] * n, [(8, self.Z)] * n)
+            self.assertEqual(run([(8, self.Z, 0.3)] * n)["changes"], [], n)
+            for slots, ops in (([(8, self.Z, 0.3)] * (n - 1), ["remove"] + ["keep"] * (n - 1)),
+                               ([(8, self.Z, 0.3)] * (n + 1), ["keep"] * n + ["add"]),
+                               ([(8, self.Z, 0.3)] * (n - 1) + [(8, Y, 0.3)], ["edit"] + ["keep"] * (n - 1))):
+                self.assertEqual(sorted(o[0] for o in self.ops(run(slots))), sorted(ops), (n, slots))   # copies alike
+            s = run([(8, self.Z, 0.3)] * (n - 1) + [(8, Y, 0.3)])
+            self.assertEqual(sorted(t.split(", ")[-1] for t in s["changes"][0]["afterText"].split("; ")),
+                             ["direction +Y"] + ["direction not given"] * (n - 1))
             s = run([None])
             self.assertEqual(self.listed_refusals(s), [])
             self.assertEqual([c["kind"] for c in s["changes"]], ["removed"])
-            self.assertEqual(self.wrote(run([(8, self.X, 0.1)])), [(8, self.X, 0.1)])
-            self.assertEqual(self.wrote(run([(8, self.Z, 0.3)])), [(8, self.Z, 0.3)])
 
-    def test_identical_guides_written_in_two_directions_change_together(self):
-        """Review of PR 312 N2 and N3 (layout K4): two identical GUIs without cosines, written as X and Z. Changing both,
-        or one while the other is deleted, is carried (was NOT_ON_NODE). X turned to Z gives one Z guide; step 3e: with a
-        row saying CAESAR II's second Z is written once (review of PR 313 round 2 N1)."""
-        Y = (0.0, 1.0, 0.0)
-        run = self.at50([self.restraint("GUI"), self.restraint("GUI")], [(8, self.X), (8, self.Z)])
-        for slots, want in (([(8, self.X, 0.1), (8, self.Z, 0.1)], [(8, self.Z, 0.1), (8, self.X, 0.1)]),
-                            ([(8, Y, 0.3)], [(8, Y, 0.3)]),
-                            ([(8, self.X, 0.1), (8, Y, 0.3)], [(8, Y, 0.3), (8, self.X, 0.1)])):
-            s = run(slots)
-            self.assertEqual(self.listed_refusals(s), [], slots)
-            self.assertEqual(self.wrote(s), sorted(want), slots)
-        s = run([(8, self.Z, 0.3), (8, self.Z, 0.3)])
-        self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_COPIES_WRITTEN_ONCE"])
-        self.assertEqual(self.wrote(s), [(8, self.Z, 0.3)])
+    def test_identical_guides_listed_in_two_directions_are_refused(self):
+        """Reviews of PR 312 N2/N3 and PR 313 N1 built sidecars where identical GUIs without cosines were written in
+        several directions (X and Z; Z, X, X). Step 10 does not do that (25 Nov check), and the sidecar then cannot say
+        which restraint is which support: a change there is refused (step 3h), an untouched node is no change."""
+        for n, wrote in ((2, [(8, self.X), (8, self.Z)]), (3, [(8, self.Z), (8, self.X), (8, self.X)])):
+            run = self.at50([self.restraint("GUI")] * n, wrote)
+            self.assertEqual(run([(t, c, 0.3) for t, c in wrote])["changes"], [], n)
+            for slots in ([(t, c, 0.1) for t, c in wrote], [(t, c, 0.3) for t, c in wrote[1:]], [None]):
+                s = run(slots)
+                self.assertEqual(s["changes"], [], (n, slots))
+                self.assertEqual({r["code"] for r in self.listed_refusals(s)}, {"U2D_SUPPORT_COPIES_NOT_LISTED"},
+                                 (n, slots))
+        # a sidecar listing another direction than the XML restraint's own cosines (same count) is refused the same way
+        run = self.at50([self.restraint("GUI", self.X)], [(8, self.Z)])
         s = run([None])
-        self.assertEqual(self.listed_refusals(s), [])
-        self.assertEqual([c["kind"] for c in s["changes"]], ["removed"])
-
-    def test_copies_are_still_checked_for_a_support_a_removed_guide_stood_for(self):
-        """Review of PR 313 N1: three identical GUIs without cosines, the sidecar lists Z once and X twice. Removing Z's
-        restraints also removes the X copies they stood for, so CAESAR II changing only one X copy is refused, not lost."""
-        Y = (0.0, 1.0, 0.0)
-        run = self.at50([self.restraint("GUI")] * 3, [(8, self.Z), (8, self.X), (8, self.X)])
-        self.assertEqual(run([(8, self.Z, 0.3), (8, self.X, 0.3), (8, self.X, 0.3)])["changes"], [])
-        for slots in ([(8, self.X, 0.3), (8, Y, 0.3)], [(8, self.X, 0.3)], [(8, self.X, 0.3), (8, self.X, 0.1)]):
-            s = run(slots)
-            self.assertEqual(s["changes"], [], slots)
-            self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_SOME_COPIES_CHANGED"], slots)
-        s = run([None])
-        self.assertEqual(self.listed_refusals(s), [])
-        self.assertEqual([c["kind"] for c in s["changes"]], ["removed"])
-
-    def test_copies_caesar_ii_holds_twice_are_written_once_with_a_row(self):
-        """Step 3e (review of PR 313 round 2 N1): three identical GUIs without cosines listed Z, X, X. CAESAR II deletes
-        Z (and may edit both X copies alike): one GUI X is written, as step 10 writes identical supports once, and a row
-        says CAESAR II's second copy is written once (step 3d wrote one copy with no row)."""
-        run = self.at50([self.restraint("GUI")] * 3, [(8, self.Z), (8, self.X), (8, self.X)])
-        for fr in (0.3, 0.1):
-            s = run([(8, self.X, fr), (8, self.X, fr)])
-            self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_COPIES_WRITTEN_ONCE"], fr)
-            self.assertEqual(self.listed_refusals(s)[0]["after"], [f"GUI, stiffness 1.7513E+12, friction {fr:g}, direction +X"])
-            self.assertEqual(self.wrote(s), [(8, self.X, fr)], fr)
-
-    def test_two_supports_each_held_twice_at_one_node_get_a_row_each(self):
-        """Step 3g (review of PR 315 N1): listed Z, X, X; CAESAR II turns Z to Y and adds a second Y, so it holds Y and X
-        twice each. One copy of each is written and each gets its own row (one row per support, not per node)."""
-        Y = (0.0, 1.0, 0.0)
-        run = self.at50([self.restraint("GUI")] * 3, [(8, self.Z), (8, self.X), (8, self.X)])
-        s = run([(8, Y, 0.3), (8, Y, 0.3), (8, self.X, 0.3), (8, self.X, 0.3)])
-        rows = [(r["code"], r["ciiNode"], r["after"][0].split(", ")[-1]) for r in self.listed_refusals(s)]
-        self.assertEqual(sorted(rows), [("U2D_SUPPORT_COPIES_WRITTEN_ONCE", "50", "direction +X"),
-                                        ("U2D_SUPPORT_COPIES_WRITTEN_ONCE", "50", "direction +Y")])
-        self.assertEqual(self.wrote(s), sorted([(8, Y, 0.3), (8, self.X, 0.3)]))
-
-    def test_a_removed_twin_is_not_kept_as_a_repeat_of_a_written_back_guide(self):
-        """Step 3e (review of PR 313 round 2 N2): four identical GUIs without cosines listed X, Y, Z and [0,0,0]; CAESAR
-        II deletes Z. The guide without a direction is written back once, not kept four times next to GUI X and GUI Y."""
-        Y, O = (0.0, 1.0, 0.0), (0.0, 0.0, 0.0)
-        run = self.at50([self.restraint("GUI")] * 4, [(8, self.X), (8, Y), (8, self.Z), (8, O)])
-        self.assertEqual(run([(8, self.X, 0.3), (8, Y, 0.3), (8, self.Z, 0.3), (8, O, 0.3)])["changes"], [])
-        s = run([(8, self.X, 0.3), (8, Y, 0.3), (8, O, 0.3)])
-        self.assertEqual(self.listed_refusals(s), [])
-        self.assertEqual(len(s["changes"]), 1, s["changes"])
-        after = s["changes"][0]["after"]
-        self.assertEqual(sorted(repr(a["direction"] and tuple(a["direction"])) for a in after), sorted(map(repr, [None, self.X, Y])))
-        self.assertEqual([o["op"] for o in s["changes"][0]["restraints"]], ["keep", "edit", "edit", "remove"])
+        self.assertEqual(s["changes"], [])
+        self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_COPIES_NOT_LISTED"])
 
     def test_a_direction_only_change_reads_as_one(self):
         """Review of PR 312 N4: the receipt texts name a guide's direction."""
@@ -496,18 +469,13 @@ class SupportsByStep10Ef05(SupportsByStep10):
         self.assertEqual(self.listed_refusals(s), [])
         self.assertEqual([[o["op"] for o in c["restraints"]] for c in s["changes"]], [["keep", "add"]])
 
-    def test_identical_guides_written_in_two_directions_keep_the_one_caesar_ii_keeps(self):
-        run = self.at50([self.restraint("GUI"), self.restraint("GUI")], [(8, self.X), (8, self.Z)])
-        self.assertEqual(run([(8, self.X, 0.3), (8, self.Z, 0.3)])["changes"], [])
-        self.assertEqual(self.ops(run([(8, self.X, 0.3)])), [("edit", "0.000000000", "0.3"), ("remove", None, None)])
-
-
 class SupportsByStep10Bm2(SupportsByStep10):
     MODEL = "BM2"
 
     def test_the_same_copies_at_two_moved_nodes_get_a_row_each(self):
-        """Step 3g (review of PR 315 N1): nodes 20 and 3500 (supports step 10 moved) each get the same friction edit and
-        an identical copy. Each CII node gets its own written-once row (one row per CII node, not per support)."""
+        """Step 3g, 3h: nodes 20 and 3500 (supports step 10 moved) each get the same friction edit and an identical
+        copy. Each edit goes to its moved source, and each CII node gets its own written-once row (step 10 merges the
+        copy)."""
         cii = self.cii
         for node in (20, 3500):
             w = next(w for b in self.sidecar["ciiSupports"] if b["cii"] == node for w in b["written"])
@@ -517,7 +485,7 @@ class SupportsByStep10Bm2(SupportsByStep10):
         self.assertEqual(sorted((r["code"], r["ciiNode"]) for r in self.listed_refusals(s)),
                          [("U2D_SUPPORT_COPIES_WRITTEN_ONCE", "20"), ("U2D_SUPPORT_COPIES_WRITTEN_ONCE", "3500")])
         self.assertEqual(sorted((c["ciiNode"], c["kind"]) for c in s["changes"]),
-                         [("20", "added"), ("20", "edited"), ("3500", "added"), ("3500", "edited")])
+                         [("20", "edited"), ("3500", "edited")])
 
     @classmethod
     def setUpClass(cls):
