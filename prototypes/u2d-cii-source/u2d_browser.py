@@ -3,11 +3,12 @@
 The same steps as u2d.py, without files or subprocesses. The page runs, in order:
   to_v14(cii)                      -> the v14 copy (3D_Converters cii_v11_v14, unchanged)
   (JavaScript) match-psi116 --tol 1 --frame cii2019 on target + v14
-  plan_edits(target, cii, v14, match_json, weight_scale, items[, sidecar]) -> {"envelope", "result"} JSON
+  plan_edits(target, cii, v14, match_json, weight_scale, items[, sidecar[, branch_map_json]]) -> {"envelope", "result"}
   (JavaScript) U1 applyPsi116Edits(target, envelope)
   finish(...)                      -> (revised XML bytes with the protection note, receipt JSON text)
 The receipt text is what u2d.py writes for the same inputs and file names (json indent 1). sidecar: the bytes of step
-10's CII sidecar, to transfer by node id (T2); its file name is then names_json[3].
+10's CII sidecar, to transfer by node id (T2); its file name is then names_json[3]. branch_map_json: the user's rows of
+the branch table (T3), JSON {CII line: branch ordinal or null}.
 """
 from __future__ import annotations
 
@@ -21,11 +22,14 @@ def to_v14(cii: bytes) -> bytes:
     return convert_bytes(bytes(cii), 14).data
 
 
-def plan_edits(target: bytes, cii: bytes, v14: bytes, match_json: str, weight_scale: float, items: str, sidecar=None) -> str:
+def plan_edits(target: bytes, cii: bytes, v14: bytes, match_json: str, weight_scale: float, items: str, sidecar=None,
+               branch_map_json=None) -> str:
     target, cii, v14 = bytes(target), bytes(cii), bytes(v14)
     match = json.loads(match_json)
     check_inputs(target, cii, v14, match)
-    result = plan_with_sidecar(target, cii, match, float(weight_scale), items.split(","), None if sidecar is None else bytes(sidecar))
+    side = None if sidecar is None else bytes(sidecar)
+    branch_map = None if branch_map_json is None else json.loads(branch_map_json)
+    result = plan_with_sidecar(target, cii, match, float(weight_scale), items.split(","), side, branch_map)
     return json.dumps({"envelope": u1_envelope(target, result), "result": result})
 
 

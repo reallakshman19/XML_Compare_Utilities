@@ -18,6 +18,7 @@ import {transferWithNewNodes} from './transfer/TransferWithNewNodes.js';
 import {newNodeValueRows} from './transfer/CiiNewNodes.js';
 import {supportRows, supportsLine} from './transfer/SupportLines.js';
 import {byIdLine} from './transfer/ByIdLine.js';
+import {branchChoices, branchMapFrom, branchTableRows} from './transfer/BranchTableView.js';
 import {materialFollowRows} from './transfer/MaterialFollowRows.js';
 
 const $ = id => document.getElementById(id);
@@ -34,7 +35,7 @@ const SAMPLE_EF05_BROKEN = {xml: SAMPLE_EF05.xml, cii: 'uxml-v2-transfer/EF05/br
 const SAMPLE_EF05_BY_ID = {xml: 'uxml-v2-transfer/EF05-on/enriched.xml', cii: 'uxml-v2-transfer/EF05-on/shared-points.cii',
   sidecar: 'uxml-v2-transfer/EF05-on/step10.cii.sidecar.json'};
 const DEFAULT_ROWS = 'uxml-v2-supports/bench/default-material-map-rows.json';
-let out = null, name = 'model', u2d = null;
+let out = null, name = 'model', u2d = null, last = null;
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -131,16 +132,42 @@ async function guarded(fn) {
     say('Could not run: ' + String(error?.message || error) + (error?.details && Object.keys(error.details).length ? ' ' + JSON.stringify(error.details) : '')); }
 }
 
-/** Section 5 without a receipt: the page runs the transfer from the CAESAR II file, then the usual run under locks. */
-async function fromCii(xmlFile, ciiFile, sidecarFile = null) {
+/** T3: the branch table of a transfer by node id, one select per CII line; "Transfer again" runs with your changes. */
+function showBranchTable(rows) {
+  if (!rows) return;
+  const choices = branchChoices(rows);
+  const picks = {};
+  const pick = r => {
+    const s = el('select', {onchange: () => { picks[r.line] = s.value; }},
+      el('option', {value: '', textContent: 'as found'}), el('option', {value: 'skip', textContent: 'skip this line'}),
+      ...choices.map(c => el('option', {value: String(c.ordinal), textContent: c.name})));
+    return s;
+  };
+  const shown = branchTableRows(rows);
+  $('trBranches').replaceChildren(el('h3', {textContent: 'Branch table (CII line -> XML branch, by node id)'}),
+    el('div', {className: 'scroll'}, el('table', {},
+      el('tr', {}, ...['CII line', 'XML branch', 'Found', 'Change'].map(h => el('th', {textContent: h}))),
+      ...rows.map((r, i) => el('tr', {}, ...shown[i].map(c => el('td', {textContent: c})), el('td', {}, pick(r)))))),
+    el('button', {textContent: 'Transfer again with this branch table',
+      onclick: () => guarded(() => fromCii(last.xmlFile, last.ciiFile, last.sidecarFile,
+        branchMapFrom(rows, picks)))}));
+}
+
+/** Section 5 without a receipt: the page runs the transfer from the CAESAR II file, then the usual run under locks.
+ * branchMap (T3): your rows of the branch table, for a transfer by node id. */
+async function fromCii(xmlFile, ciiFile, sidecarFile = null, branchMap = null) {
   u2d = null;
+  last = {xmlFile, ciiFile, sidecarFile};
   $('trU2d').replaceChildren();
+  $('trBranches').replaceChildren();
   if (!xmlFile || !ciiFile) throw new Error('open the Enriched XML and the CAESAR II file first');
   if (!$('trScale').value) throw new Error('choose the unit of the CII weights first (N for a file from the XML to CII tab)');
   name = xmlFile.name.replace(/\.[^.]+$/, '');
   const targetBytes = new Uint8Array(await xmlFile.arrayBuffer());
   const sidecarBytes = sidecarFile ? new Uint8Array(await sidecarFile.arrayBuffer()) : null;
-  const made = await transferWithNewNodes({targetBytes, ciiBytes: new Uint8Array(await ciiFile.arrayBuffer()), sidecarBytes, weightScale: Number($('trScale').value),
+  const ciiBytes = new Uint8Array(await ciiFile.arrayBuffer());
+  const made = await transferWithNewNodes({targetBytes, ciiBytes, sidecarBytes, branchMap,
+    weightScale: Number($('trScale').value),
     names: {cii: ciiFile.name, target: xmlFile.name, revised: `${name}_transferred.xml`, sidecar: sidecarFile?.name}, onStatus: text => say(text, false)});
   u2d = made.u2d;
   const {summary} = u2d.receipt;
@@ -149,6 +176,7 @@ async function fromCii(xmlFile, ciiFile, sidecarFile = null) {
     + `${summary.ciiElements} CII elements; refused: ${refused}. ${(u2d.ms / 1000).toFixed(1)} s in this browser.`;
   if (summary.supports) $('trU2d').textContent += ' ' + supportsLine(summary.supports);
   if (u2d.receipt.byId) $('trU2d').textContent += ' ' + byIdLine(u2d.receipt.byId);
+  showBranchTable(u2d.receipt.branchTable);
   run({xmlText: made.xmlText, doc: made.doc, newNodes: made.newNodes, receiptText: u2d.receiptText, stagedJsonText: await fileText('supStaged'),
     configText: await fileText('supConfig'), rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
 }

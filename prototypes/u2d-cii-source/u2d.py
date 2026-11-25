@@ -118,19 +118,22 @@ def build_receipt(*, names, cii_bytes, target, revised, u1, items, weight_scale,
     if result.get("byId"):
         # T2 (Owner 22 Nov 2026): transferred by node id with step 10's CII sidecar (names[3] is its file name).
         receipt["byId"] = {**result["byId"], "sidecarFileName": names[3] if len(names) > 3 else None}
+    if result.get("branchTable") is not None:
+        receipt["branchTable"] = result["branchTable"]     # T3: the table the branch values went by
     return receipt
 
 
 def plan_with_sidecar(target: bytes, cii_bytes: bytes, match: dict, weight_scale: float, items: list,
-                      sidecar: bytes | None) -> dict:
-    """plan(), by node id when step 10's CII sidecar (its file bytes) is given (T2, Owner 22 Nov 2026)."""
+                      sidecar: bytes | None, branch_map: dict | None = None) -> dict:
+    """plan(), by node id when step 10's CII sidecar (its file bytes) is given (T2, Owner 22 Nov 2026); branch_map: the
+    user's rows of the branch table (T3; only with a sidecar)."""
     if sidecar is None:
-        return plan(target, cii_bytes.decode("utf-8"), match, weight_scale, items)
+        return plan(target, cii_bytes.decode("utf-8"), match, weight_scale, items, branch_map=branch_map)
     try:
         side = json.loads(bytes(sidecar).decode("utf-8-sig"))
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
         raise ValueError(f"U2D_SIDECAR_INVALID: the sidecar is not JSON ({e}). Nothing was transferred.") from e
-    result = plan(target, cii_bytes.decode("utf-8"), match, weight_scale, items, sidecar=side)
+    result = plan(target, cii_bytes.decode("utf-8"), match, weight_scale, items, sidecar=side, branch_map=branch_map)
     result["byId"]["sidecarSha256"] = sha256(bytes(sidecar))
     return result
 
@@ -144,6 +147,8 @@ def main(argv=None) -> int:
                    help="RIGID weight units of the CII per kg: 10 = the standalone tab default (kg x 10 = N), 1 = kg")
     p.add_argument("--items", default="name,weight,element")
     p.add_argument("--sidecar", type=Path, help="step 10's CII sidecar for --target: transfer by node id (T2)")
+    p.add_argument("--branch-map", type=Path,
+                   help="JSON {CII line: branch ordinal or null}: rows of the branch table (T3)")
     a = p.parse_args(argv)
     created = False
     try:
@@ -154,7 +159,8 @@ def main(argv=None) -> int:
         match = json.loads(a.match.read_text(encoding="utf-8"))
         check_inputs(target, cii_bytes, a.cii_v14.read_bytes(), match)
         side = a.sidecar.read_bytes() if a.sidecar else None
-        result = plan_with_sidecar(target, cii_bytes, match, a.weight_scale, a.items.split(","), side)
+        branch_map = json.loads(a.branch_map.read_text(encoding="utf-8")) if a.branch_map else None
+        result = plan_with_sidecar(target, cii_bytes, match, a.weight_scale, a.items.split(","), side, branch_map)
         with tempfile.TemporaryDirectory() as tmp:
             edits = Path(tmp) / "edits.json"
             edits.write_text(json.dumps(u1_envelope(target, result)), encoding="utf-8")

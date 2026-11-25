@@ -119,10 +119,12 @@ export async function matchForU2d(targetBytes, v14Bytes, ciiName) {
  * Transfer the CAESAR II values into the Enriched XML.
  * names: {cii, target, revised[, sidecar]} file names for the receipt. Returns {revisedBytes, receiptText, receipt, ms}.
  * sidecarBytes (T2, Owner 22 Nov 2026): step 10's CII sidecar for targetBytes; the transfer then goes by node id
- * (u2d_sidecar.py) and the receipt carries a byId block.
+ * (u2d_sidecar.py) and the receipt carries a byId block. branchMap (T3): {CII line: branch ordinal, or null to skip},
+ * the user's rows of the branch table (receipt.branchTable); only with sidecarBytes.
  * Refusals are thrown as Error with the U2D_/U1_/MATCH_ code at the start of the message; nothing is returned then.
  */
-export async function transferCiiIntoXml({targetBytes, ciiBytes, sidecarBytes = null, names, weightScale, items = 'name,weight,element', createdAt, ...load}) {
+export async function transferCiiIntoXml({targetBytes, ciiBytes, sidecarBytes = null, branchMap = null, names,
+  weightScale, items = 'name,weight,element', createdAt, ...load}) {
   if (weightScale !== 10 && weightScale !== 1) throw new Error('U2D_WEIGHT_SCALE_REQUIRED: the CII weight unit must be chosen: 10 (N, kg x 10) or 1 (kg)');
   const started = Date.now();
   const {py, browser} = await prepareU2d(load);
@@ -132,7 +134,7 @@ export async function transferCiiIntoXml({targetBytes, ciiBytes, sidecarBytes = 
   // Page rule (the command line has no such check): a CII with no node at any point of this XML is another model's file.
   if (!match.nodePairs?.length) throw new Error(`U2D_NO_NODE_PAIRS: no node of ${names.cii} is at a point of ${names.target}; it looks like another model's CAESAR II file. Nothing was transferred.`);
   const planJson = pyCall(() => browser.plan_edits(pyBytes(py, target), pyBytes(py, cii), pyBytes(py, v14), JSON.stringify(match), weightScale, items,
-    sidecarBytes ? pyBytes(py, bytesOf(sidecarBytes)) : null));
+    sidecarBytes ? pyBytes(py, bytesOf(sidecarBytes)) : null, branchMap ? JSON.stringify(branchMap) : null));
   const {envelope} = JSON.parse(planJson);
   const u1 = await applyPsi116Edits(target, envelope.edits, {fileSha256: envelope.fileSha256});
   const u1Json = JSON.stringify({sha256Before: u1.sha256Before, sha256After: u1.sha256After, changes: u1.changes});
