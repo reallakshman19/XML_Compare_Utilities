@@ -138,16 +138,47 @@ def paired_into(el: dict, bi: int, pairs: dict, nodes: dict) -> bool:
     return all(ends) and any(k[0] == bi for e in ends for k in e)
 
 
-def branch_values(cii: dict, brs: dict, pairs: dict, nodes: dict, sources: dict | None = None) -> tuple[dict, list]:
+def branch_table(cii: dict, ids: dict, branch_map: dict | None = None) -> dict:
+    """T3 (Owner 22 Nov 2026: "filled from the ids, the user changes only what is wrong"): CII line name -> the XML
+    branch ordinals its elements' node ids land on (each element by its "to" end, the end on its own branch).
+    branch_map {line: branch ordinal, or None to skip the line} replaces rows; an unknown line is refused. Each row
+    also counts the line's elements."""
+    if branch_map is not None and not isinstance(branch_map, dict):
+        raise ValueError("U2D_BRANCH_MAP_INVALID: the branch table is not a JSON object {CII line: branch number or "
+                         "null}.")
+    lines, count = {}, {}
+    for el, (_, to) in zip(cii["elements"], ids["ends"]):
+        if element_branch(el):
+            lines.setdefault(element_branch(el), set()).add(to[0])
+            count[element_branch(el)] = count.get(element_branch(el), 0) + 1
+    table = {name: {"branches": sorted(bis), "by": "ids", "elements": count[name]} for name, bis in lines.items()}
+    for name, bi in (branch_map or {}).items():
+        if name not in table:
+            raise ValueError(f"U2D_BRANCH_MAP_INVALID: the branch table names CII line {name!r}, which this CII does "
+                             "not have.")
+        if bi is not None and not (isinstance(bi, int) and not isinstance(bi, bool)):
+            raise ValueError(f"U2D_BRANCH_MAP_INVALID: CII line {name!r} is mapped to {bi!r}, not a branch number.")
+        table[name] = {"branches": [] if bi is None else [bi], "by": "user", "elements": count[name]}
+    return table
+
+
+def branch_values(cii: dict, brs: dict, pairs: dict, nodes: dict, sources: dict | None = None,
+                  table: dict | None = None) -> tuple[dict, list]:
     """(branchOrdinal, field) -> set of texts from every element whose line-number field names
     the branch and whose ends matched this XML (paired_into). A branch named by CII elements none
     of which matched is refused (U2D_BRANCH_NOT_PAIRED). A CII temperature 0 is the converter's
     'unset' (-100000). A material equal to the one carried in from the previous element is not
     taken as the branch's own. sources, when given, gets (branchOrdinal, field) -> [[element, element its line number
-    was written on], ...]: the CII elements each value came from."""
+    was written on], ...]: the CII elements each value came from. table (T3, with the sidecar): branch_table's rows
+    give each line's XML branch instead of its name; a row the user set takes the line's elements without the pairs
+    check."""
     by_name = {}
     for bi, b in brs.items():
         by_name.setdefault(b["name"], []).append(bi)
+    user = set()
+    if table is not None:
+        by_name = {name: row["branches"] for name, row in table.items()}
+        user = {name for name, row in table.items() if row["by"] == "user"}   # the user's row wins over the pairs check
     want, refused, carried = {}, [], {}
     named, used = set(), set()
     prev = 1.0
@@ -155,8 +186,9 @@ def branch_values(cii: dict, brs: dict, pairs: dict, nodes: dict, sources: dict 
         name = element_branch(el)
         targets = by_name.get(name, [])
         if len(targets) > 1:
-            refused.append({"code": "U2D_BRANCH_NAME_SHARED", "branch": name})
-        if len(targets) == 1 and not paired_into(el, targets[0], pairs, nodes):
+            code = "U2D_BRANCH_NAME_SHARED" if table is None else "U2D_BRANCH_LINE_SPLIT"
+            refused.append({"code": code, "branch": name})
+        if len(targets) == 1 and name not in user and not paired_into(el, targets[0], pairs, nodes):
             named.add(targets[0])
         elif len(targets) == 1:
             bi = targets[0]
@@ -184,7 +216,8 @@ def branch_values(cii: dict, brs: dict, pairs: dict, nodes: dict, sources: dict 
                         "detail": "CII elements with no line number (none written before them, or unreadable): "
                                   "their branch values are not taken"})
     jumped = [element_label(el) for el in cii["elements"] if el.get("lineNumberAcrossJump")
-              and len(by_name.get(element_branch(el), [])) == 1 and not paired_into(el, by_name[element_branch(el)][0], pairs, nodes)]
+              and len(by_name.get(element_branch(el), [])) == 1 and element_branch(el) not in user
+              and not paired_into(el, by_name[element_branch(el)][0], pairs, nodes)]
     if jumped:
         refused.append({"code": "U2D_LINE_NUMBER_ACROSS_JUMP", "elements": len(jumped), "first": jumped[:5],
                         "detail": "CII elements whose line number CAESAR II carried across a jump, with an end off that "
@@ -257,9 +290,10 @@ def step10_supports(target_bytes: bytes, cii_text: str, match: dict, sidecar: di
 
 
 def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, items=("name", "weight", "element"),
-         sidecar: dict | None = None) -> dict:
+         sidecar: dict | None = None, branch_map: dict | None = None) -> dict:
     """sidecar (T2, Owner 22 Nov 2026): step 10's CII sidecar for this Enriched XML; each element end then goes to the
-    record of its node id (u2d_sidecar.by_id), and the branches take the pairs those ids give."""
+    record of its node id (u2d_sidecar.by_id), and the branches take the pairs those ids give. With it, branch values go
+    by the branch table (T3, branch_table; branch_map: the user's changes to it)."""
     nodes, brs = read_target(target_bytes)
     cii = parse_cii(cii_text)
     pairs = {}
@@ -297,7 +331,14 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
         for k in sorted(nodes):
             first.setdefault(k[0], nodes[k]["ref"])
         sources = {}
-        bv, refused_branches = branch_values(cii, brs, pairs, nodes, sources)
+        table = branch_table(cii, ids, branch_map) if ids else None
+        if branch_map and not ids:
+            raise ValueError("U2D_BRANCH_MAP_INVALID: a branch table needs step 10's CII sidecar.")
+        for name, row in (table or {}).items():
+            if any(bi not in brs for bi in row["branches"]):
+                raise ValueError(f"U2D_BRANCH_MAP_INVALID: CII line {name!r} is mapped to a branch this XML does not "
+                                 "have.")
+        bv, refused_branches = branch_values(cii, brs, pairs, nodes, sources, table)
         refused += [dict(t) for t in sorted({tuple(sorted((k, str(v)) for k, v in r.items())) for r in refused_branches})]
         for (bi, field), texts in sorted(bv.items()):
             before = brs[bi]["values"].get(field)
@@ -324,6 +365,11 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
     if ids:
         check = ids["report"]["positionCheck"]
         out["byId"] = ids["report"]
+        if "element" in items:
+            out["branchTable"] = [{"line": name, "branches": [brs[bi]["name"] for bi in row["branches"]],
+                                   "ordinals": row["branches"], "by": row["by"], "elements": row["elements"]}
+                                  for name, row in sorted(table.items())]
+            out["xmlBranches"] = [{"ordinal": bi, "name": brs[bi]["name"]} for bi in sorted(brs)]
         out["summary"]["byId"] = {"renumbered": len(ids["report"]["renumbered"]), "otherPlace": len(check["otherPlace"]),
                                   "notPairedByPosition": len(check["notPairedByPosition"])}
     return out
