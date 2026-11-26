@@ -238,6 +238,40 @@ class SupportsByStep10Ef05(SupportsByStep10):
             refused = [(r["code"], r.get("ciiNode")) for r in s["refused"]]
             self.assertEqual(refused, [] if cii == self.cii else [("U2D_SUPPORT_MERGED_COPY", "800")])
 
+    def with_own_support(self, cii_nodes: tuple, move: tuple | None = None) -> tuple:
+        """(xml, sidecar): the EF-05 fixture with the numbered nodes `cii_nodes` given the +Y that step 10 moves onto
+        them (the moved node's restraint text), and `move` = (ComponentRefNo, new Position) of a node moved. The
+        sidecar lists each of those supports `from: xml` on its numbered node, as real step 10 wrote these cases."""
+        text = self.xml.decode("utf-8")
+        side = json.loads(json.dumps(self.sidecar))
+        refs = {i["id"]: i for n in side["nodes"] + [{"ids": side["notInCii"]}] for i in n["ids"]}
+        for c in cii_nodes:
+            entry = next(b for b in side["ciiSupports"] if b["cii"] == c)
+            w = entry["written"][0]
+            source = refs[w["fromId"]]["ComponentRefNo"][0]
+            moved = text.index("<Restraint>", text.index(source + "<"))
+            restraint = text[moved:text.index("</Restraint>", moved) + len("</Restraint>")]
+            end = text.index("</Node>", text.index(f"<NodeNumber>{c}</NodeNumber>"))
+            text = text[:end] + restraint + "\n" + text[end:]
+            node = next(i for n in side["nodes"] if n["cii"] == c for i in n["ids"])
+            entry["written"] = [{**{k: v for k, v in w.items() if k != "fromId"}, "from": "xml", "id": node["id"]}]
+        if move:
+            at = text.index(move[0] + "<")
+            text = text[:at] + re.sub("<Position>[^<]*</Position>", f"<Position>{move[1]}</Position>", text[at:], 1)
+        xml = text.encode("utf-8")
+        side["enriched"]["sha256"] = hashlib.sha256(xml).hexdigest()
+        return xml, side
+
+    def test_a_moved_support_on_a_node_step_10_contracts_away_is_refused(self):
+        """PR 319 review round 2 B1 (m7): nodes 800 and 910 hold the +Y step 10 moves onto them, and ATTA 121152
+        sits 3 mm on, at node 930, which step 10 contracts into 910 (a span of 6 mm or less). Step 10 writes one +Y
+        at 910 and does not list the ATTA's. A change at 910 is refused (written on 910 alone, step 10 brings the
+        ATTA's +Y back: real round trip rt7, 2 +Y where CAESAR II has 1); untouched, no row."""
+        xml, side = self.with_own_support((800, 910), ("=1006649732/121152", "444665.15 -1472771.40 102707.15"))
+        self.assertEqual(self.plan_rows(xml, side, self.cii), ([], []))
+        for cii in (edited(self.cii, 910, friction=0.2), edited(self.cii, 910, delete=True)):
+            self.assertEqual(self.plan_rows(xml, side, cii), ([], [("U2D_SUPPORT_MERGED_COPY", "910")]))
+
     def with_atta(self, index: int, position: str, ref: str, moved_from_new: bool) -> tuple:
         """(xml, sidecar): the EF-05 fixture with an unnumbered ATTA (+Y, like the fixture's ATTA at node 800's bend
         end) put in branch 3 (ordinal 2) at node ordinal `index`, the later places shifted, and its id listed under
@@ -582,8 +616,20 @@ class SupportsByStep10Bm2(SupportsByStep10):
     def test_node_120_is_step_10s_anci_rule(self):
         self.assertEqual([(w["from"], w["rule"], w["type"]) for w in self.rule["written"]], [("rule", "componentType", 14)])
 
-    def test_untouched_bm2_counts_only_the_supports_step_10_does_not_write(self):
-        self.assertEqual(self.summary()["refused"], {"U2D_SUPPORT_NOT_IN_CII": 2})
+    def test_untouched_bm2_has_no_support_step_10_does_not_write(self):
+        """S-fix 3i round 3: nodes 3300 and 3340 are second ANCI records at the points of 3290 and 3330, with the same
+        +Y. Step 10 contracts them into those nodes (sidecar: notInCii) and writes one +Y each, so they are no longer
+        reported NOT_IN_CII (before: 2)."""
+        self.assertEqual(self.summary()["refused"], {})
+
+    def test_an_edit_where_step_10_contracted_a_second_support_is_refused(self):
+        """S-fix 3i round 3, real round trip (25-26 Nov): main wrote CAESAR II's friction 0.2 at node 3290 on 3290 only;
+        step 10 then wrote +Y 0.2 and the +Y 0.3 of node 3300 at 3290, where CAESAR II has 1. Now refused."""
+        for cii in (edited(self.cii, 3290, friction=0.2), edited(self.cii, 3290, delete=True)):
+            s = self.supports(cii)
+            self.assertEqual(s["changes"], [])
+            self.assertEqual([(r["code"], r["ciiNode"]) for r in self.listed_refusals(s)],
+                             [("U2D_SUPPORT_MERGED_COPY", "3290")])
 
     def test_a_rule_support_edited_is_written_on_its_anci_node(self):
         s = self.supports(edited(self.cii, 120, friction=0.2))

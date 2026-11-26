@@ -187,6 +187,33 @@ def step10_places(xml_bytes: bytes) -> dict:
     return out
 
 
+STEP10_SHORT_MM = 6.0     # step 10's SHORT_ELEMENT_LENGTH_DROP_THRESHOLD_MM
+
+
+def step10_absorbed(xml_bytes: bytes, in_cii: set) -> dict:
+    """(branchOrdinal, nodeOrdinal) of a numbered node step 10 did not write (in_cii: the numbered records the sidecar
+    lists in the CII) -> the written numbered nodes that may hold its supports. Step 10 contracts a span of 6 mm or
+    less into one of its two nodes (3D_Converters _contract_short_element_nodes, by node priority), so here: in each
+    direction along the branch's numbered nodes, the first written one reached through spans of 6 mm or less."""
+    out = {}
+    for bi, nodes in enumerate(branch_nodes(xml_bytes)):
+        numbered = [ni for ni, n in enumerate(nodes) if (num(child(n, "NodeNumber")) or 0) > 0 and position(n)]
+        for i, ni in enumerate(numbered):
+            if (bi, ni) in in_cii:
+                continue
+            holders = []
+            for step in (-1, 1):
+                j = i
+                while 0 <= j + step < len(numbered) and math.dist(
+                        position(nodes[numbered[j]]), position(nodes[numbered[j + step]])) <= STEP10_SHORT_MM:
+                    j += step
+                    if (bi, numbered[j]) in in_cii:
+                        holders.append((bi, numbered[j]))
+                        break
+            out[(bi, ni)] = holders
+    return out
+
+
 def step10_may_write(xml_bytes: bytes) -> dict:
     """(branchOrdinal, nodeOrdinal) -> "moved" or "rule": numbered nodes where step 10 may write a support that the XML
     does not hold on that node. S-fix step 1 (Owner 23 Nov 2026, "Yes, as suggested"): from the CII alone such a support
@@ -651,18 +678,23 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
                 unlisted.setdefault(k, []).append(s)
             else:
                 left.remove(hit)
-    places = step10_places(target_bytes)
+    # Where step 10 writes the supports of a node it does not write itself (S-fix 3i): an unnumbered node on the node
+    # step10_places gives, a numbered node it contracted away on its neighbour; either way through a contraction.
+    in_cii = {at[i] for ids in ids_at.values() for i in ids if i in at}
+    absorbed = step10_absorbed(target_bytes, in_cii)
+    placed = step10_places(target_bytes)
+    lands = {**absorbed, **{j: [t] if t in in_cii else absorbed.get(t, [t]) for j, t in placed.items()}}
 
     def copy_refusal(k, c, n, s):
         """Dropping step 10's support s from record k (CII node c, step 10 node n): refused where step 10 wrote it from
         identical supports on several node ids (it merges those: 25 Nov check, node 10 of EF-05), or where an
-        identical support of an unnumbered node that step 10 puts on a record of CII node n (step10_places) is not
+        identical support of a node whose supports step 10 writes on a record of CII node n (lands) is not
         listed (S-fix 3i: step 10 drops an incoming support equal to one already there), or where the sidecar does not
         list the record's supports one by one (step 10 writes each restraint of one record, copies included)."""
         if any(i != id_of.get(k) and i in at and any(matches(x, s) for x in xml.get(at[i], [])) for i in ids_at.get(n, [])):
             return "U2D_SUPPORT_MERGED_COPY"
         targets = {at[i] for i in ids_at.get(n, []) if i in at} | {k}
-        if any(matches(x, s) for j, t in places.items() if t in targets and j != k for x in unlisted.get(j, [])):
+        if any(matches(x, s) for j, ts in lands.items() if j != k and set(ts) & targets for x in unlisted.get(j, [])):
             return "U2D_SUPPORT_MERGED_COPY"
         have, stands = xml.get(k, []), stands_for(k)
         as_written = [x if st == [] else st[0] for x, st in zip(have, stands) if st is not None]
@@ -781,15 +813,16 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
                         "step10": sorted(p["from"]), "before": [describe(s) for s in have], "after": [describe(s) for s in want],
                         "beforeText": "; ".join(map(text_dir, have)) or "none", "afterText": "; ".join(map(text_dir, want)) or "none"})
     # XML supports step 10 did not write: neither listed as read from their node, nor equal to one step 10 wrote at the
-    # CII node of that node id, or of the numbered node step 10's own rule puts it on (step10_places; step 10 writes
-    # identical supports on several node ids at one point once, and drops a moved support equal to one already there).
+    # CII node of that node id, or of a numbered node step 10 writes its supports on (lands: moved, or contracted;
+    # step 10 writes identical supports on several node ids at one point once, and drops an
+    # incoming support equal to one already there).
     merged = {}
     for n, sup in written.items():
         for i in ids_at.get(n, []):
             if i in at:
                 merged.setdefault(at[i], []).extend(s for s, _ in sup)
-    for j, k in places.items():
-        merged.setdefault(j, []).extend(merged.get(k, []))
+    for j, ts in lands.items():
+        merged.setdefault(j, []).extend(x for t in ts for x in merged.get(t, []))
     for k, sup in sorted(unlisted.items()):
         for s in sup:
             if not any(matches(s, x) for x in merged.get(k, [])):
