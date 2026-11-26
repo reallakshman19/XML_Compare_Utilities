@@ -20,6 +20,7 @@ import {supportRows, supportsLine} from './transfer/SupportLines.js';
 import {byIdLine} from './transfer/ByIdLine.js';
 import {branchChoices, branchMapFrom, branchTableRows} from './transfer/BranchTableView.js';
 import {materialFollowRows} from './transfer/MaterialFollowRows.js';
+import {NODE_FILTERS, nodeTableRows} from './transfer/NodeTableView.js';
 
 const $ = id => document.getElementById(id);
 const BENCH = '../../fixtures/';
@@ -156,6 +157,24 @@ function showBranchTable(rows, xmlBranches, files) {
         branchMapFrom(rows, picks)))}));
 }
 
+/** T4: the node table of a transfer by node id (read only), with a filter. No table (no sidecar): the place is
+ * cleared. */
+function showNodeTable(rows) {
+  if (!rows) { $('trNodes').replaceChildren(); return; }
+  const body = el('tbody');
+  const draw = filter => body.replaceChildren(...nodeTableRows(rows, filter)
+    .map(r => el('tr', {}, ...r.map(c => el('td', {textContent: c})))));
+  const pick = el('select', {onchange: () => draw(pick.value)},
+    ...Object.entries(NODE_FILTERS).map(([value, label]) => el('option', {value, textContent: label})));
+  const title = `Node table (CII node -> XML node, by node id; ${rows.length} nodes)`;
+  $('trNodes').replaceChildren(el('h3', {textContent: title}),
+    el('label', {textContent: 'Show '}, pick),
+    el('div', {className: 'scroll'}, el('table', {},
+      el('thead', {}, el('tr', {}, ...['CII node', 'Step 10 node', 'XML node(s)', 'Position check', 'Edits', 'Supports',
+        'Refused'].map(h => el('th', {textContent: h})))), body)));
+  draw('all');
+}
+
 /** Section 5 without a receipt: the page runs the transfer from the CAESAR II file, then the usual run under locks.
  * branchMap (T3): your rows of the branch table, for a transfer by node id. */
 async function fromCii(xmlFile, ciiFile, sidecarFile = null, branchMap = null) {
@@ -178,6 +197,7 @@ async function fromCii(xmlFile, ciiFile, sidecarFile = null, branchMap = null) {
   if (summary.supports) $('trU2d').textContent += ' ' + supportsLine(summary.supports);
   if (u2d.receipt.byId) $('trU2d').textContent += ' ' + byIdLine(u2d.receipt.byId);
   showBranchTable(u2d.receipt.branchTable, u2d.receipt.xmlBranches, {xmlFile, ciiFile, sidecarFile});
+  showNodeTable(u2d.receipt.nodeTable);
   run({xmlText: made.xmlText, doc: made.doc, newNodes: made.newNodes, receiptText: u2d.receiptText, stagedJsonText: await fileText('supStaged'),
     configText: await fileText('supConfig'), rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
 }
@@ -191,6 +211,7 @@ function wire() {
     u2d = null;
     $('trU2d').replaceChildren();
     $('trBranches').replaceChildren();
+    $('trNodes').replaceChildren();
     run({xmlText, receiptText, stagedJsonText: await fileText('supStaged'), configText: await fileText('supConfig'),
       rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
   }));
@@ -220,6 +241,7 @@ function wire() {
     u2d = null;
     $('trU2d').replaceChildren();
     $('trBranches').replaceChildren();
+    $('trNodes').replaceChildren();
     name = 'BM2-transfer';
     run({xmlText: await fetchText(SAMPLE.xml), receiptText: await fetchText(SAMPLE.receipt), stagedJsonText: '', configText: '',
       rowsText: await fetchText(DEFAULT_ROWS)});

@@ -162,6 +162,37 @@ def branch_table(cii: dict, ids: dict, branch_map: dict | None = None) -> dict:
     return table
 
 
+def node_table(ids: dict, nodes: dict, edits: list, refused: list, supports: dict) -> list:
+    """T4 (road map 26 Nov 2026): one row per CII node of a transfer by node id, in element order. Each row gives the
+    CII number, step 10's number (other than the CII's when CAESAR II renumbered the node), the XML node(s) its element
+    ends land on, whether the position check agrees, and what the transfer did there: value edits, support changes and
+    refusal codes. Read only: built from the transfer's own results, so the table cannot disagree with it."""
+    check = ids["report"]["positionCheck"]
+    other = {r["ciiNode"] for r in check["otherPlace"]}
+    unpaired = {r["ciiNode"] for r in check["notPairedByPosition"]}
+    place = lambda ref: (ref["branchOrdinal"], ref["nodeOrdinal"])  # noqa: E731
+    edited, codes, moved = {}, {}, {}
+    for e in edits:
+        if not e["field"].startswith("Branch/"):
+            edited[place(e["ref"])] = edited.get(place(e["ref"]), 0) + 1
+    for r in refused:
+        if "ref" in r:
+            codes.setdefault(place(r["ref"]), set()).add(r["code"])
+    for r in supports["changes"]:
+        moved[r["ciiNode"]] = moved.get(r["ciiNode"], 0) + 1
+    for r in supports["refused"]:
+        codes.setdefault(r["ciiNode"], set()).add(r["code"])
+    rows = []
+    for c, keys in ids["pairs"].items():
+        rows.append({"cii": c, "step10": ids["renumber"].get(c, c),
+                     "xml": [{"branch": nodes[k]["ref"]["branchName"], "branchOrdinal": k[0], "node": k[1] + 1,
+                              "nodeNumber": nodes[k]["ref"]["nodeNumber"],
+                              "name": nodes[k]["values"].get("Node/NodeName") or ""} for k in keys],
+                     "check": "other place" if c in other else "not paired by position" if c in unpaired else "agrees",
+                     "edits": sum(edited.get(k, 0) for k in keys), "supports": moved.get(c, 0),
+                     "refused": sorted(codes.get(c, set()).union(*(codes.get(k, set()) for k in keys)))})
+    return rows
+
 def branch_values(cii: dict, brs: dict, pairs: dict, nodes: dict, sources: dict | None = None,
                   table: dict | None = None) -> tuple[dict, list]:
     """(branchOrdinal, field) -> set of texts from every element whose line-number field names
@@ -370,6 +401,7 @@ def plan(target_bytes: bytes, cii_text: str, match: dict, weight_scale: float, i
                                    "ordinals": row["branches"], "by": row["by"], "elements": row["elements"]}
                                   for name, row in sorted(table.items())]
             out["xmlBranches"] = [{"ordinal": bi, "name": brs[bi]["name"]} for bi in sorted(brs)]
+        out["nodeTable"] = node_table(ids, nodes, edits, refused, supports)
         out["summary"]["byId"] = {"renumbered": len(ids["report"]["renumbered"]), "otherPlace": len(check["otherPlace"]),
                                   "notPairedByPosition": len(check["notPairedByPosition"])}
     return out

@@ -121,6 +121,8 @@ def build_receipt(*, names, cii_bytes, target, revised, u1, items, weight_scale,
     if result.get("branchTable") is not None:
         receipt["branchTable"] = result["branchTable"]     # T3: the table the branch values went by
         receipt["xmlBranches"] = result["xmlBranches"]     # T3: every XML branch, for the page's choices
+    if result.get("nodeTable") is not None:
+        receipt["nodeTable"] = result["nodeTable"]         # T4: where each CII node went and what was done there
     return receipt
 
 
