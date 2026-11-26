@@ -1,0 +1,10 @@
+{
+  "original_sources": {
+    "forcmnt_codec.py": "b16c1d93d26d3c06eefce195052c0adb4e46b66c3b1953d3d381eae2a9c20612",
+    "forcmnt_physical.py": "94352affce75deb1b4a0a50856204cbbadfb523f8bb4da4b0c298e55abc43150"
+  },
+  "parser_change": "Only decode parser adapter changes; physical scanner copied byte-exact",
+  "source_fixture": "existing public Benchmark/T.CII",
+  "authorship": "PRIMARY_AUTHOR_SIDE",
+  "non_author_acceptance": "NOT_RUN"
+}

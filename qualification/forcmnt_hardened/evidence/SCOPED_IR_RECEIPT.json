@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "receipt_class": "PRIMARY_RECONCILIATION_OF_SUPPLIED_ASSISTING_IR",
+  "disposition": "SCOPED_ORIGINAL_FIXTURE_PASS",
+  "reconciled_on": "2026-10-30",
+  "candidate_identity": "2e69f9e0c1f5f1e46c11911d9918223058653847e732aa065f6602823408cd96",
+  "platform": "Linux x86_64 / Python 3.13.5",
+  "received_archive": {
+    "bytes": 34824,
+    "sha256": "7a05ee7600fbfb750b36fbe1412806940284351e3eb178615a6c6a16ab34987a"
+  },
+  "archive_files": 23,
+  "reviewer_verifier": {
+    "bytes": 16602,
+    "sha256": "725badc8fe3594461f7ebe02b188d4db247fc1f5e94728f4050a37ad722b0494"
+  },
+  "source": {
+    "public_path": "Benchmark/T.CII",
+    "bytes": 2866002,
+    "sha256": "abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060"
+  },
+  "body": {
+    "bytes": 9060,
+    "sha256": "b6602bcdd4d48a13952af26171d3c620071e4e39361072c7500babd5dd558d7e",
+    "records": 6,
+    "fields": 660,
+    "pointers": 1614
+  },
+  "successful_child_processes": 5,
+  "protected_identities_unchanged": 48,
+  "source_comparison": {
+    "original": "PASS",
+    "resealed_shifted_pointer": "REJECT",
+    "resealed_wrong_valid_owner": "REJECT"
+  },
+  "codec_internal_reconstruction": "ACCEPTS_ORIGINAL_AND_BOTH_INTERNALLY_CONSISTENT_PROVENANCE_FALSIFIERS",
+  "literal_splice": {
+    "bytes": 13,
+    "body_offset": 19,
+    "expected_body_sha256": "67edd413a28be07af9595e10a990347455244fe68fae3719ab88a70797fc4364"
+  },
+  "exposure": "PR206/R2/earlier synthetic review; not blind; no hardened candidate authorship disclosed",
+  "publication_test_execution": "NOT_RUN",
+  "raw_review_artifacts_published": false,
+  "native_caesar": "NOT_RUN",
+  "engineering_semantics": "UNQUALIFIED",
+  "whole_file_admission": "NOT_QUALIFIED",
+  "owner_acceptance": "NOT_GRANTED",
+  "merge": "HOLD"
+}
