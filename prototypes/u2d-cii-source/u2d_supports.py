@@ -679,19 +679,27 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
             else:
                 left.remove(hit)
     # Where step 10 writes the supports of a node it does not write itself (S-fix 3i): an unnumbered node on the node
-    # step10_places gives, a numbered node it contracted away on its neighbour; either way through a contraction.
-    in_cii = {at[i] for ids in ids_at.values() for i in ids if i in at}
+    # step10_places gives (on that node's holders when it was contracted away), a numbered node it contracted away on
+    # its neighbour.
+    # A record step 10 wrote in its own branch is one the sidecar lists AND one of its elements uses (S-fix 3j: a record
+    # contracted away can keep its node number through another branch's record, BM2 300 [1,74]); a listed record no
+    # element uses goes to its contraction neighbours. (Its own CII node's records are already covered: the
+    # several-ids check in copy_refusal, and `merged` below.)
+    used = {at[i] for ids in used_at.values() for i in ids if i in at}
+    in_cii = {at[i] for ids in ids_at.values() for i in ids if i in at and at[i] in used}
     absorbed = step10_absorbed(target_bytes, in_cii)
     placed = step10_places(target_bytes)
     lands = {**absorbed, **{j: [t] if t in in_cii else absorbed.get(t, [t]) for j, t in placed.items()}}
 
     def copy_refusal(k, c, n, s):
         """Dropping step 10's support s from record k (CII node c, step 10 node n): refused where step 10 wrote it from
-        identical supports on several node ids (it merges those: 25 Nov check, node 10 of EF-05), or where an
+        identical supports on several node ids (it merges those: 25 Nov check, node 10 of EF-05; S-fix 3j: only where
+        the other id's support is not listed, so a copy the sidecar lists on its own stays changeable), or where an
         identical support of a node whose supports step 10 writes on a record of CII node n (lands) is not
         listed (S-fix 3i: step 10 drops an incoming support equal to one already there), or where the sidecar does not
         list the record's supports one by one (step 10 writes each restraint of one record, copies included)."""
-        if any(i != id_of.get(k) and i in at and any(matches(x, s) for x in xml.get(at[i], [])) for i in ids_at.get(n, [])):
+        if any(i != id_of.get(k) and i in at and any(matches(x, s) for x in unlisted.get(at[i], []))
+               for i in ids_at.get(n, [])):
             return "U2D_SUPPORT_MERGED_COPY"
         targets = {at[i] for i in ids_at.get(n, []) if i in at} | {k}
         if any(matches(x, s) for j, ts in lands.items() if j != k and set(ts) & targets for x in unlisted.get(j, [])):
