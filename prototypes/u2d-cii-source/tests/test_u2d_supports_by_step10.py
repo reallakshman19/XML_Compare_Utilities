@@ -30,7 +30,7 @@ sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE))
 from test_u2d_supports import ROOT, match_for  # noqa: E402
 from u2d_plan import plan  # noqa: E402
-from u2d_supports import step10_absorbed  # noqa: E402
+from u2d_supports import step10_absorbed, step10_written  # noqa: E402
 
 FIX = ROOT / "fixtures" / "uxml-v2-transfer"
 
@@ -212,12 +212,47 @@ class SupportsByStep10Ef05(SupportsByStep10):
         self.assertEqual([(c["ciiNode"], c["kind"], c["step10"]) for c in s["changes"]], [("800", "removed", ["moved"])])
         self.assertLessEqual(float(s["changes"][0]["ref"]["nodeNumber"]), 0)
 
+    def test_identical_supports_on_two_ids_at_one_point_are_refused(self):
+        """S-fix 3j round 1 (review N2, mutant K2): CII node 10 is two XML records ([0,0] and [1,35]) at one point.
+        Given the same Y, real step 10 (v10, 3D_Converters 33e2c350) wrote one Y at 10 and listed it from one of them;
+        this is that input (the CII slot for node 10 is the real run's, here in a free slot of node 50's block).
+        Untouched: no row. A change of that Y is refused: written on one record, step 10 brings the other's back."""
+        text = self.xml.decode("utf-8")
+        nl = "\r\n" if "\r\n" in text else "\n"
+        restraint = nl.join(["<Restraint>", "<Type>Y</Type>", "<Stiffness>0</Stiffness>", "<Gap>0</Gap>",
+                             "<Friction>0.3</Friction>", "<DirectionCosineX>0.000000000</DirectionCosineX>",
+                             "<DirectionCosineY>1.000000000</DirectionCosineY>",
+                             "<DirectionCosineZ>0.000000000</DirectionCosineZ>", "</Restraint>"]) + nl
+        branches = [m.start() for m in re.finditer("<Branch>", text)]
+        ends = [text.index("</Node>", [m.start() + branches[bi] for m in re.finditer("<Node>", text[branches[bi]:])][ni])
+                for bi, ni in ((0, 0), (1, 35))]
+        for end in sorted(ends, reverse=True):
+            text = text[:end] + restraint + text[end:]
+        xml = text.encode("utf-8")
+        side = json.loads(json.dumps(self.sidecar))
+        side["enriched"]["sha256"] = hashlib.sha256(xml).hexdigest()
+        first = next(i["id"] for n in side["nodes"] if n["cii"] == 10 for i in n["ids"] if i["at"] == [0, 0])
+        side["ciiSupports"].append({"cii": 10, "written": [{"type": 3, "stiffness": 0, "gap": 0, "friction": 0.3,
+                                    "cosines": [0, 1, 0], "from": "xml", "support": "u:test-10", "id": first}]})
+        nl = "\r\n" if "\r\n" in self.cii else "\n"
+        rows = self.cii.split(nl)
+        j = slot_line(rows, 50, 1)
+        rows[j] = "  " + "".join(f"{v:13.6f}" for v in (10, 3, 0, 0, 0.3, 0))
+        rows[j + 1] = "  " + "".join(f"{c:13.6f}" for c in (0.0, 1.0, 0.0))
+
+        def at10(friction=0.3, node=10):
+            out = list(rows)
+            out[j] = field(field(out[j], 4, f"{friction:13.6f}"), 0, f"{node:13.6f}")
+            return nl.join(out)
+        self.assertEqual(self.plan_rows(xml, side, at10()), ([], []))
+        for cii in (at10(friction=0.2), at10(node=0)):
+            self.assertEqual(self.plan_rows(xml, side, cii), ([], [("U2D_SUPPORT_MERGED_COPY", "10")]))
+
     def test_a_listed_moved_copy_does_not_block_an_edit_of_the_other_copy(self):
         """S-fix 3j (mutant I3 survived PR 319): node 800 holds a +Y without cosines and step 10 moves the ATTA's +Y
-        onto it. Real step 10 (v9, 3D_Converters 33e2c350) wrote 2 +Y at 800 and listed both (`from: xml`,
-        `from: moved`);
-        this is that input (the CII has the two at node 800). Both are listed, so CAESAR II's change of one copy is
-        written, not refused as a merged copy."""
+        onto it. Real step 10 (v9, 3D_Converters 33e2c350) wrote 2 +Y at 800 and listed both (`from: xml`, `from:
+        moved`); this is that input (the CII has the two at node 800). Both are listed, so CAESAR II's change of one
+        copy is written, not refused as a merged copy."""
         w = next(w for b in self.sidecar["ciiSupports"] if b["cii"] == 800 for w in b["written"])
         node = next(i for n in self.sidecar["nodes"] if n["cii"] == 800 for i in n["ids"])
         text = self.xml.decode("utf-8")
@@ -731,6 +766,7 @@ class SupportsByStep10Bm2(SupportsByStep10):
 
 del SupportsByStep10
 
+
 class ContractionWalk(unittest.TestCase):
     def test_a_contracted_node_goes_to_the_written_node_before_or_after_it(self):
         """S-fix 3j (PR 319 round 3 review N1): step 10 keeps the node of a short span with the higher priority, which
@@ -745,6 +781,20 @@ class ContractionWalk(unittest.TestCase):
         self.assertEqual(step10_absorbed(xml, {(0, 0), (0, 2)}), {(0, 1): [(0, 0)], (0, 3): [(0, 2)]})
         self.assertEqual(step10_absorbed(xml, {(0, 0), (0, 3)})[(0, 1)], [(0, 0)])
         self.assertEqual(step10_absorbed(xml, {(0, 0), (0, 3)})[(0, 2)], [(0, 3)])
+
+    def test_a_listed_record_no_element_uses_and_no_neighbour_holds_is_written(self):
+        """S-fix 3j round 1 (review B1, m9): step 10 makes no element for a branch with one numbered node, yet writes
+        its supports (real m9 run: one +Y at 1060). Listed and alone, it counts as written, and a numbered record 3 mm
+        on (contracted) goes to it; listed but next to a written node, it is contracted as before (m8)."""
+        def node(number, x):
+            return (f"<Node><NodeNumber>{number}</NodeNumber><ComponentType>PIPE</ComponentType>"
+                    f"<Position>{x} 0 0</Position></Node>")
+        xml = ("<PipingModel><Pipe><Branch><Branchname>/A</Branchname>" + node(10, 0) + node(20, 100)
+               + node(25, 103) + "</Branch><Branch><Branchname>/B</Branchname>" + node(30, 500) + node(40, 503)
+               + "</Branch></Pipe></PipingModel>").encode("utf-8")
+        in_cii, absorbed = step10_written(xml, {(0, 0), (0, 1), (0, 2), (1, 0)}, {(0, 0), (0, 1)})
+        self.assertEqual(in_cii, {(0, 0), (0, 1), (1, 0)})
+        self.assertEqual(absorbed, {(0, 2): [(0, 1)], (1, 1): [(1, 0)]})
 
 
 if __name__ == "__main__":

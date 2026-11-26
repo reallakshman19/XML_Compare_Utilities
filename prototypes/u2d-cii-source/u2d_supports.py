@@ -214,6 +214,19 @@ def step10_absorbed(xml_bytes: bytes, in_cii: set) -> dict:
     return out
 
 
+def step10_written(xml_bytes: bytes, listed: set, used: set) -> tuple[set, dict]:
+    """(in_cii, absorbed): the numbered records step 10 wrote in their own branch, and step10_absorbed for the rest.
+    Written: listed in the sidecar and used by one of step 10's elements (S-fix 3j), or listed with no written
+    neighbour within reach, so not contracted but written alone (3j review B1, m9: a branch with one numbered node
+    has no element, yet step 10 writes its supports); the walk then runs again, so a record next to it goes to it."""
+    in_cii = listed & used
+    absorbed = step10_absorbed(xml_bytes, in_cii)
+    while lone := {j for j, ts in absorbed.items() if not ts and j in listed}:
+        in_cii |= lone
+        absorbed = step10_absorbed(xml_bytes, in_cii)
+    return in_cii, absorbed
+
+
 def step10_may_write(xml_bytes: bytes) -> dict:
     """(branchOrdinal, nodeOrdinal) -> "moved" or "rule": numbered nodes where step 10 may write a support that the XML
     does not hold on that node. S-fix step 1 (Owner 23 Nov 2026, "Yes, as suggested"): from the CII alone such a support
@@ -686,8 +699,8 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
     # element uses goes to its contraction neighbours. (Its own CII node's records are already covered: the
     # several-ids check in copy_refusal, and `merged` below.)
     used = {at[i] for ids in used_at.values() for i in ids if i in at}
-    in_cii = {at[i] for ids in ids_at.values() for i in ids if i in at and at[i] in used}
-    absorbed = step10_absorbed(target_bytes, in_cii)
+    listed_at = {at[i] for ids in ids_at.values() for i in ids if i in at}
+    in_cii, absorbed = step10_written(target_bytes, listed_at, used)
     placed = step10_places(target_bytes)
     lands = {**absorbed, **{j: [t] if t in in_cii else absorbed.get(t, [t]) for j, t in placed.items()}}
 
@@ -712,8 +725,8 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
 
     def target_for_added(n):
         here = [i for i in ids_at.get(n, []) if i in at]
-        used = [i for i in here if i in used_at.get(n, set())]
-        pick = here if len(here) == 1 else used
+        by_element = [i for i in here if i in used_at.get(n, set())]
+        pick = here if len(here) == 1 else by_element
         return at[pick[0]] if len(pick) == 1 else None
 
     for c in sorted(set(cii) | set(step10_of), key=lambda x: (num(x) is None, num(x) or 0, x)):
