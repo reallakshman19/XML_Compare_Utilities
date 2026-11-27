@@ -22,6 +22,9 @@ const PLAIN = {
   U2D_SUPPORT_COPIES_WRITTEN_ONCE: 'held more than once in CAESAR II where step 10 merges copies of several XML nodes '
     + '(written once)',
   U2D_SUPPORT_COPIES_NOT_LISTED: 'on an XML node whose supports the sidecar does not list one by one (not applied)',
+  // S-fix 3k (26 Nov 2026): step 10 gives every ATTA without a support its default rest support
+  U2D_SUPPORT_ATTA_DEFAULT: "that are an ATTA's last support, deleted in CAESAR II; step 10 would give it back "
+    + '(not applied)',
 };
 const KIND = {edited: 'support edited', added: 'support added', removed: 'support removed'};
 const where = r => (r.ref ? `${r.ref.branchName} node ${r.ref.nodeNumber}` : `CII node ${r.ciiNode}`);

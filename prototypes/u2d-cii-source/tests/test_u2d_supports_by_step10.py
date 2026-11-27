@@ -30,7 +30,7 @@ sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE))
 from test_u2d_supports import ROOT, match_for  # noqa: E402
 from u2d_plan import plan  # noqa: E402
-from u2d_supports import step10_absorbed, step10_written  # noqa: E402
+from u2d_supports import branch_nodes, child, step10_absorbed, step10_written  # noqa: E402
 
 FIX = ROOT / "fixtures" / "uxml-v2-transfer"
 
@@ -183,6 +183,8 @@ class SupportsByStep10Ef05(SupportsByStep10):
 
 
     def xml_support_node(self):
+        """The first CII node step 10 wrote one support at, read from one XML record (in EF-05 every such record is an
+        ATTA)."""
         return next(b for b in self.sidecar["ciiSupports"] if [w["from"] for w in b["written"]] == ["xml"])
 
     def test_a_moved_support_edited_and_copied_is_edited_on_its_source_with_a_row(self):
@@ -199,18 +201,48 @@ class SupportsByStep10Ef05(SupportsByStep10):
         self.assertEqual(self.summary(cii)["refused"], {"U2D_SUPPORT_COPIES_WRITTEN_ONCE": 1})
 
     def test_an_xml_support_deleted_is_removed_from_its_own_node(self):
-        b = self.xml_support_node()
-        s = self.supports(edited(self.cii, b["cii"], delete=True))
-        self.assertEqual(self.listed_refusals(s), [])
-        self.assertEqual([(c["ciiNode"], c["kind"]) for c in s["changes"]], [(str(b["cii"]), "removed")])
-        at = next(i["at"] for n in self.sidecar["nodes"] for i in n["ids"] if i["id"] == b["written"][0]["id"])
-        self.assertEqual([s["changes"][0]["ref"]["branchOrdinal"], s["changes"][0]["ref"]["nodeOrdinal"]], at)
+        """An XML support of a record that is no ATTA, deleted in CAESAR II, is removed from that record. EF-05 has no
+        such support, so: the BRAN [8,0] at CII node 3150 gets a +Y. Real step 10 (3D_Converters 33e2c350, 26 Nov run
+        k3) wrote that +Y at 3150 in place of the open-end anchor and listed it from [8,0]; this is that input."""
+        text = self.xml.decode("utf-8")
+        nl = "\r\n" if "\r\n" in text else "\n"
+        branch = [m.start() for m in re.finditer("<Branch>", text)][8]
+        end = text.index("</Node>", text.index("<Node>", branch))
+        text = text[:end] + nl.join(["<Restraint>", "<Type>+Y</Type>", "<Stiffness>1751270000000</Stiffness>",
+                                     "<Gap>0</Gap>", "<Friction>0.3</Friction>", "</Restraint>"]) + nl + text[end:]
+        xml = text.encode("utf-8")
+        self.assertEqual(child(branch_nodes(xml)[8][0], "ComponentType").upper(), "BRAN")
+        side = json.loads(json.dumps(self.sidecar))
+        side["enriched"]["sha256"] = hashlib.sha256(xml).hexdigest()
+        first = next(i["id"] for n in side["nodes"] if n["cii"] == 3150 for i in n["ids"] if i["at"] == [8, 0])
+        for b in side["ciiSupports"]:
+            if b["cii"] == 3150:
+                b["written"] = [{"type": 14, "stiffness": 1751270000000, "gap": 0, "friction": 0.3,
+                                 "cosines": [0, 1, 0], "from": "xml", "support": "u:test-3150", "id": first}]
+        nl = "\r\n" if "\r\n" in self.cii else "\n"
+        rows = self.cii.split(nl)
+        k = slot_line(rows, 3150)
+        rows[k] = field(field(field(rows[k], 1, f"{14:13.4f}"), 2, f"{1.75127e12:13.6E}"), 4, f"{0.3:13.6f}")
+        rows[k + 1] = "  " + "".join(f"{c:13.6f}" for c in (0.0, 1.0, 0.0))
+        one = nl.join(rows)
+        self.assertEqual(self.plan_rows(xml, side, one), ([], []))
+        changes, refused = self.plan_rows(xml, side, edited(one, 3150, delete=True))
+        self.assertEqual((changes, refused), ([("3150", "removed", "none")], []))
 
-    def test_a_moved_support_deleted_is_removed_from_its_unnumbered_node(self):
-        s = self.supports(edited(self.cii, 800, delete=True))
-        self.assertEqual(self.listed_refusals(s), [])
-        self.assertEqual([(c["ciiNode"], c["kind"], c["step10"]) for c in s["changes"]], [("800", "removed", ["moved"])])
-        self.assertLessEqual(float(s["changes"][0]["ref"]["nodeNumber"]), 0)
+    def test_the_last_support_of_an_atta_deleted_is_refused(self):
+        """S-fix 3k (PR 320 review N1): step 10 gives every ATTA without a support its default rest support
+        (atta-default-restraint-closure.js). Real round trips: main's delete at node 780 (an ATTA's own +Y) and the
+        delete at 800 (a +Y step 10 moves there from an ATTA) both came back. So deleting an ATTA's last support is
+        refused, and nothing is written; an edit of it is still written."""
+        b = self.xml_support_node()
+        at = next(i["at"] for n in self.sidecar["nodes"] for i in n["ids"] if i["id"] == b["written"][0]["id"])
+        self.assertEqual(child(branch_nodes(self.xml)[at[0]][at[1]], "ComponentType").upper(), "ATTA")
+        for node in (b["cii"], 800):
+            s = self.supports(edited(self.cii, node, delete=True))
+            self.assertEqual(s["changes"], [], node)
+            rows = self.listed_refusals(s)
+            self.assertEqual([(r["code"], r["ciiNode"]) for r in rows], [("U2D_SUPPORT_ATTA_DEFAULT", str(node))])
+        self.assertEqual(len(self.supports(edited(self.cii, b["cii"], friction=0.2))["changes"]), 1)
 
     def test_identical_supports_on_two_ids_at_one_point_are_refused(self):
         """S-fix 3j round 1 (review N2, mutant K2): CII node 10 is two XML records ([0,0] and [1,35]) at one point.
@@ -224,8 +256,8 @@ class SupportsByStep10Ef05(SupportsByStep10):
                              "<DirectionCosineY>1.000000000</DirectionCosineY>",
                              "<DirectionCosineZ>0.000000000</DirectionCosineZ>", "</Restraint>"]) + nl
         branches = [m.start() for m in re.finditer("<Branch>", text)]
-        ends = [text.index("</Node>", [m.start() + branches[bi] for m in re.finditer("<Node>", text[branches[bi]:])][ni])
-                for bi, ni in ((0, 0), (1, 35))]
+        starts = {bi: [m.start() + branches[bi] for m in re.finditer("<Node>", text[branches[bi]:])] for bi in (0, 1)}
+        ends = [text.index("</Node>", starts[bi][ni]) for bi, ni in ((0, 0), (1, 35))]
         for end in sorted(ends, reverse=True):
             text = text[:end] + restraint + text[end:]
         xml = text.encode("utf-8")
@@ -475,7 +507,7 @@ class SupportsByStep10Ef05(SupportsByStep10):
 
     def test_copies_step_10_listed_one_by_one_are_changed_one_by_one(self):
         """Step 3h: node 50 holds its support twice and the sidecar lists both (as step 10 writes them). CAESAR II
-        deleting or editing one copy changes one restraint; deleting both removes both."""
+        deleting or editing one copy changes one restraint; deleting both is refused (node 50 is an ATTA, S-fix 3k)."""
         side, b, run = self.node50(copies=1)
         b["written"].append(dict(b["written"][0]))
         w = b["written"][0]
@@ -483,8 +515,12 @@ class SupportsByStep10Ef05(SupportsByStep10):
         self.assertEqual(run(two)["changes"], [])
         for cii, ops in ((self.slot(two, 1, 0, f"{0:13.6f}"), ["keep", "remove"]),
                          (self.slot(two, 1, 4, f"{0.1:13.6f}"), ["keep", "edit"]),
-                         (self.slot(self.slot(two, 1, 0, f"{0:13.6f}"), 0, 0, f"{0:13.6f}"), ["remove", "remove"])):
+                         (self.slot(self.slot(two, 1, 0, f"{0:13.6f}"), 0, 0, f"{0:13.6f}"), None)):
             s = run(cii)
+            if ops is None:      # node 50 is an ATTA: deleting both copies is refused (S-fix 3k)
+                self.assertEqual(([c["kind"] for c in s["changes"]], [r["code"] for r in self.listed_refusals(s)]),
+                                 ([], ["U2D_SUPPORT_ATTA_DEFAULT"]))
+                continue
             self.assertEqual(self.listed_refusals(s), [], ops)
             self.assertEqual([[o["op"] for o in c["restraints"]] for c in s["changes"]], [ops])
 
@@ -608,9 +644,9 @@ class SupportsByStep10Ef05(SupportsByStep10):
             s = run([(8, self.Z, 0.3)] * (n - 1) + [(8, Y, 0.3)])
             self.assertEqual(sorted(t.split(", ")[-1] for t in s["changes"][0]["afterText"].split("; ")),
                              ["direction +Y"] + ["direction not given"] * (n - 1))
-            s = run([None])
-            self.assertEqual(self.listed_refusals(s), [])
-            self.assertEqual([c["kind"] for c in s["changes"]], ["removed"])
+            s = run([None])      # node 50 is an ATTA: deleting every guide is refused (S-fix 3k)
+            self.assertEqual(s["changes"], [])
+            self.assertEqual([r["code"] for r in self.listed_refusals(s)], ["U2D_SUPPORT_ATTA_DEFAULT"])
 
     def test_identical_guides_listed_in_two_directions_are_refused(self):
         """Reviews of PR 312 N2/N3 and PR 313 N1 built sidecars where identical GUIs without cosines were written in
@@ -784,8 +820,9 @@ class ContractionWalk(unittest.TestCase):
 
     def test_a_listed_record_no_element_uses_and_no_neighbour_holds_is_written(self):
         """S-fix 3j round 1 (review B1, m9): step 10 makes no element for a branch with one numbered node, yet writes
-        its supports (real m9 run: one +Y at 1060). Listed and alone, it counts as written, and a numbered record 3 mm
-        on (contracted) goes to it; listed but next to a written node, it is contracted as before (m8)."""
+        its supports (real m9 run: one +Y at 1060). Listed and alone, it counts as written, and an unlisted numbered
+        record 3 mm on goes to it; listed but next to a written node, it is contracted as before (m8). A small XML: its
+        branch /B tests the walk only (step 10 itself keeps a two-node branch whole)."""
         def node(number, x):
             return (f"<Node><NodeNumber>{number}</NodeNumber><ComponentType>PIPE</ComponentType>"
                     f"<Position>{x} 0 0</Position></Node>")
