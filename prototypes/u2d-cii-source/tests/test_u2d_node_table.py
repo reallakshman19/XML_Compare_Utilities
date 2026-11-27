@@ -54,9 +54,12 @@ class NodeTable(unittest.TestCase):
         self.assertEqual(sum(row["edits"] for row in rows), len(node_edits))
         self.assertEqual(sum(row["supports"] for row in rows), len(r["supports"]["changes"]))
         shown = {(row["cii"], c) for row in rows for c in row["refused"]}
-        for s in r["supports"]["refused"]:
-            self.assertIn((s["ciiNode"], s["code"]), shown)
         by_place = {(x["branchOrdinal"], x["node"] - 1): row for row in rows for x in row["xml"]}
+        for s in r["supports"]["refused"]:
+            if "ciiNode" in s:
+                self.assertIn((s["ciiNode"], s["code"]), shown)
+            elif (s["ref"]["branchOrdinal"], s["ref"]["nodeOrdinal"]) in by_place:  # else no CII node goes there
+                self.assertIn(s["code"], by_place[(s["ref"]["branchOrdinal"], s["ref"]["nodeOrdinal"])]["refused"])
         for f in r["refused"]:
             if "ref" in f:
                 row = by_place[(f["ref"]["branchOrdinal"], f["ref"]["nodeOrdinal"])]
@@ -101,7 +104,7 @@ class NodeTable(unittest.TestCase):
 
 class NodeTableBm2(NodeTable):
     MODEL = "BM2"
-    NODES = 425
+    NODES = 423  # distinct node numbers over BM2's 433 elements
 
 
 if __name__ == "__main__":

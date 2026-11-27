@@ -180,8 +180,8 @@ def node_table(ids: dict, nodes: dict, edits: list, refused: list, supports: dic
             codes.setdefault(place(r["ref"]), set()).add(r["code"])
     for r in supports["changes"]:
         moved[r["ciiNode"]] = moved.get(r["ciiNode"], 0) + 1
-    for r in supports["refused"]:
-        codes.setdefault(r["ciiNode"], set()).add(r["code"])
+    for r in supports["refused"]:  # by CII node, or by XML place when step 10 wrote it there and CAESAR II has none
+        codes.setdefault(r["ciiNode"] if "ciiNode" in r else place(r["ref"]), set()).add(r["code"])
     rows = []
     for c, keys in ids["pairs"].items():
         rows.append({"cii": c, "step10": ids["renumber"].get(c, c),
