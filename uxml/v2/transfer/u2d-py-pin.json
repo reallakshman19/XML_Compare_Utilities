@@ -19,7 +19,7 @@
   },
   "prototypes/u2d-cii-source/u2d_supports.py": {
    "to": "u2d-cii-source/u2d_supports.py",
-   "sha256": "a39e628f3ef503a148ff58d47485f2f6144b7756e059ff5d90935b662ba743aa"
+   "sha256": "27e4d807fde78286d4dee03b5d200a1eef09442cd83e0674bf439f774e28dc13"
   },
   "prototypes/u2d-cii-source/u2d_sidecar.py": {
    "to": "u2d-cii-source/u2d_sidecar.py",

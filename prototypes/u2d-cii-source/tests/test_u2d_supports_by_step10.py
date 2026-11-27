@@ -30,7 +30,8 @@ sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE))
 from test_u2d_supports import ROOT, match_for  # noqa: E402
 from u2d_plan import plan  # noqa: E402
-from u2d_supports import branch_nodes, child, step10_absorbed, step10_placeholders, step10_written  # noqa: E402
+from u2d_supports import (branch_nodes, child, step10_absorbed, step10_bare, step10_placeholders,  # noqa: E402
+                          step10_written, step10_zero_info)
 
 FIX = ROOT / "fixtures" / "uxml-v2-transfer"
 
@@ -514,6 +515,44 @@ class SupportsByStep10Ef05(SupportsByStep10):
         changes, refused = self.plan_rows(xml, side, edited(two, 780, delete=True))
         self.assertEqual(([(c, k) for c, k, _ in changes], refused), ([("780", "edited")], []))
 
+    def test_an_atta_support_changed_into_a_zero_information_limit_is_refused(self):
+        """PR 322 review point 1: a LIM CAESAR II writes with no direction (cosines 0 0 0) and stiffness 0 is written
+        back as LIM, stiffness 0, gap 0, friction: no cosine, no source, so step 10 replaces it by the default +Y.
+        ATTA 780 holds +Y. Its +Y changed into such a LIM, or deleted and such a LIM added: refused. A LIM with a
+        stiffness, or such a LIM added beside the kept +Y: written."""
+        nl = "\r\n" if "\r\n" in self.cii else "\n"
+
+        def lim(stiffness=0.0, keep=False):
+            rows = self.cii.split(nl)
+            i = slot_line(rows, 780)
+            j = i if not keep else slot_line(rows, 780, 1)
+            rows[j] = field(field(field(rows[i], 0, f"{780:13.3f}"), 1, f"{9:13.4f}"), 2, f"{stiffness:13.6f}")
+            rows[j + 1] = "  " + "".join(f"{c:13.6f}" for c in (0.0, 0.0, 0.0))
+            return nl.join(rows)
+
+        def moved_to_slot_1():
+            rows = lim().split(nl)
+            i, j = slot_line(rows, 780), slot_line(rows, 780, 1)
+            rows[j], rows[j + 1] = rows[i], rows[i + 1]
+            rows[i] = field(self.cii.split(nl)[i], 0, f"{0:13.6f}")
+            rows[i + 1] = self.cii.split(nl)[i + 1]
+            return nl.join(rows)
+
+        refused = ([], [("U2D_SUPPORT_ATTA_DEFAULT", "780")])
+        self.assertEqual(self.plan_rows(self.xml, self.sidecar, lim()), refused)
+        self.assertEqual(self.plan_rows(self.xml, self.sidecar, moved_to_slot_1()), refused)
+        for cii in (lim(stiffness=1000.0), lim(keep=True)):
+            changes, refused = self.plan_rows(self.xml, self.sidecar, cii)
+            self.assertEqual(([(c, k) for c, k, _ in changes], refused), ([("780", "edited")], []))
+        # An edit keeps the element and its attributes: with a source on 780's +Y, step 10 counts the LIM: written.
+        text = self.xml.decode("utf-8")
+        at = text.index("<Restraint", text.index("<NodeNumber>780</NodeNumber>"))
+        xml = (text[:at] + '<Restraint source="survey"' + text[at + len("<Restraint"):]).encode("utf-8")
+        side = json.loads(json.dumps(self.sidecar))
+        side["enriched"]["sha256"] = hashlib.sha256(xml).hexdigest()
+        changes, refused = self.plan_rows(xml, side, lim())
+        self.assertEqual(([(c, k) for c, k, _ in changes], refused), ([("780", "edited")], []))
+
     def node50(self, restraint=None, copies=0):
         """EF05 with node 50's <Restraint> replaced by `restraint` and/or followed by `copies` identical copies, its
         sidecar re-hashed, and a runner of plan() on that pair."""
@@ -875,6 +914,19 @@ class Step10Placeholders(unittest.TestCase):
         for attr in ("source", "basis", "resolvedKey"):
             self.assertEqual(self.found(f'<Restraint {attr}="a"><Type>LIM</Type></Restraint>'), set(), attr)
         self.assertEqual(self.found("<Restraint><Type>GUI</Type></Restraint>"), set())
+
+    def test_texts_and_attributes_read_as_step_10_reads_them(self):
+        """PR 322 round 1: the rule on tag texts (what an edit or add would write) and the attributes an edit keeps."""
+        self.assertTrue(step10_zero_info({"Type": "Line Stop", "Stiffness": "0.000000E+00", "Gap": "0", "Friction": "0.3"}))
+        self.assertTrue(step10_zero_info({"Type": "LIM"}))
+        for extra in ({"Stiffness": "0.5"}, {"Gap": "1e-9"}, {"DirectionCosineX": "1"}, {"DirectionCosineY": "0"},
+                      {"OriginalText": "LIM"}, {"Type": "+Y"}):
+            self.assertFalse(step10_zero_info({"Type": "LIM", **extra}), extra)
+        xml = ('<Model><Branch><Node><Restraint><Type>LIM</Type></Restraint><Restraint source="a"><Type>LIM</Type>'
+               '</Restraint><Restraint basis=" "><Type>LIM</Type></Restraint><Restraint resolvedKey="k"><Type>LIM</Type>'
+               '</Restraint></Node></Branch></Model>').encode("utf-8")
+        self.assertEqual(step10_bare(xml), {(0, 0): {0, 2}})
+        self.assertEqual(step10_placeholders(xml), {(0, 0): {0, 2}})
 
 
 class ContractionWalk(unittest.TestCase):

@@ -62,5 +62,5 @@ test('every support code the Python transfer gives is in plain words (S-fix 3l, 
     assert.doesNotMatch(supportsLine({pointsSame: 1, changes: 0, step10Anchors: 0, refused: {[code]: 1}}), /U2D_/, code);
   }
   assert.match(supportsLine({pointsSame: 1, changes: 0, step10Anchors: 0, refused: {U2D_SUPPORT_ATTA_DEFAULT: 2}}),
-    /not compared: 2 supports deleted in CAESAR II from an ATTA left with no other support; step 10 would add its default rest support there again \(not applied\)\./);
+    /not compared: 2 supports changed or deleted in CAESAR II so an ATTA is left with no support step 10 counts; step 10 would put its default rest support \(\+Y\) there instead \(not applied\)\./);
 });

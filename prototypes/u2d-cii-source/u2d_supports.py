@@ -284,6 +284,23 @@ def _zero_or_blank(text: str) -> bool:
         return False
 
 
+def step10_zero_info(t: dict) -> bool:
+    """Whether step 10 counts a <Restraint> with these tag texts ({tag: text}, stripped) as no restraint, attributes
+    aside (step10_placeholders, step10_bare)."""
+    return ("".join(t.get("Type", "").split()).upper() in STEP10_PLACEHOLDER_TYPES
+            and _zero_or_blank(t.get("Stiffness", "")) and _zero_or_blank(t.get("Gap", ""))
+            and not any(t.get("DirectionCosine" + a) for a in "XYZ")
+            and not any(t.get(x) for x in ("OriginalText", "ResolvedFrom", "SideloadRow")))
+
+
+def step10_bare(xml_bytes: bytes) -> dict:
+    """(branchOrdinal, nodeOrdinal) -> {ordinals of its <Restraint>s with no source, basis or resolvedKey attribute}:
+    an edit keeps the element and its attributes, so these decide with the edited texts whether step 10 counts it."""
+    return {(bi, ni): {ri for ri, r in enumerate(c for c in n if local(c.tag) == "Restraint")
+                       if not any((r.get(a) or "").strip() for a in ("source", "basis", "resolvedKey"))}
+            for bi, ns in enumerate(branch_nodes(xml_bytes)) for ni, n in enumerate(ns)}
+
+
 def step10_placeholders(xml_bytes: bytes) -> dict:
     """(branchOrdinal, nodeOrdinal) -> {ordinals of its <Restraint>s that step 10 counts as no restraint}: a LIM, LIMIT
     or LINESTOP with stiffness and gap 0 or blank, no direction cosine, and no source, basis, resolvedKey, OriginalText,
@@ -535,9 +552,9 @@ WRITTEN_DETAIL = {
     "U2D_SUPPORT_RULE_REMOVED": ("step 10 made this support by its own rule for this component (no support in the XML), "
                                  "and CAESAR II deleted it; the XML cannot say \"no support here\" without changing the "
                                  "Support Mapper rules, so it is not transferred"),
-    "U2D_SUPPORT_ATTA_DEFAULT": ("CAESAR II deleted the last support of an ATTA (a LIM with no stiffness, gap or "
-                                 "direction does not count); step 10 gives every ATTA without a support its default "
-                                 "rest support, so it would add that support again; the delete is not transferred"),
+    "U2D_SUPPORT_ATTA_DEFAULT": ("CAESAR II's change leaves this ATTA with no support that step 10 counts (a LIM with "
+                                 "no stiffness, gap or direction does not count); step 10 gives such an ATTA its "
+                                 "default rest support (+Y) instead, so the change is not transferred"),
     "U2D_SUPPORT_OPEN_END_REMOVED": ("step 10 writes this anchor at an open pipe end itself, and CAESAR II deleted it; "
                                      "the XML cannot keep that, so it is not transferred"),
     "U2D_SUPPORT_SOURCE_UNKNOWN": "the sidecar does not say where step 10 got this support, so its change is not transferred",
@@ -634,8 +651,9 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
     - rule (componentType, keyword) edited: written as a support on its one node id, so the XML then wins over the rule;
       deleted: refused (U2D_SUPPORT_RULE_REMOVED; the Support Mapper rules stay as they are);
     - openEnd edited: CAESAR II's support is added on the node; deleted: refused (U2D_SUPPORT_OPEN_END_REMOVED);
-    - the last support of an ATTA deleted, or all but zero-information LIMs: refused (U2D_SUPPORT_ATTA_DEFAULT; step 10
-      gives every ATTA without a support its default rest support, and the Support Mapper rules stay as they are);
+    - an ATTA left with no support, or only zero-information LIMs (kept, edited into one or added): refused
+      (U2D_SUPPORT_ATTA_DEFAULT; step 10 gives such an ATTA its default rest support, and the Support Mapper rules stay
+      as they are);
     - added: on the node id step 10 wrote that CII node from (the only one there, or the only one its elements use).
     - a node id that gets a support this way loses step 10's rule there, so the rule supports CAESAR II kept at that CII
       node are written on it too.
@@ -852,10 +870,21 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
     # Step 10 gives every ATTA without a restraint its default rest support (3D_Converters
     # atta-default-restraint-closure.js; S-fix 3k, PR 320 review N1, real round trips rt9d and rt9m780), so a delete
     # of an ATTA's last support comes back: refused. So does one that leaves only zero-information LIMs, which step 10
-    # replaces by the same default (S-fix 3l, PR 321 review point 1, real round trips L1 and L0).
+    # replaces by the same default (S-fix 3l, PR 321 review point 1, real round trips L1 and L0), and one that edits or
+    # adds a LIM with no direction and stiffness 0 there (PR 322 review point 1): step 10's rule is applied to what the
+    # change would write.
     atta = {(bi, ni) for bi, ns in enumerate(branch_nodes(target_bytes)) for ni, n in enumerate(ns)
             if child(n, "ComponentType").upper() == "ATTA"}
-    placeholders = step10_placeholders(target_bytes)
+    placeholders, bare = step10_placeholders(target_bytes), step10_bare(target_bytes)
+
+    def step10_counts_none(k, o):
+        """Whether step 10 counts what this restraint op leaves as no restraint (PR 322 review point 1: a LIM CAESAR II
+        writes with no direction and stiffness 0 is one too)."""
+        if o["op"] == "keep":
+            return o["index"] in placeholders.get(k, set())
+        if o["op"] == "edit":
+            return o["index"] in bare.get(k, set()) and step10_zero_info(o["after"])
+        return o["op"] == "remove" or step10_zero_info(o["after"])
     changes = []
     for k, p in sorted(plans.items()):
         c, n = p["cii"], _cii_key(step10_of[p["cii"]])
@@ -868,12 +897,14 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
         if [x for x, _ in after] == have:
             continue
         want = [s for s, _ in after]
-        if k in atta and len(after) == len(kept) and set(kept) <= placeholders.get(k, set()):
-            refuse("U2D_SUPPORT_ATTA_DEFAULT", c, ref=refs[k], before=[text_dir(s) for s in have])
+        ops = restraint_ops(have, texts[k], after, lambda i, x: x == have[i], repeats=False)
+        if k in atta and all(step10_counts_none(k, o) for o in ops):
+            refuse("U2D_SUPPORT_ATTA_DEFAULT", c, ref=refs[k], before=[text_dir(s) for s in have],
+                   **({"after": [text_dir(s) for s in want]} if want else {}))
             continue
         kind = "added" if not have else "removed" if not want else "edited"
         changes.append({"ciiNode": c, "kind": kind, "ref": refs[k], "restraintCount": len(texts[k]),
-                        "restraints": restraint_ops(have, texts[k], after, lambda i, x: x == have[i], repeats=False),
+                        "restraints": ops,
                         "step10": sorted(p["from"]), "before": [describe(s) for s in have], "after": [describe(s) for s in want],
                         "beforeText": "; ".join(map(text_dir, have)) or "none", "afterText": "; ".join(map(text_dir, want)) or "none"})
     # XML supports step 10 did not write: neither listed as read from their node, nor equal to one step 10 wrote at the
