@@ -129,7 +129,10 @@ async function guarded(fn) {
   say('Running the transfer and the stage under its locks…', false);
   try { await fn(); } catch (error) {
     $('trResult').hidden = true;
-    if (error?.code === NOT_THROUGH_STEP_10) { u2d = null; $('trU2d').replaceChildren(); }
+    if (error?.code === NOT_THROUGH_STEP_10) {  // re-review of PR 323: no table of a refused transfer stays on screen
+      u2d = null;
+      for (const id of ['trU2d', 'trBranches', 'trNodes']) $(id).replaceChildren();
+    }
     say('Could not run: ' + String(error?.message || error) + (error?.details && Object.keys(error.details).length ? ' ' + JSON.stringify(error.details) : '')); }
 }
 
@@ -205,14 +208,14 @@ async function fromCii(xmlFile, ciiFile, sidecarFile = null, branchMap = null) {
 
 function wire() {
   $('trRun').addEventListener('click', () => guarded(async () => {
+    u2d = null;  // re-review of PR 323: cleared before the first check, so a refused Run leaves no old table
+    $('trU2d').replaceChildren();
+    $('trBranches').replaceChildren();
+    $('trNodes').replaceChildren();
     const xmlText = await xmlFileText('trXml');
     const receiptText = await fileText('trReceipt');
     if (!xmlText || !receiptText) throw new Error('open the Enriched XML and the transfer receipt first');
     name = $('trXml').files[0].name.replace(/\.[^.]+$/, '');
-    u2d = null;
-    $('trU2d').replaceChildren();
-    $('trBranches').replaceChildren();
-    $('trNodes').replaceChildren();
     run({xmlText, receiptText, stagedJsonText: await fileText('supStaged'), configText: await fileText('supConfig'),
       rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
   }));

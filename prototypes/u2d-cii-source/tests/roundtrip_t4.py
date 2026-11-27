@@ -6,10 +6,12 @@
         node renumbered. Prints {"shared": n}.
     python -E -s roundtrip_t4.py compare <edited.cii> <cii2>
         What step 10's second CII has that differs from the edited CII, over the whole file:
-        "values": element value cells, rows 0-9 (as numbers, so 5.00000 and 5.000000 are the same);
+        "values": element value cells, rows 0-9 (as numbers, so 5.00000 and 5.000000 are the same; a missing or
+        extra cell is None on the side that lacks it);
         "supports": the model supports per node (step 10's open-end anchors left out);
         "lines": every other line of every section (names, weights, materials, bends, SIFs, reducers, coordinates,
-        line numbers, the pointers, CONTROL, RESTRANT itself), token by token, numbers as numbers.
+        line numbers, the pointers, CONTROL, RESTRANT itself), token by token with numbers as numbers; a line with
+        any text in it must be the same text exactly.
         Prints {"values": [[element, row, column, edited, cii2]], "supports": [[node, edited, cii2]],
         "lines": [[section, line, edited, cii2]]}.
 """
@@ -17,6 +19,7 @@ from __future__ import annotations
 
 import json
 import sys
+from itertools import zip_longest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -51,8 +54,10 @@ def differences(a_text: str, b_text: str) -> dict:
     a, b = parse_cii(a_text)["elements"], parse_cii(b_text)["elements"]
     if len(a) != len(b):
         raise SystemExit(f"element counts differ: {len(a)} vs {len(b)}")
+    # Re-review of PR 323: a cell missing from or added to a row shows too (None on the side that lacks it).
     values = [[k, r, c, x, y] for k, (ea, eb) in enumerate(zip(a, b)) for r in range(10)
-              for c, (x, y) in enumerate(zip(ea["E"][r], eb["E"][r])) if num(x) != num(y)]
+              for c, (x, y) in enumerate(zip_longest(ea["E"][r], eb["E"][r]))
+              if x is None or y is None or num(x) != num(y)]
     sa, sb = model_supports(a_text), model_supports(b_text)
     supports = [[n, sa.get(n, []), sb.get(n, [])] for n in sorted(set(sa) | set(sb), key=float)
                 if sa.get(n, []) != sb.get(n, [])]
@@ -60,8 +65,12 @@ def differences(a_text: str, b_text: str) -> dict:
 
 
 def same_line(x: str, y: str) -> bool:
+    """Numbers as numbers; a line with any text (a name in its fixed columns) must be the same text exactly, so a name
+    that moves to the other end of its element shows (re-review of PR 323)."""
     tx, ty = x.split(), y.split()
-    return len(tx) == len(ty) and all(p == q or (num(p) is not None and num(p) == num(q)) for p, q in zip(tx, ty))
+    if any(num(p) is None for p in tx + ty):
+        return x.rstrip() == y.rstrip()
+    return len(tx) == len(ty) and all(num(p) == num(q) for p, q in zip(tx, ty))
 
 
 def other_lines(a_text: str, b_text: str) -> list:
