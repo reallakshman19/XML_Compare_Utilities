@@ -30,7 +30,8 @@ sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE))
 from test_u2d_supports import ROOT, match_for  # noqa: E402
 from u2d_plan import plan  # noqa: E402
-from u2d_supports import branch_nodes, child, step10_absorbed, step10_written  # noqa: E402
+from u2d_supports import (branch_nodes, child, step10_absorbed, step10_bare, step10_placeholders,  # noqa: E402
+                          restraint_reshaped, step10_written, step10_zero_info)
 
 FIX = ROOT / "fixtures" / "uxml-v2-transfer"
 
@@ -203,7 +204,9 @@ class SupportsByStep10Ef05(SupportsByStep10):
     def test_an_xml_support_deleted_is_removed_from_its_own_node(self):
         """An XML support of a record that is no ATTA, deleted in CAESAR II, is removed from that record. EF-05 has no
         such support, so: the BRAN [8,0] at CII node 3150 gets a +Y. Real step 10 (3D_Converters 33e2c350, 26 Nov run
-        k3) wrote that +Y at 3150 in place of the open-end anchor and listed it from [8,0]; this is that input."""
+        k3) wrote that +Y at 3150 in place of the open-end anchor and listed it from [8,0]; this is that input. 3150 is
+        an open pipe end, so after this delete step 10 writes its open-end anchor there again (as on main; PR 321
+        review point 4): this test checks the write to the XML, not a full round trip."""
         text = self.xml.decode("utf-8")
         nl = "\r\n" if "\r\n" in text else "\n"
         branch = [m.start() for m in re.finditer("<Branch>", text)][8]
@@ -465,6 +468,111 @@ class SupportsByStep10Ef05(SupportsByStep10):
                          [("edited", ["keep", "add"])])
 
     # PR 311 review round 2 ------------------------------------------------------------------------------------------
+    def atta780_with_lim(self, attrs: str = "") -> tuple:
+        """EF-05 with ATTA 780 [2,13] holding its +Y and a LIM with stiffness and gap 0 (attributes `attrs`); its
+        sidecar re-hashed and listing both from the XML; CAESAR II's 780 with both, as step 10 wrote them (real run L1,
+        PR 321 review point 1: +Y in slot 0, LIM type 9 stiffness 0 friction 0.3 cosines 0 0 1 in slot 1)."""
+        text = self.xml.decode("utf-8")
+        nl = "\r\n" if "\r\n" in text else "\n"
+        node = text.index("<NodeNumber>780</NodeNumber>")
+        end = text.index("</Restraint>", node) + len("</Restraint>")
+        self.assertLess(end, text.index("</Node>", node))
+        text = text[:end] + nl + nl.join([f"<Restraint{attrs}>", "<Type>LIM</Type>", "<Stiffness>0</Stiffness>",
+                                          "<Gap>0</Gap>", "<Friction>0.3</Friction>", "</Restraint>"]) + text[end:]
+        xml = text.encode("utf-8")
+        self.assertEqual(child(branch_nodes(xml)[2][13], "ComponentType").upper(), "ATTA")
+        side = json.loads(json.dumps(self.sidecar))
+        side["enriched"]["sha256"] = hashlib.sha256(xml).hexdigest()
+        b = next(b for b in side["ciiSupports"] if b["cii"] == 780)
+        self.assertEqual([(w["type"], w["from"]) for w in b["written"]], [(14, "xml")])
+        b["written"].append(dict(b["written"][0], type=9, stiffness=0, cosines=[0, 0, 1], support="u:test-780-lim"))
+        nl = "\r\n" if "\r\n" in self.cii else "\n"
+        rows = self.cii.split(nl)
+        i = slot_line(rows, 780)
+        j = slot_line(rows, 780, 1)
+        rows[j] = field(field(rows[i], 1, f"{9:13.4f}"), 2, f"{0:13.6f}")
+        rows[j + 1] = "  " + "".join(f"{c:13.6f}" for c in (0.0, 0.0, 1.0))
+        return xml, side, nl.join(rows)
+
+    def test_an_atta_left_with_only_a_zero_information_limit_is_refused(self):
+        """S-fix 3l (PR 321 review point 1): step 10 counts a LIM with no stiffness, gap or direction as no support and
+        replaces it by the ATTA's default rest support (real runs L1, L0: "1 placeholder(s) replaced", 780 back with
+        +Y and no LIM). So deleting the +Y beside such a LIM is refused; deleting the LIM, or the +Y beside a LIM that
+        carries a source, is written."""
+        xml, side, two = self.atta780_with_lim()
+        self.assertEqual(self.plan_rows(xml, side, two), ([], []))
+        self.assertEqual(self.plan_rows(xml, side, edited(two, 780, delete=True)),
+                         ([], [("U2D_SUPPORT_ATTA_DEFAULT", "780")]))
+        nl = "\r\n" if "\r\n" in two else "\n"
+        rows = two.split(nl)
+        j = slot_line(rows, 780, 1)
+        rows[j] = field(rows[j], 0, f"{0:13.6f}")
+        changes, refused = self.plan_rows(xml, side, nl.join(rows))
+        self.assertEqual(([(c, k) for c, k, _ in changes], refused), ([("780", "edited")], []))
+        changes, refused = self.plan_rows(xml, side, edited(two, 780, friction=0.2))
+        self.assertEqual(([(c, k) for c, k, _ in changes], refused), ([("780", "edited")], []))
+        xml, side, two = self.atta780_with_lim(' source="survey"')
+        changes, refused = self.plan_rows(xml, side, edited(two, 780, delete=True))
+        self.assertEqual(([(c, k) for c, k, _ in changes], refused), ([("780", "edited")], []))
+
+    def test_an_atta_support_changed_into_a_zero_information_limit_is_refused(self):
+        """PR 322 review point 1: a LIM CAESAR II writes with no direction (cosines 0 0 0) and stiffness 0 is written
+        back as LIM, stiffness 0, gap 0, friction: no cosine, no source, so step 10 replaces it by the default +Y.
+        ATTA 780 holds +Y. Its +Y changed into such a LIM, deleted and such a LIM added, or changed into one with a
+        second added: refused. A LIM with a stiffness, or such a LIM added beside the kept +Y: written. An edit that
+        changes the restraint's tags loses its attributes in the writer, one that keeps them keeps them."""
+        nl = "\r\n" if "\r\n" in self.cii else "\n"
+
+        def lim(stiffness=0.0, keep=False):
+            rows = self.cii.split(nl)
+            i = slot_line(rows, 780)
+            j = i if not keep else slot_line(rows, 780, 1)
+            rows[j] = field(field(field(rows[i], 0, f"{780:13.3f}"), 1, f"{9:13.4f}"), 2, f"{stiffness:13.6f}")
+            rows[j + 1] = "  " + "".join(f"{c:13.6f}" for c in (0.0, 0.0, 0.0))
+            return nl.join(rows)
+
+        def moved_to_slot_1():
+            rows = lim().split(nl)
+            i, j = slot_line(rows, 780), slot_line(rows, 780, 1)
+            rows[j], rows[j + 1] = rows[i], rows[i + 1]
+            rows[i] = field(self.cii.split(nl)[i], 0, f"{0:13.6f}")
+            rows[i + 1] = self.cii.split(nl)[i + 1]
+            return nl.join(rows)
+
+        def two_lims():               # PR 322 r1 review point 2: +Y changed into such a LIM and a second one added
+            rows = lim().split(nl)
+            i, j = slot_line(rows, 780), slot_line(rows, 780, 1)
+            rows[j], rows[j + 1] = rows[i], rows[i + 1]
+            return nl.join(rows)
+
+        atta_default = ([], [("U2D_SUPPORT_ATTA_DEFAULT", "780")])
+        written = ([("780", "edited")], [])
+
+        def rows_of(xml, side, cii):
+            changes, refused = self.plan_rows(xml, side, cii)
+            return [(c, k) for c, k, _ in changes], refused
+
+        for cii in (lim(), moved_to_slot_1(), two_lims()):
+            self.assertEqual(self.plan_rows(self.xml, self.sidecar, cii), atta_default)
+        for cii in (lim(stiffness=1000.0), lim(keep=True)):
+            self.assertEqual(rows_of(self.xml, self.sidecar, cii), written)
+        # PR 322 r1 review point 1: the writer keeps a restraint's attributes only when an edit keeps its tags
+        # (restraint_reshaped). A source on 780's +Y is dropped when the edit removes its cosines: refused.
+        text = self.xml.decode("utf-8")
+        at = text.index("<Restraint", text.index("<NodeNumber>780</NodeNumber>"))
+        xml = (text[:at] + '<Restraint source="survey"' + text[at + len("<Restraint"):]).encode("utf-8")
+        side = json.loads(json.dumps(self.sidecar))
+        side["enriched"]["sha256"] = hashlib.sha256(xml).hexdigest()
+        self.assertEqual(self.plan_rows(xml, side, lim()), atta_default)
+        # A LIM with a source keeps its tags (and so its source) when CAESAR II edits its friction, with no direction,
+        # and deletes the +Y: written.
+        xml, side, two = self.atta780_with_lim(' source="survey"')
+        j = slot_line(two.split(nl), 780, 1)        # slot 0's node becomes 0 once the +Y is deleted
+        rows = edited(two, 780, delete=True).split(nl)
+        rows[j] = field(rows[j], 4, f"{0.2:13.6f}")
+        rows[j + 1] = "  " + "".join(f"{c:13.6f}" for c in (0.0, 0.0, 0.0))
+        self.assertEqual(rows_of(xml, side, nl.join(rows)), written)
+
     def node50(self, restraint=None, copies=0):
         """EF05 with node 50's <Restraint> replaced by `restraint` and/or followed by `copies` identical copies, its
         sidecar re-hashed, and a runner of plan() on that pair."""
@@ -801,6 +909,49 @@ class SupportsByStep10Bm2(SupportsByStep10):
 
 
 del SupportsByStep10
+
+
+class Step10Placeholders(unittest.TestCase):
+    """S-fix 3l: the <Restraint>s step 10 counts as no restraint on an ATTA, as 3D_Converters
+    isZeroInformationLimitRestraintElement reads them (v045 atta-default-restraint-closure.js)."""
+
+    @staticmethod
+    def found(*restraints: str) -> set:
+        xml = ("<Model><Branch><Node><ComponentType>ATTA</ComponentType>" + "".join(restraints)
+               + "</Node></Branch></Model>").encode("utf-8")
+        return step10_placeholders(xml).get((0, 0), set())
+
+    def test_a_limit_with_no_stiffness_gap_or_direction_counts_as_none(self):
+        for typ in ("LIM", "Limit", " line stop ", "LINESTOP"):
+            self.assertEqual(self.found(f"<Restraint><Type>{typ}</Type><Stiffness>0.0</Stiffness></Restraint>"), {0}, typ)
+        self.assertEqual(self.found("<Restraint><Type>+Y</Type></Restraint>", "<Restraint><Type>LIM</Type></Restraint>"),
+                         {1})
+
+    def test_any_information_makes_it_a_support(self):
+        for extra in ("<Stiffness>1</Stiffness>", "<Gap>2</Gap>", "<Gap>x</Gap>", "<DirectionCosineZ>1</DirectionCosineZ>",
+                      "<OriginalText>LIM</OriginalText>", "<ResolvedFrom>a</ResolvedFrom>", "<SideloadRow>3</SideloadRow>"):
+            self.assertEqual(self.found(f"<Restraint><Type>LIM</Type>{extra}</Restraint>"), set(), extra)
+        for attr in ("source", "basis", "resolvedKey"):
+            self.assertEqual(self.found(f'<Restraint {attr}="a"><Type>LIM</Type></Restraint>'), set(), attr)
+        self.assertEqual(self.found("<Restraint><Type>GUI</Type></Restraint>"), set())
+
+    def test_texts_and_attributes_read_as_step_10_reads_them(self):
+        """PR 322 round 1: the rule on tag texts (what an edit or add would write) and the attributes an edit keeps."""
+        self.assertTrue(step10_zero_info({"Type": "Line Stop", "Stiffness": "0.000000E+00", "Gap": "0", "Friction": "0.3"}))
+        self.assertTrue(step10_zero_info({"Type": "LIM"}))
+        for extra in ({"Stiffness": "0.5"}, {"Gap": "1e-9"}, {"DirectionCosineX": "1"}, {"DirectionCosineY": "0"},
+                      {"OriginalText": "LIM"}, {"Type": "+Y"}):
+            self.assertFalse(step10_zero_info({"Type": "LIM", **extra}), extra)
+        xml = ('<Model><Branch><Node><Restraint><Type>LIM</Type></Restraint><Restraint source="a"><Type>LIM</Type>'
+               '</Restraint><Restraint basis=" "><Type>LIM</Type></Restraint><Restraint resolvedKey="k"><Type>LIM</Type>'
+               '</Restraint></Node></Branch></Model>').encode("utf-8")
+        self.assertEqual(step10_bare(xml), {(0, 0): {0, 2}})
+        plus_y = {"Type": "+Y", "Stiffness": "1", "DirectionCosineY": "1"}
+        self.assertTrue(restraint_reshaped(plus_y, {"Type": "LIM", "Stiffness": "0"}))
+        self.assertTrue(restraint_reshaped({"Type": "LIM"}, {"Type": "LIM", "Gap": "1"}))
+        self.assertFalse(restraint_reshaped({"Type": "LIM", "Gap": "0"}, {"Type": "LIM", "Gap": "1"}))
+        self.assertFalse(restraint_reshaped({"Type": "LIM", "Gap": "0"}, {"Type": "LIM", "Gap": "0", "Friction": ""}))
+        self.assertEqual(step10_placeholders(xml), {(0, 0): {0, 2}})
 
 
 class ContractionWalk(unittest.TestCase):

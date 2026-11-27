@@ -52,3 +52,15 @@ test('S-fix step 3: compared with what step 10 wrote, every new code is in plain
   assert.equal(supportRows({changes: [], refused: []}, 'step10').none, 'CAESAR II has the same supports as step 10 wrote, on every node.');
   assert.equal(supportRows({changes: [], refused: []}).none, 'CAESAR II has the same supports as the XML on every paired node.');
 });
+
+test('every support code the Python transfer gives is in plain words (S-fix 3l, PR 321 review point 3)', async () => {
+  const {readFile} = await import('node:fs/promises');
+  const py = await readFile(new URL('../prototypes/u2d-cii-source/u2d_supports.py', import.meta.url), 'utf8');
+  const codes = [...new Set(py.match(/U2D_SUPPORT_[A-Z0-9_]+/g))];
+  assert.ok(codes.includes('U2D_SUPPORT_ATTA_DEFAULT'), codes.join());
+  for (const code of codes) {
+    assert.doesNotMatch(supportsLine({pointsSame: 1, changes: 0, step10Anchors: 0, refused: {[code]: 1}}), /U2D_/, code);
+  }
+  assert.match(supportsLine({pointsSame: 1, changes: 0, step10Anchors: 0, refused: {U2D_SUPPORT_ATTA_DEFAULT: 2}}),
+    /not compared: 2 supports changed or deleted in CAESAR II so an ATTA is left with no support step 10 counts; step 10 would put its default rest support \(\+Y\) there instead \(not applied\)\./);
+});
