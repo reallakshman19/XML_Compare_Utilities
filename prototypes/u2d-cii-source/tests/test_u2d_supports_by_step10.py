@@ -31,7 +31,7 @@ sys.path.insert(0, str(HERE))
 from test_u2d_supports import ROOT, match_for  # noqa: E402
 from u2d_plan import plan  # noqa: E402
 from u2d_supports import (branch_nodes, child, step10_absorbed, step10_bare, step10_placeholders,  # noqa: E402
-                          step10_written, step10_zero_info)
+                          restraint_reshaped, step10_written, step10_zero_info)
 
 FIX = ROOT / "fixtures" / "uxml-v2-transfer"
 
@@ -518,8 +518,9 @@ class SupportsByStep10Ef05(SupportsByStep10):
     def test_an_atta_support_changed_into_a_zero_information_limit_is_refused(self):
         """PR 322 review point 1: a LIM CAESAR II writes with no direction (cosines 0 0 0) and stiffness 0 is written
         back as LIM, stiffness 0, gap 0, friction: no cosine, no source, so step 10 replaces it by the default +Y.
-        ATTA 780 holds +Y. Its +Y changed into such a LIM, or deleted and such a LIM added: refused. A LIM with a
-        stiffness, or such a LIM added beside the kept +Y: written."""
+        ATTA 780 holds +Y. Its +Y changed into such a LIM, deleted and such a LIM added, or changed into one with a
+        second added: refused. A LIM with a stiffness, or such a LIM added beside the kept +Y: written. An edit that
+        changes the restraint's tags loses its attributes in the writer, one that keeps them keeps them."""
         nl = "\r\n" if "\r\n" in self.cii else "\n"
 
         def lim(stiffness=0.0, keep=False):
@@ -538,20 +539,39 @@ class SupportsByStep10Ef05(SupportsByStep10):
             rows[i + 1] = self.cii.split(nl)[i + 1]
             return nl.join(rows)
 
-        refused = ([], [("U2D_SUPPORT_ATTA_DEFAULT", "780")])
-        self.assertEqual(self.plan_rows(self.xml, self.sidecar, lim()), refused)
-        self.assertEqual(self.plan_rows(self.xml, self.sidecar, moved_to_slot_1()), refused)
+        def two_lims():               # PR 322 r1 review point 2: +Y changed into such a LIM and a second one added
+            rows = lim().split(nl)
+            i, j = slot_line(rows, 780), slot_line(rows, 780, 1)
+            rows[j], rows[j + 1] = rows[i], rows[i + 1]
+            return nl.join(rows)
+
+        atta_default = ([], [("U2D_SUPPORT_ATTA_DEFAULT", "780")])
+        written = ([("780", "edited")], [])
+
+        def rows_of(xml, side, cii):
+            changes, refused = self.plan_rows(xml, side, cii)
+            return [(c, k) for c, k, _ in changes], refused
+
+        for cii in (lim(), moved_to_slot_1(), two_lims()):
+            self.assertEqual(self.plan_rows(self.xml, self.sidecar, cii), atta_default)
         for cii in (lim(stiffness=1000.0), lim(keep=True)):
-            changes, refused = self.plan_rows(self.xml, self.sidecar, cii)
-            self.assertEqual(([(c, k) for c, k, _ in changes], refused), ([("780", "edited")], []))
-        # An edit keeps the element and its attributes: with a source on 780's +Y, step 10 counts the LIM: written.
+            self.assertEqual(rows_of(self.xml, self.sidecar, cii), written)
+        # PR 322 r1 review point 1: the writer keeps a restraint's attributes only when an edit keeps its tags
+        # (restraint_reshaped). A source on 780's +Y is dropped when the edit removes its cosines: refused.
         text = self.xml.decode("utf-8")
         at = text.index("<Restraint", text.index("<NodeNumber>780</NodeNumber>"))
         xml = (text[:at] + '<Restraint source="survey"' + text[at + len("<Restraint"):]).encode("utf-8")
         side = json.loads(json.dumps(self.sidecar))
         side["enriched"]["sha256"] = hashlib.sha256(xml).hexdigest()
-        changes, refused = self.plan_rows(xml, side, lim())
-        self.assertEqual(([(c, k) for c, k, _ in changes], refused), ([("780", "edited")], []))
+        self.assertEqual(self.plan_rows(xml, side, lim()), atta_default)
+        # A LIM with a source keeps its tags (and so its source) when CAESAR II edits its friction, with no direction,
+        # and deletes the +Y: written.
+        xml, side, two = self.atta780_with_lim(' source="survey"')
+        j = slot_line(two.split(nl), 780, 1)        # slot 0's node becomes 0 once the +Y is deleted
+        rows = edited(two, 780, delete=True).split(nl)
+        rows[j] = field(rows[j], 4, f"{0.2:13.6f}")
+        rows[j + 1] = "  " + "".join(f"{c:13.6f}" for c in (0.0, 0.0, 0.0))
+        self.assertEqual(rows_of(xml, side, nl.join(rows)), written)
 
     def node50(self, restraint=None, copies=0):
         """EF05 with node 50's <Restraint> replaced by `restraint` and/or followed by `copies` identical copies, its
@@ -926,6 +946,11 @@ class Step10Placeholders(unittest.TestCase):
                '</Restraint><Restraint basis=" "><Type>LIM</Type></Restraint><Restraint resolvedKey="k"><Type>LIM</Type>'
                '</Restraint></Node></Branch></Model>').encode("utf-8")
         self.assertEqual(step10_bare(xml), {(0, 0): {0, 2}})
+        plus_y = {"Type": "+Y", "Stiffness": "1", "DirectionCosineY": "1"}
+        self.assertTrue(restraint_reshaped(plus_y, {"Type": "LIM", "Stiffness": "0"}))
+        self.assertTrue(restraint_reshaped({"Type": "LIM"}, {"Type": "LIM", "Gap": "1"}))
+        self.assertFalse(restraint_reshaped({"Type": "LIM", "Gap": "0"}, {"Type": "LIM", "Gap": "1"}))
+        self.assertFalse(restraint_reshaped({"Type": "LIM", "Gap": "0"}, {"Type": "LIM", "Gap": "0", "Friction": ""}))
         self.assertEqual(step10_placeholders(xml), {(0, 0): {0, 2}})
 
 

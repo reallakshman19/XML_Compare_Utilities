@@ -295,10 +295,18 @@ def step10_zero_info(t: dict) -> bool:
 
 def step10_bare(xml_bytes: bytes) -> dict:
     """(branchOrdinal, nodeOrdinal) -> {ordinals of its <Restraint>s with no source, basis or resolvedKey attribute}:
-    an edit keeps the element and its attributes, so these decide with the edited texts whether step 10 counts it."""
+    an edit that keeps the restraint's tags keeps its attributes too, so these decide with the edited texts whether
+    step 10 counts it (restraint_reshaped)."""
     return {(bi, ni): {ri for ri, r in enumerate(c for c in n if local(c.tag) == "Restraint")
                        if not any((r.get(a) or "").strip() for a in ("source", "basis", "resolvedKey"))}
             for bi, ns in enumerate(branch_nodes(xml_bytes)) for ni, n in enumerate(ns)}
+
+
+def restraint_reshaped(before: dict, after: dict) -> bool:
+    """Whether an edit from tag texts `before` to `after` adds or drops a tag: the PSI116 writer (renderRestraint in
+    uxml/v2/UxmlV2Psi116Writer.js) then rebuilds the <Restraint> from its values, without its attributes; otherwise it
+    patches the values in place and the attributes stay (PR 322 review round 1 point 1)."""
+    return any(k not in after for k in before) or any(v and k not in before for k, v in after.items())
 
 
 def step10_placeholders(xml_bytes: bytes) -> dict:
@@ -883,7 +891,8 @@ def written_report(target_bytes: bytes, cii_text: str, sidecar: dict, ids: dict)
         if o["op"] == "keep":
             return o["index"] in placeholders.get(k, set())
         if o["op"] == "edit":
-            return o["index"] in bare.get(k, set()) and step10_zero_info(o["after"])
+            return step10_zero_info(o["after"]) and (o["index"] in bare.get(k, set())
+                                                     or restraint_reshaped(o["before"], o["after"]))
         return o["op"] == "remove" or step10_zero_info(o["after"])
     changes = []
     for k, p in sorted(plans.items()):
