@@ -1,0 +1,18 @@
+{
+ "about": "T4 step 2 (road map 26 Nov 2026): the round trip step 10 -> CAESAR II edits -> transfer -> step 10 -> transfer, run by tests/uxml-v2-step10-roundtrip.test.mjs. 'source' is the XML step 10 first runs on (under U3B_3DC, or this folder). The edits are made by prototypes/u2d-cii-source/tests/roundtrip_t4.py on step 10's first CII.",
+ "source": {"in3dc": "Benchmarks/EF-05-PRO.TEST.xml"},
+ "edits": {
+  "values": "wall thickness (element from end) and insulation (to end) at every point today's transfer refuses, one value per node id",
+  "copy": {"node": 50, "friction": 0.1},
+  "edit": {"node": 800, "friction": 0.2},
+  "renumber": {"from": "40", "to": "99001"}
+ },
+ "expect": {
+  "shared": 45,
+  "first": {"changes": 112, "byField": {"Node/WallThickness": 55, "Node/InsulationThickness": 57},
+            "refused": {"U2D_MATERIAL_CARRIED": 41}, "supportChanges": [["50", "edited"], ["800", "edited"]], "supportRefused": {},
+            "renumbered": [["99001", "40"]]},
+  "cii2": {"values": [], "supports": []},
+  "second": {"changes": 0, "refused": {"U2D_MATERIAL_CARRIED": 41}, "supportChanges": [], "supportRefused": {}}
+ }
+}
