@@ -1,11 +1,16 @@
 /**
  * T4 (road map 26 Nov 2026): section 5's node table for a transfer by node id (receipt.nodeTable, u2d_plan.node_table).
- * Read only: one row per CII node, where it landed in the XML and what the transfer did there.
+ * Read only: one row per CII node, where it landed in the XML and what the transfer did there. "Edits" counts node
+ * values only; branch values and branch refusals (U2D_MATERIAL_CARRIED, U2D_BRANCH_*) are in the refusal counts and
+ * the branch table, and a support at a CAESAR II node no element has (U2D_SUPPORT_NEW_NODE) has no row (NODE_NOTE).
  *
  * NODE_FILTERS: the filter choices, value -> label.
  * nodeTableRows(rows, filter) -> [[CII node, step 10 node, XML node(s), position check, edits, supports, refused]]:
  *   the rows to show for that filter ('all', 'renumbered', 'refused', 'edited').
  */
+export const NODE_NOTE = '"Node values" counts the values written on the node. Branch values and their refusals are '
+  + 'in the refusal counts above and in the branch table; a support at a CAESAR II node that no element has is in the refusal counts only.';
+
 export const NODE_FILTERS = {all: 'every node', renumbered: 'only renumbered in CAESAR II', refused: 'only refused',
   edited: 'only edited'};
 

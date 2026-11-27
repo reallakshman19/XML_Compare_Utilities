@@ -16,9 +16,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE))
-from test_u2d_by_id import FIX, TransferById, load, renumber  # noqa: E402
+import test_u2d_by_id as by_id  # noqa: E402  (a module import: discover must not run TransferById twice)
+from test_u2d_by_id import FIX, load, renumber  # noqa: E402
 from test_u2d_supports import match_for  # noqa: E402
-from u2d_plan import parse_cii, plan  # noqa: E402
+from u2d_plan import node_table, parse_cii, plan  # noqa: E402
 from u2d_sidecar import number_key  # noqa: E402
 
 
@@ -83,14 +84,14 @@ class NodeTable(unittest.TestCase):
         self.assertEqual(len(names), self.NODES)
 
     def test_the_table_adds_up_to_an_edited_transfer(self):
-        cii, _ = TransferById.renamed_at_shared_points(self)
+        cii, _ = by_id.TransferById.renamed_at_shared_points(self)
         r = self.by_id(cii)
         self.assertGreater(sum(row["edits"] for row in r["nodeTable"]), 0)
         self.assert_adds_up(r)
 
     def test_a_renumbered_node_shows_step_10_s_number_and_the_same_xml_node(self):
-        cii, _ = TransferById.renamed_at_shared_points(self)
-        point = TransferById.point_only_elements_name(self)
+        cii, _ = by_id.TransferById.renamed_at_shared_points(self)
+        point = by_id.TransferById.point_only_elements_name(self)
         before = {row["cii"]: row for row in self.by_id(cii)["nodeTable"]}
         after = {row["cii"]: row for row in self.by_id(renumber(cii, point, "99001"))["nodeTable"]}
         self.assertNotIn(point, after)
@@ -100,6 +101,33 @@ class NodeTable(unittest.TestCase):
 
     def test_without_a_sidecar_there_is_no_table(self):
         self.assertNotIn("nodeTable", self.today)
+
+
+class NodeTableRows(unittest.TestCase):
+    """node_table on a small made-up transfer (review of PR 323: the fixtures have no refusal with a ref, so dropping
+    refusals or swapping the check labels went unseen)."""
+
+    def test_refusals_edits_and_the_check_land_on_their_rows(self):
+        at = lambda b, n: {"branchOrdinal": b, "nodeOrdinal": n}  # noqa: E731
+        ids = {"report": {"positionCheck": {"otherPlace": [{"ciiNode": "20"}], "notPairedByPosition": [{"ciiNode": "30"}]}},
+               "pairs": {"10": [(0, 0)], "20": [(0, 1)], "30": [(1, 0), (1, 1)]}, "renumber": {"20": "21"}}
+        nodes = {k: {"ref": {"branchName": f"/B{k[0] + 1}", "nodeNumber": str(10 * (k[0] + k[1] + 1))}, "values": {}}
+                 for k in [(0, 0), (0, 1), (1, 0), (1, 1)]}
+        edits = [{"field": "Node/WallThickness", "ref": at(0, 0)}, {"field": "Branch/Temperature/1", "ref": at(0, 0)},
+                 {"field": "Node/InsulationThickness", "ref": at(1, 1)}]
+        refused = [{"code": "U2D_NODE_AMBIGUOUS", "ref": at(1, 1)}, {"code": "U2D_MATERIAL_CARRIED"}]
+        supports = {"changes": [{"ciiNode": "10"}],
+                    "refused": [{"code": "U2D_SUPPORT_COPIES_WRITTEN_ONCE", "ciiNode": "20"},
+                                {"code": "U2D_SUPPORT_NOT_IN_CII", "ref": at(1, 0)}]}
+        rows = {r["cii"]: r for r in node_table(ids, nodes, edits, refused, supports)}
+        self.assertEqual(list(rows), ["10", "20", "30"])
+        self.assertEqual([rows[c]["check"] for c in rows], ["agrees", "other place", "not paired by position"])
+        self.assertEqual([rows[c]["step10"] for c in rows], ["10", "21", "30"])
+        self.assertEqual([rows[c]["edits"] for c in rows], [1, 0, 1])  # the Branch/ edit is not a node value
+        self.assertEqual([rows[c]["supports"] for c in rows], [1, 0, 0])
+        self.assertEqual([rows[c]["refused"] for c in rows],
+                         [[], ["U2D_SUPPORT_COPIES_WRITTEN_ONCE"], ["U2D_NODE_AMBIGUOUS", "U2D_SUPPORT_NOT_IN_CII"]])
+        self.assertEqual([x["node"] for x in rows["30"]["xml"]], [1, 2])
 
 
 class NodeTableBm2(NodeTable):

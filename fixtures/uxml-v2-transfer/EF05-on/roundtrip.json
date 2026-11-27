@@ -12,7 +12,9 @@
   "first": {"changes": 112, "byField": {"Node/WallThickness": 55, "Node/InsulationThickness": 57},
             "refused": {"U2D_MATERIAL_CARRIED": 41}, "supportChanges": [["50", "edited"], ["800", "edited"]], "supportRefused": {},
             "renumbered": [["99001", "40"]]},
-  "cii2": {"values": [], "supports": []},
+  "cii2": {"values": [], "supports": [],
+           "lines": [["REDUCERS", 0, "        219.100     0.000000      49.8300     0.000000     0.000000", "        219.100      5.00000      49.8300     0.000000     0.000000"]],
+           "why": "lines: element 10-30 is a reducer; the edit set writes its wall (5) on the element only, and step 10 then writes the reducer's second wall from that wall. Nothing else in the file may differ."},
   "second": {"changes": 0, "refused": {"U2D_MATERIAL_CARRIED": 41}, "supportChanges": [], "supportRefused": {}}
  }
 }

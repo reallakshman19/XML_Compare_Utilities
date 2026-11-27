@@ -20,7 +20,8 @@ function playwright() {
 
 function serve(root, files) {
   return createServer((req, res) => {
-    const route = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    let route;
+    try { route = decodeURIComponent(new URL(req.url, 'http://x').pathname); } catch { res.writeHead(400); res.end(); return; }
     const file = route === '/__step10.html' ? null : files.get(route) || resolve(root, '.' + route);
     if (file && !files.has(route) && !file.startsWith(root + sep)) { res.writeHead(403); res.end(); return; }
     try {
@@ -53,18 +54,20 @@ export function step10Runner() {
     const root = resolve(process.env.U3B_3DC);
     const files = new Map(xmlPaths.map((p, i) => [`/__xml/${i}.xml`, p]));
     const server = serve(root, files);
-    await new Promise(ok => server.listen(0, '127.0.0.1', ok));
-    const browser = await chromium.launch({headless: true,
-      ...(process.env.U3B_CHROMIUM ? {executablePath: process.env.U3B_CHROMIUM} : {})});
-    try {
+    let browser = null;
+    try {  // review of PR 323: a browser that fails to launch must not leave the server running
+      await new Promise((ok, fail) => server.once('error', fail).listen(0, '127.0.0.1', ok));
+      browser = await chromium.launch({headless: true,
+        ...(process.env.U3B_CHROMIUM ? {executablePath: process.env.U3B_CHROMIUM} : {})});
       const out = [];
       for (const [route, path] of files) {
         const page = await browser.newPage();
-        await page.goto(`http://127.0.0.1:${server.address().port}/__step10.html`);
-        out.push(await page.evaluate(inPage, {route, name: path.replace(/^.*[\\/]/, ''), api: API}));
-        await page.close();
+        try {
+          await page.goto(`http://127.0.0.1:${server.address().port}/__step10.html`);
+          out.push(await page.evaluate(inPage, {route, name: path.replace(/^.*[\\/]/, ''), api: API}));
+        } finally { await page.close(); }
       }
       return out;
-    } finally { await browser.close(); server.close(); }
+    } finally { await browser?.close(); server.close(); }
   };
 }

@@ -5,9 +5,13 @@
         today's transfer refuses (edit_shared_points), one support edited and copied, one support edited, one point-only
         node renumbered. Prints {"shared": n}.
     python -E -s roundtrip_t4.py compare <edited.cii> <cii2>
-        What step 10's second CII has that differs from the edited CII: element value cells (as numbers, so 5.00000 and
-        5.000000 are the same) and the model supports per node (step 10's open-end anchors left out). Prints
-        {"values": [[element, row, column, edited, cii2]], "supports": [[node, edited, cii2]]}.
+        What step 10's second CII has that differs from the edited CII, over the whole file:
+        "values": element value cells, rows 0-9 (as numbers, so 5.00000 and 5.000000 are the same);
+        "supports": the model supports per node (step 10's open-end anchors left out);
+        "lines": every other line of every section (names, weights, materials, bends, SIFs, reducers, coordinates,
+        line numbers, the pointers, CONTROL, RESTRANT itself), token by token, numbers as numbers.
+        Prints {"values": [[element, row, column, edited, cii2]], "supports": [[node, edited, cii2]],
+        "lines": [[section, line, edited, cii2]]}.
 """
 from __future__ import annotations
 
@@ -22,6 +26,7 @@ from test_u2d_by_id import edit_shared_points, renumber  # noqa: E402
 from test_u2d_supports import match_for  # noqa: E402
 from test_u2d_supports_by_step10 import edited, edited_and_copied  # noqa: E402
 from u2d_plan import num, parse_cii, plan  # noqa: E402
+from u3b_core import ELEMENT_LINES, sections_of  # noqa: E402
 from u2d_supports import cii_supports, text_dir  # noqa: E402
 
 
@@ -51,7 +56,32 @@ def differences(a_text: str, b_text: str) -> dict:
     sa, sb = model_supports(a_text), model_supports(b_text)
     supports = [[n, sa.get(n, []), sb.get(n, [])] for n in sorted(set(sa) | set(sb), key=float)
                 if sa.get(n, []) != sb.get(n, [])]
-    return {"values": values, "supports": supports}
+    return {"values": values, "supports": supports, "lines": other_lines(a_text, b_text)}
+
+
+def same_line(x: str, y: str) -> bool:
+    tx, ty = x.split(), y.split()
+    return len(tx) == len(ty) and all(p == q or (num(p) is not None and num(p) == num(q)) for p, q in zip(tx, ty))
+
+
+def other_lines(a_text: str, b_text: str) -> list:
+    """Every line "values" does not cover, in every section of either file: [section, line, edited, cii2] where they
+    differ (a missing line or section is None). Review of PR 323: the transfer writing a name nobody asked for must
+    show here."""
+    sa, sb = sections_of(a_text), sections_of(b_text)
+    out = []
+    for name in list(sa) + [k for k in sb if k not in sa]:
+        la, lb = sa.get(name), sb.get(name)
+        if la is None or lb is None:
+            out.append([name, None, la is not None, lb is not None])
+            continue
+        for i in range(max(len(la), len(lb))):
+            if name == "ELEMENTS" and i % ELEMENT_LINES < 10:
+                continue  # in "values"
+            x, y = (la[i] if i < len(la) else None), (lb[i] if i < len(lb) else None)
+            if x is None or y is None or not same_line(x, y):
+                out.append([name, i, x and x.rstrip(), y and y.rstrip()])
+    return out
 
 
 def main(argv: list[str]) -> None:

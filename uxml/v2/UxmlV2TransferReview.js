@@ -20,7 +20,7 @@ import {supportRows, supportsLine} from './transfer/SupportLines.js';
 import {byIdLine} from './transfer/ByIdLine.js';
 import {branchChoices, branchMapFrom, branchTableRows} from './transfer/BranchTableView.js';
 import {materialFollowRows} from './transfer/MaterialFollowRows.js';
-import {NODE_FILTERS, nodeTableRows} from './transfer/NodeTableView.js';
+import {NODE_FILTERS, NODE_NOTE, nodeTableRows} from './transfer/NodeTableView.js';
 
 const $ = id => document.getElementById(id);
 const BENCH = '../../fixtures/';
@@ -167,10 +167,10 @@ function showNodeTable(rows) {
   const pick = el('select', {onchange: () => draw(pick.value)},
     ...Object.entries(NODE_FILTERS).map(([value, label]) => el('option', {value, textContent: label})));
   const title = `Node table (CII node -> XML node, by node id; ${rows.length} nodes)`;
-  $('trNodes').replaceChildren(el('h3', {textContent: title}),
+  $('trNodes').replaceChildren(el('h3', {textContent: title}), el('p', {className: 'muted', textContent: NODE_NOTE}),
     el('label', {textContent: 'Show '}, pick),
     el('div', {className: 'scroll'}, el('table', {},
-      el('thead', {}, el('tr', {}, ...['CII node', 'Step 10 node', 'XML node(s)', 'Position check', 'Edits', 'Supports',
+      el('thead', {}, el('tr', {}, ...['CII node', 'Step 10 node', 'XML node(s)', 'Position check', 'Node values', 'Supports',
         'Refused'].map(h => el('th', {textContent: h})))), body)));
   draw('all');
 }
@@ -180,6 +180,7 @@ function showNodeTable(rows) {
 async function fromCii(xmlFile, ciiFile, sidecarFile = null, branchMap = null) {
   u2d = null;
   $('trU2d').replaceChildren();
+  $('trNodes').replaceChildren();  // review of PR 323: a failed transfer must not leave the last node table on screen
   if (!xmlFile || !ciiFile) throw new Error('open the Enriched XML and the CAESAR II file first');
   if (!$('trScale').value) throw new Error('choose the unit of the CII weights first (N for a file from the XML to CII tab)');
   name = xmlFile.name.replace(/\.[^.]+$/, '');
