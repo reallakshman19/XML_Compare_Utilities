@@ -1,0 +1,22 @@
+[
+  {
+    "file": "cii_to_xmlv2.py",
+    "sha256": "fd7e7b6419ff409741566ee20ecd3948cf4c909825a6969a274e7af3812a776c"
+  },
+  {
+    "file": "engine.py",
+    "sha256": "508c7b53d35b4f023621b693b94c31426213d40d0e02cf4f0bafb01b15b4851f"
+  },
+  {
+    "file": "profile.py",
+    "sha256": "8d2c2123bce98a387d00a3aeca69c8e5dea6b3831e29f65e7760f6a5694204b2"
+  },
+  {
+    "file": "validate_xmlv2.py",
+    "sha256": "fd3cdaebf2b59ed3b4655382fd8ae4850fb89b8a930ee847bfaa1a9a3006fdd5"
+  },
+  {
+    "file": "xmlv2_to_cii.py",
+    "sha256": "2e262b74096aaa9a1b566f14cdbf5a2697b4183e5c64584179b42c2156072be8"
+  }
+]

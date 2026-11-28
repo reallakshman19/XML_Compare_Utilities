@@ -1,0 +1,18 @@
+{
+  "schema": "AgentPrClaim.v1",
+  "owned_prefixes": [
+    "prototypes/ciifr-xmlv11-f05/",
+    "prototypes/ciifr-xmlv2-r3/",
+    "prototypes/ciifr-bm2-nodemap/"
+  ],
+  "scope": "Exact additive prototype publication; no existing Writer/P2/P2.1 authority",
+  "overlap": "SAFE: all46open PR file lists checked; no exact/prefix overlap",
+  "v2": "HOLD; implementation READ_ONLY",
+  "bm2_export": "DISABLED",
+  "pr_or_wip": "PR157",
+  "pr_url": "https://github.com/reallakshman19/XML_Compare_Utilities/pull/157",
+  "report_path": "agents/PR157_workreport.md",
+  "report_basis_head": "2031750ff1904690854b9f053415d3a40bcb2722",
+  "main_head_last_checked": "8fea0491ca4ca85565132a81f1620f57fbc3014e",
+  "last_updated": "2026-10-24T15:38:25.026342+00:00"
+}

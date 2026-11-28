@@ -1,0 +1,13 @@
+{
+  "captured_utc": "2026-10-24T15:24:14.035448+00:00",
+  "packager": "Oracle 01a16c60",
+  "state": "HOLD_UNFINISHED_SNAPSHOT",
+  "source_directory_unchanged": true,
+  "engineering_inputs_included": false,
+  "original_reviewed_f10_zip_sha256": "77960a3280b44e4cc214fcaffd2910ba67c17c41f67bfb2ef60577431476390a",
+  "current_engine_sha256": "b2bb8ed87440e46f72833424cacd82e6605c47f372f146deec749ad2bb0ee264",
+  "inherited_source_manifest": "STALE_HISTORICAL_NOT_CURRENT",
+  "tests_this_packaging_request": "NOT_RUN; archive CRC, member SHA, and unchanged source checks only",
+  "owner_acceptance": "NOT_RUN",
+  "hold_lifted": false
+}
