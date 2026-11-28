@@ -8,6 +8,7 @@ Step 10 (3D_Converters main fed7783d, the XML to CII tab, output "both", "Engine
 | `step10.cii` | Step 10's CII for the same run (the sidecar's `cii.sha256`). | `f514e02409d8ddfc5c1cc7334d9525a0262a36d390680e4efe4b44f63c944808` |
 | `step10.cii.sidecar.json` | The CII sidecar as the page downloads it (regenerated for S-fix step 3, see below) (`JSON.stringify(sidecar, null, 1)`). | `c27bd7d4fe908cacf606b48919db66fad581ad6d551301c88188b1bd70e63fd2` |
 | `shared-points.cii` | `step10.cii` with the wall thickness (element from end) and insulation (to end) set on every element end at the 45 points where today's transfer refuses (`U2D_NODE_AMBIGUOUS`: several XML records at one point), one value per node id (5.00, 5.01, ...). Made by `edit_shared_points` in `test_u2d_by_id.py`, which checks the file. | `1a793fadf2e61c60e1ccc0bf1535083fae7a54c8492286806870f199a32ac6de` |
+| `roundtrip.json` | T4 step 2: the round trip `tests/uxml-v2-step10-roundtrip.test.mjs` runs (step 10 -> CAESAR II edits -> transfer -> step 10 -> transfer): the XML step 10 first runs on, the edit set, and the expected counts of both transfers (the second: 0 edits, 0 support changes) and every difference allowed between the edited CII and step 10's second CII, with its reason. | `33bfcd51200d8497a2d541d1b16086130d5782f6b11c208f7ad741f30d132369` |
 
 Expected in section 5 (CII weights in N): without the sidecar 0 values transferred and `U2D_NODE_AMBIGUOUS 45`; with it 112 values on 84 node ids, no `U2D_NODE_AMBIGUOUS`, and the by-node-id line (616 elements, no node renumbered).
 

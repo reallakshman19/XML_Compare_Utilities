@@ -1,0 +1,21 @@
+{
+ "about": "T4 step 2 (road map 26 Nov 2026): the round trip step 10 -> CAESAR II edits -> transfer -> step 10 -> transfer, run by tests/uxml-v2-step10-roundtrip.test.mjs. 'source' is the XML step 10 first runs on: BM2's source XML is not in the 3D_Converters checkout, so step 10 first runs on this folder's Enriched XML (it gives step10.cii byte for byte). The edits are made by prototypes/u2d-cii-source/tests/roundtrip_t4.py on step 10's first CII.",
+ "source": {"here": "enriched.xml"},
+ "edits": {
+  "values": "wall thickness (element from end) and insulation (to end) at every point today's transfer refuses, one value per node id",
+  "copy": {"node": 20, "friction": 0.1},
+  "edit": {"node": 40, "friction": 0.2},
+  "renumber": {"from": "450", "to": "99001"}
+ },
+ "expect": {
+  "shared": 39,
+  "first": {"changes": 109, "byField": {"Node/WallThickness": 58, "Node/InsulationThickness": 51},
+            "refused": {"U2D_MATERIAL_CARRIED": 31}, "supportChanges": [["20", "edited"], ["40", "edited"]],
+            "supportRefused": {"U2D_SUPPORT_COPIES_WRITTEN_ONCE": 1}, "renumbered": [["99001", "450"]]},
+  "cii2": {"values": [], "supports": [["20", ["+Y, stiffness 1.7513E+12, friction 0.1", "+Y, stiffness 1.7513E+12, friction 0.1"], ["+Y, stiffness 1.7513E+12, friction 0.1"]]],
+           "lines": [["RESTRANT", 4, "         20.000      14.0000 1.751270E+12     0.000000     0.100000     0.000000", "       0.000000     0.000000 1.751270E+12     0.000000     0.000000     0.000000"],
+                     ["RESTRANT", 5, "       0.000000     1.000000     0.000000", "       0.000000     0.000000     0.000000"]],
+           "why": "supports and lines: the copy at node 20 is refused (U2D_SUPPORT_COPIES_WRITTEN_ONCE), so step 10 writes one support there and that CII slot is empty. Nothing else in the file may differ."},
+  "second": {"changes": 0, "refused": {"U2D_MATERIAL_CARRIED": 31}, "supportChanges": [], "supportRefused": {}}
+ }
+}

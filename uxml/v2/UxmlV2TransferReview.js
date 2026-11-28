@@ -20,6 +20,7 @@ import {supportRows, supportsLine} from './transfer/SupportLines.js';
 import {byIdLine} from './transfer/ByIdLine.js';
 import {branchChoices, branchMapFrom, branchTableRows} from './transfer/BranchTableView.js';
 import {materialFollowRows} from './transfer/MaterialFollowRows.js';
+import {NODE_FILTERS, NODE_NOTE, nodeTableRows} from './transfer/NodeTableView.js';
 
 const $ = id => document.getElementById(id);
 const BENCH = '../../fixtures/';
@@ -128,7 +129,10 @@ async function guarded(fn) {
   say('Running the transfer and the stage under its locks…', false);
   try { await fn(); } catch (error) {
     $('trResult').hidden = true;
-    if (error?.code === NOT_THROUGH_STEP_10) { u2d = null; $('trU2d').replaceChildren(); }
+    if (error?.code === NOT_THROUGH_STEP_10) {  // re-review of PR 323: no table of a refused transfer stays on screen
+      u2d = null;
+      for (const id of ['trU2d', 'trBranches', 'trNodes']) $(id).replaceChildren();
+    }
     say('Could not run: ' + String(error?.message || error) + (error?.details && Object.keys(error.details).length ? ' ' + JSON.stringify(error.details) : '')); }
 }
 
@@ -156,11 +160,30 @@ function showBranchTable(rows, xmlBranches, files) {
         branchMapFrom(rows, picks)))}));
 }
 
+/** T4: the node table of a transfer by node id (read only), with a filter. No table (no sidecar): the place is
+ * cleared. */
+function showNodeTable(rows) {
+  if (!rows) { $('trNodes').replaceChildren(); return; }
+  const body = el('tbody');
+  const draw = filter => body.replaceChildren(...nodeTableRows(rows, filter)
+    .map(r => el('tr', {}, ...r.map(c => el('td', {textContent: c})))));
+  const pick = el('select', {onchange: () => draw(pick.value)},
+    ...Object.entries(NODE_FILTERS).map(([value, label]) => el('option', {value, textContent: label})));
+  const title = `Node table (CII node -> XML node, by node id; ${rows.length} nodes)`;
+  $('trNodes').replaceChildren(el('h3', {textContent: title}), el('p', {className: 'muted', textContent: NODE_NOTE}),
+    el('label', {textContent: 'Show '}, pick),
+    el('div', {className: 'scroll'}, el('table', {},
+      el('thead', {}, el('tr', {}, ...['CII node', 'Step 10 node', 'XML node(s)', 'Position check', 'Node values', 'Supports',
+        'Refused'].map(h => el('th', {textContent: h})))), body)));
+  draw('all');
+}
+
 /** Section 5 without a receipt: the page runs the transfer from the CAESAR II file, then the usual run under locks.
  * branchMap (T3): your rows of the branch table, for a transfer by node id. */
 async function fromCii(xmlFile, ciiFile, sidecarFile = null, branchMap = null) {
   u2d = null;
   $('trU2d').replaceChildren();
+  $('trNodes').replaceChildren();  // review of PR 323: a failed transfer must not leave the last node table on screen
   if (!xmlFile || !ciiFile) throw new Error('open the Enriched XML and the CAESAR II file first');
   if (!$('trScale').value) throw new Error('choose the unit of the CII weights first (N for a file from the XML to CII tab)');
   name = xmlFile.name.replace(/\.[^.]+$/, '');
@@ -178,19 +201,21 @@ async function fromCii(xmlFile, ciiFile, sidecarFile = null, branchMap = null) {
   if (summary.supports) $('trU2d').textContent += ' ' + supportsLine(summary.supports);
   if (u2d.receipt.byId) $('trU2d').textContent += ' ' + byIdLine(u2d.receipt.byId);
   showBranchTable(u2d.receipt.branchTable, u2d.receipt.xmlBranches, {xmlFile, ciiFile, sidecarFile});
+  showNodeTable(u2d.receipt.nodeTable);
   run({xmlText: made.xmlText, doc: made.doc, newNodes: made.newNodes, receiptText: u2d.receiptText, stagedJsonText: await fileText('supStaged'),
     configText: await fileText('supConfig'), rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
 }
 
 function wire() {
   $('trRun').addEventListener('click', () => guarded(async () => {
+    u2d = null;  // re-review of PR 323: cleared before the first check, so a refused Run leaves no old table
+    $('trU2d').replaceChildren();
+    $('trBranches').replaceChildren();
+    $('trNodes').replaceChildren();
     const xmlText = await xmlFileText('trXml');
     const receiptText = await fileText('trReceipt');
     if (!xmlText || !receiptText) throw new Error('open the Enriched XML and the transfer receipt first');
     name = $('trXml').files[0].name.replace(/\.[^.]+$/, '');
-    u2d = null;
-    $('trU2d').replaceChildren();
-    $('trBranches').replaceChildren();
     run({xmlText, receiptText, stagedJsonText: await fileText('supStaged'), configText: await fileText('supConfig'),
       rowsText: (await fileText('supRows')) || await fetchText(DEFAULT_ROWS)});
   }));
@@ -220,6 +245,7 @@ function wire() {
     u2d = null;
     $('trU2d').replaceChildren();
     $('trBranches').replaceChildren();
+    $('trNodes').replaceChildren();
     name = 'BM2-transfer';
     run({xmlText: await fetchText(SAMPLE.xml), receiptText: await fetchText(SAMPLE.receipt), stagedJsonText: '', configText: '',
       rowsText: await fetchText(DEFAULT_ROWS)});

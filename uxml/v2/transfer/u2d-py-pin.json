@@ -7,11 +7,11 @@
  "files": {
   "prototypes/u2d-cii-source/u2d.py": {
    "to": "u2d-cii-source/u2d.py",
-   "sha256": "2fab16bd7d6633c0c1a55af10470b7f7deddf7c29132db11c1411a17c7eb92ae"
+   "sha256": "07e1cbbb28b7ea6e0c251787843e25c6d018098e20b8c0ef8a84f95f3b3dc09d"
   },
   "prototypes/u2d-cii-source/u2d_plan.py": {
    "to": "u2d-cii-source/u2d_plan.py",
-   "sha256": "c0b28cd13bc3727275c7a90d60f67cac8badcf7d51ba4cfb2f625fb11557dab7"
+   "sha256": "57fae209d766cdfc3f931e1b95cbc5e4ca852484ad6c925fdf91876578f42986"
   },
   "prototypes/u2d-cii-source/u2d_browser.py": {
    "to": "u2d-cii-source/u2d_browser.py",
